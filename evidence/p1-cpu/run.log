@@ -1,18 +1,15 @@
 ### 测试 ###
 ----------------------------------------------------------------------
-Ran 86 tests in 4.237s
+Ran 88 tests in 4.311s
 
 OK
 
 ### prompt 保真 ###
-[Vanilla Instruction Prompt] ② 表格单元格逐格一致：1 张表 / 5 行 / 15 格
 [Vanilla Instruction Prompt] ③ 词多重集合：一致（de-hyphenation 0 处）
 
 结论：①②③ 全部通过
 
 ### 演示 ###
-    "direct_equals_default": false
-  },
   "segment_token_range": [
     1891,
     1955

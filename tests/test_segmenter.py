@@ -161,6 +161,37 @@ class SegmenterTest(unittest.TestCase):
             len(idx),
         )
 
+    def test_cap_verified_by_independent_overlap_count(self) -> None:
+        """R2：上限必须由**独立 overlap 计数**复核（不依赖被测对象的字段）。"""
+        offsets = [(0, 1), (1, 4), (4, 5), (5, 8), (8, 9)]
+        idx = build_offsets_index(offsets)
+        segs = segment_context("ab cd efg", idx, target=2, cap=2)
+
+        def covering(start: int, end: int) -> int:  # 独立实现：直接扫原始 offsets
+            return sum(1 for a, b in offsets if a < end and b > start)
+
+        for seg in segs:
+            if seg.uncuttable_over_cap:
+                continue
+            self.assertLessEqual(
+                covering(seg.char_start, seg.char_end), 2,
+                f"segment {seg.index} 文本={seg.text!r} 独立计数超限",
+            )
+        self.assertEqual(join_segments(segs), "ab cd efg")
+
+    def test_coarse_boundary_through_token_is_not_demoted(self) -> None:
+        """R2：最粗边界（空行）即使穿过 token 也必须用它，不得跳到更细层级。"""
+        text = "ab\n\ncd ef"
+        offsets = [(0, 1), (1, 5), (5, 6), (6, 7), (7, 9)]  # token (1,5) 覆盖了空行末尾
+        idx = build_offsets_index(offsets)
+        self.assertFalse(idx.is_token_boundary(4), "夹具要求：空行切点 4 落在 token 内部")
+        segs = segment_context(text, idx, target=2, cap=2)
+        self.assertEqual(segs[0].char_end, 4, "必须切在最粗边界（空行之后），不能跳过它")
+        self.assertEqual(join_segments(segs), text)
+        for seg in segs:
+            if not seg.uncuttable_over_cap:
+                self.assertLessEqual(seg.token_count, 2, seg.text)
+
     def test_boundary_cut_is_preferred_and_cap_holds(self) -> None:
         """存在 token 边界切点时必须选它：任何一段都不得超限。"""
         idx = build_offsets_index([(0, 4), (4, 5), (5, 9), (9, 10), (10, 14)])

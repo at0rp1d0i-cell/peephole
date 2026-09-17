@@ -1,6 +1,6 @@
 # 阶段 03 证据索引
 
-生成时间：2026-09-18（远端 CPU 会话，R1 + advisor 三条意见后）
+生成时间：2026-09-18（远端 CPU 会话；R1+R2 返工后，ACCEPT 于 54933ff 的 CPU 范围）
 
 | 文件 | 大小 (B) | sha256（前 16） | 说明 |
 | --- | ---: | --- | --- |
@@ -17,5 +17,5 @@
 | `prompt-ids-offsets-da_no_mask.json` | 148558 | `fe235d66882168e6` | `fe235d66882168e6` |
 | `prompt-ids-offsets-vanilla.json` | 119347 | `5292ab4329448f4d` | `5292ab4329448f4d` |
 | `prompt-vanilla.txt` | 20157 | `34c33bf6c38ce8d0` | `34c33bf6c38ce8d0` |
-| `run.log` | 483 | `886c54ece641ee39` | `6bb079a06b710e42` |
+| `run.log` | 354 | `2a1ba05497c2fa65` | `886c54ece641ee39` |
 | `template-kwargs-check.txt` | 883 | `b610e633bec6564e` | `b610e633bec6564e` |
