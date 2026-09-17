@@ -1,0 +1,130 @@
+{
+  "schema": "attnview.p1-gpu.read-view-check/1",
+  "frozen_at_cst": "2026-09-18T05:35:00+08:00",
+  "stage": "04",
+  "work_order": "context/SUP-003-material/docs/stage-04-gpu-read-view.md",
+  "material_snapshot_commit": "0283abce5552cfb6fa3655e540731eef86eef723",
+  "cpu_stage_accepted_commit": "54933ff81517969ffe7674d5842f742c78cdf23b",
+
+  "environment": {
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "capability": [12, 0],
+    "memory_mib": 97887,
+    "driver": "580.142",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "vllm": "0.29.0",
+    "vllm_source_checkout": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+    "vllm_source_tag": "v0.29.0",
+    "attention_backend": "vllm.v1.attention.backends.flash_attn.FlashAttentionBackend",
+    "attention_entry": "vllm.vllm_flash_attn.flash_attn_varlen_func",
+    "attention_entry_note": "vendored FA2（同目录 _vllm_fa2_C.abi3.so）；顶层 vllm_flash_attn / flash_attn 未安装",
+    "fa_version": 2,
+    "fa_version_source": "阶段 02 服务日志 flash_attn.py:897 'Using FlashAttention version 2'",
+    "eager": true,
+    "cuda_graph": false
+  },
+
+  "model_facts_read_only": {
+    "source": "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/config.json",
+    "weights_loaded": false,
+    "text_config": {
+      "model_type": "qwen3_5",
+      "num_hidden_layers": 64,
+      "num_attention_heads": 24,
+      "num_key_value_heads": 4,
+      "head_dim": 256,
+      "hidden_size": 5120,
+      "full_attention_interval": 4,
+      "full_attention_layer_indices": "3,7,11,... (每 4 层一层；其余为 GDN linear_attention，本阶段不当作全注意力组)",
+      "attn_output_gate": true,
+      "max_position_embeddings": 262144
+    }
+  },
+
+  "tensor_contract": {
+    "dtype": "bfloat16",
+    "num_heads": 24,
+    "num_kv_heads": 4,
+    "head_dim": 256,
+    "head_size_v": 256,
+    "softmax_scale": "head_dim ** -0.5 = 0.0625",
+    "softcap": 0.0,
+    "alibi_slopes": null,
+    "window_size": null,
+    "causal": true,
+    "query_len": 1,
+    "batch": [1, 2],
+    "q_layout": "[batch, num_heads, head_dim]（每行 1 个 query）",
+    "kv_cache_layout": "[num_physical_blocks, block_size, num_kv_heads, head_dim]",
+    "block_sizes": {"main": 784, "control_optional": 16},
+    "main_block_size_provenance": "阶段 02 实测 kernel_block_sizes=[784,784,784,784]（evidence/p0-model/e4-kernel-block-probe.json）"
+  },
+
+  "canonical_cache": {
+    "physical_blocks": 12,
+    "block_size": 784,
+    "capacity_tokens": 9408,
+    "logical_to_physical": [7, 2, 11, 0, 5, 9, 1, 8, 3, 10, 4, 6],
+    "mapping_note": "非连续、非单调的固定置换；logical block i 的全部 slot 落在 physical block logical_to_physical[i]",
+    "slot_formula": "physical_slot(position) = logical_to_physical[pos // b] * b + (pos % b)",
+    "sentinel": {
+      "unwritten_or_padding_value": 8.0,
+      "purpose": "未写槽与尾块填充使用大幅哨兵值；若候选读取越过有效范围，误差会显著放大"
+    }
+  },
+
+  "read_view_contract": {
+    "candidate": "保留块列表（逻辑块索引）由 CPU 侧规范化（去重、按逻辑升序），映射为物理 block_table；seqused_k = 各保留块有效计数之和；query_len=1 + causal=True 时可见集合 = 该读数表的全部有效位置",
+    "block_alignment": "模式 span 向外对齐到整块（读视图按块粒度生效）",
+    "effective_count_per_block": "v_i = clamp(L_seq - i*b, 0, b)",
+    "next_write_position": "下一 token 的 canonical 写入位置 = 原逻辑位置 L_seq 对应的 physical slot，不随读取视图改变",
+    "no_minus_one": "有效读取表中不得出现 -1；表宽 = ceil(seqused_k / b)，不做无效填充",
+    "gather_policy": "候选路径保持完整 KV 常驻；只有**参考 oracle** 允许 gather 成连续张量"
+  },
+
+  "reference": {
+    "definition": "从 canonical KV 缓存按原始逻辑位置（保留块升序、块内 offset 升序）gather K/V，转 FP32；对每个 query 位置按 softmax(q·Kᵀ·scale)·V 显式计算（不使用 SDPA，不用候选物理读表反推可见集合）；可见集合由‘保留逻辑块 + 序列有效长度’独立推出",
+    "query_visible_set": "query_len=1 且 causal=True → 可见集合 = 读数表全部有效位置（前缀语义）",
+    "dtype_path": "参考 FP32；候选 BF16；对照时把候选升到 FP32 比较",
+    "baseline": "full/global 读取的同配置误差作为该容差下的基准"
+  },
+
+  "tolerance": {
+    "source": "vllm/tests/kernels/attention/test_flash_attn.py（checkout 98dff2a8，BF16 默认；约 L211）",
+    "atol": 0.015,
+    "rtol": 0.01,
+    "policy": "预冻结，不事后放宽；同时报告实际 max-abs 与 RMS 误差",
+    "not_a_quality_threshold": "仅为本 GPU 张量验证合同"
+  },
+
+  "seeds": [0, 1, 2],
+  "seed_policy": "每个用例在全部三个种子下运行并逐条保存；不更换种子挑通过结果",
+
+  "cases": [
+    {"id": "full_global", "kv_len": 2587, "retained_logical_blocks": [0, 1, 2, 3], "expect": "候选与独立参考一致；记录基准误差", "sensitive": false},
+    {"id": "focus_multi_interval", "kv_len": 6272, "retained_logical_blocks": [0, 1, 4, 5], "expect": "非相邻两段；与同位置集合参考一致", "sensitive": false},
+    {"id": "focus_unordered_duplicate_cpu_norm", "kv_len": 6272, "retained_logical_blocks_raw": [5, 4, 1, 0, 4, 0], "expect": "CPU 规范化后与 focus_multi_interval 同表", "sensitive": false},
+    {"id": "local_excludes_document", "kv_len": 6272, "retained_logical_blocks": [0, 6, 7], "expect": "排除块 1..5（含明显影响 full 输出的大值）；与参考一致且与 full 输出可区分", "sensitive": true},
+    {"id": "tail_1", "kv_len": 1569, "retained_logical_blocks": [0, 1, 2], "tail": 1, "expect": "最后保留块仅 1 个有效 token；尾块未写槽（哨兵）不得参与", "sensitive": false},
+    {"id": "tail_b_minus_1", "kv_len": 2351, "retained_logical_blocks": [0, 1, 2], "tail": 783, "expect": "尾长 b-1", "sensitive": false},
+    {"id": "tail_b", "kv_len": 2352, "retained_logical_blocks": [0, 1, 2], "tail": 784, "expect": "尾长 b（整块）", "sensitive": false},
+    {"id": "append_cross_block", "kv_len": 1569, "retained_logical_blocks": [0, 1, 2], "append": 1, "expect": "从 1568 追加 1 token 跨入逻辑块 2；写入 slot = phys[2]*b + 0；读取表与有效长度随之更新", "sensitive": false},
+    {"id": "original_write_position", "kv_len": 1569, "retained_logical_blocks": [0, 2], "append": 5, "expect": "在 local 视图下逐步追加：只写预定 canonical slot，旧 KV 全部保留；写入位置与原序列位置一致", "sensitive": false},
+    {"id": "global_recovery", "kv_len": 6272, "retained_logical_blocks": [0, 1, 2, 3, 4, 5, 6, 7], "preceded_by": "local_excludes_document", "expect": "恢复完整读取后与全局参考一致；KV 内容哈希不变", "sensitive": false},
+    {"id": "batch2_rows", "batch": 2, "rows": [{"kv_len": 2587, "retained_logical_blocks": [0, 1, 2, 3]}, {"kv_len": 6272, "retained_logical_blocks": [0, 6, 7]}], "expect": "两行不同模式/长度/物理 ID；各对单行参考一致，不串读取表", "sensitive": false},
+    {"id": "block16_control", "block_size": 16, "kv_len": 53, "retained_logical_blocks": [0, 2], "optional": true, "expect": "仅合成对照，不替代 784 主用例", "sensitive": false}
+  ],
+
+  "commands": {
+    "cpu_tests": "bash tools/p1cpu-run-tests.sh",
+    "gpu_check": "source env.sh && python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check.json",
+    "timeout_s": 1800
+  },
+
+  "evidence": {
+    "dir": "evidence/p1-gpu/",
+    "per_case_json": true,
+    "report": "reports/p1-gpu/read-view-report.md"
+  }
+}
