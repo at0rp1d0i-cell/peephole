@@ -1,0 +1,828 @@
+[
+  {
+    "id": "full_global",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 2587,
+    "retained": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      11,
+      0
+    ],
+    "width": 4,
+    "seqused_k": 2587,
+    "effective_per_block": [
+      784,
+      784,
+      784,
+      235
+    ],
+    "tail_len": 235,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        11,
+        0
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      2587
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.031205177307128906,
+    "rms": 0.0067337740741659135,
+    "max_abs_ref": 15.482497215270996,
+    "relative_max": 0.002015513187133017,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 37.75,
+    "seconds": 0.361
+  },
+  {
+    "id": "focus_multi_interval",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 6272,
+    "retained": [
+      0,
+      1,
+      4,
+      5
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      5,
+      9
+    ],
+    "width": 4,
+    "seqused_k": 3136,
+    "effective_per_block": [
+      784,
+      784,
+      784,
+      784
+    ],
+    "tail_len": 784,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        5,
+        9
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      3136
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.031121253967285156,
+    "rms": 0.005950025649045039,
+    "max_abs_ref": 14.602357864379883,
+    "relative_max": 0.002131248546044778,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 38.42,
+    "seconds": 0.389
+  },
+  {
+    "id": "focus_unordered_duplicate_cpu_norm",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 6272,
+    "retained": [
+      0,
+      1,
+      4,
+      5
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      5,
+      9
+    ],
+    "width": 4,
+    "seqused_k": 3136,
+    "effective_per_block": [
+      784,
+      784,
+      784,
+      784
+    ],
+    "tail_len": 784,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        5,
+        9
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      3136
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.031121253967285156,
+    "rms": 0.005950025649045039,
+    "max_abs_ref": 14.602357864379883,
+    "relative_max": 0.002131248546044778,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 38.42,
+    "seconds": 0.422
+  },
+  {
+    "id": "local_excludes_document",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 6272,
+    "retained": [
+      0,
+      6,
+      7
+    ],
+    "physical_blocks": [
+      7,
+      1,
+      8
+    ],
+    "width": 3,
+    "seqused_k": 2352,
+    "effective_per_block": [
+      784,
+      784,
+      784
+    ],
+    "tail_len": 784,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        1,
+        8
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      2352
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.030981063842773438,
+    "rms": 0.006049771618136927,
+    "max_abs_ref": 16.228595733642578,
+    "relative_max": 0.0019090415678140505,
+    "within_tolerance": true,
+    "failure": null,
+    "full_vs_masked_max_abs": 15.0625,
+    "mask_has_measurable_effect": true,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 38.43,
+    "seconds": 0.379
+  },
+  {
+    "id": "tail_1",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 1569,
+    "retained": [
+      0,
+      1,
+      2
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      11
+    ],
+    "width": 3,
+    "seqused_k": 1569,
+    "effective_per_block": [
+      784,
+      784,
+      1
+    ],
+    "tail_len": 1,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        11
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      1569
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.03105926513671875,
+    "rms": 0.005843178957789529,
+    "max_abs_ref": 16.222610473632812,
+    "relative_max": 0.0019145664125512032,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 37.38,
+    "seconds": 0.308
+  },
+  {
+    "id": "tail_b_minus_1",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 2351,
+    "retained": [
+      0,
+      1,
+      2
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      11
+    ],
+    "width": 3,
+    "seqused_k": 2351,
+    "effective_per_block": [
+      784,
+      784,
+      783
+    ],
+    "tail_len": 783,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        11
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      2351
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.04694557189941406,
+    "rms": 0.006575701908226424,
+    "max_abs_ref": 17.546945571899414,
+    "relative_max": 0.002675426997083477,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 37.66,
+    "seconds": 0.349
+  },
+  {
+    "id": "tail_b",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 2352,
+    "retained": [
+      0,
+      1,
+      2
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      11
+    ],
+    "width": 3,
+    "seqused_k": 2352,
+    "effective_per_block": [
+      784,
+      784,
+      784
+    ],
+    "tail_len": 784,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        11
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      2352
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.031264305114746094,
+    "rms": 0.006734215721021907,
+    "max_abs_ref": 15.482590675354004,
+    "relative_max": 0.002019320007246219,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 37.66,
+    "seconds": 0.34
+  },
+  {
+    "id": "append_cross_block",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 1569,
+    "steps": [
+      {
+        "step": 0,
+        "kv_len": 1568,
+        "physical_blocks": [
+          7,
+          2
+        ],
+        "width": 2,
+        "seqused_k": 1568,
+        "effective_per_block": [
+          784,
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 2,
+          "offset": 0,
+          "physical_slot": 8624
+        },
+        "max_abs": 5.53131103515625e-05,
+        "rms": 5.53131103515625e-05,
+        "max_abs_ref": 8.000055313110352,
+        "relative_max": 6.914090988960581e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          8624
+        ],
+        "append_wrote_only_designated_slot": true
+      }
+    ],
+    "final_read": {
+      "kv_len": 1569,
+      "physical_blocks": [
+        7,
+        2,
+        11
+      ],
+      "width": 3,
+      "seqused_k": 1569,
+      "effective_per_block": [
+        784,
+        784,
+        1
+      ],
+      "tail_len": 1,
+      "dropped_empty_blocks": [],
+      "backend_seqused_k": [
+        1569
+      ],
+      "max_abs": 0.015990734100341797,
+      "rms": 0.006047599784101977,
+      "max_abs_ref": 8.000056266784668,
+      "relative_max": 0.0019988277040917228,
+      "within_tolerance": true,
+      "failure": null
+    },
+    "designated_write_slots": [
+      {
+        "logical_block": 2,
+        "offset": 0,
+        "physical_slot": 8624
+      }
+    ],
+    "all_writes_used_original_positions": true,
+    "within_tolerance": true,
+    "cache_unchanged_by_read": null,
+    "peak_memory_mib": 37.39,
+    "seconds": 0.268
+  },
+  {
+    "id": "original_write_position",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 1569,
+    "steps": [
+      {
+        "step": 0,
+        "kv_len": 1564,
+        "physical_blocks": [
+          7
+        ],
+        "width": 1,
+        "seqused_k": 784,
+        "effective_per_block": [
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 1,
+          "offset": 780,
+          "physical_slot": 2348
+        },
+        "max_abs": 2.002716064453125e-05,
+        "rms": 2.002716064453125e-05,
+        "max_abs_ref": 8.000020027160645,
+        "relative_max": 2.5033888135951656e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          2348
+        ],
+        "append_wrote_only_designated_slot": true
+      },
+      {
+        "step": 1,
+        "kv_len": 1565,
+        "physical_blocks": [
+          7
+        ],
+        "width": 1,
+        "seqused_k": 784,
+        "effective_per_block": [
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 1,
+          "offset": 781,
+          "physical_slot": 2349
+        },
+        "max_abs": 2.002716064453125e-05,
+        "rms": 2.002716064453125e-05,
+        "max_abs_ref": 8.000020027160645,
+        "relative_max": 2.5033888135951656e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          2349
+        ],
+        "append_wrote_only_designated_slot": true
+      },
+      {
+        "step": 2,
+        "kv_len": 1566,
+        "physical_blocks": [
+          7
+        ],
+        "width": 1,
+        "seqused_k": 784,
+        "effective_per_block": [
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 1,
+          "offset": 782,
+          "physical_slot": 2350
+        },
+        "max_abs": 2.002716064453125e-05,
+        "rms": 2.002716064453125e-05,
+        "max_abs_ref": 8.000020027160645,
+        "relative_max": 2.5033888135951656e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          2350
+        ],
+        "append_wrote_only_designated_slot": true
+      },
+      {
+        "step": 3,
+        "kv_len": 1567,
+        "physical_blocks": [
+          7
+        ],
+        "width": 1,
+        "seqused_k": 784,
+        "effective_per_block": [
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 1,
+          "offset": 783,
+          "physical_slot": 2351
+        },
+        "max_abs": 2.002716064453125e-05,
+        "rms": 2.002716064453125e-05,
+        "max_abs_ref": 8.000020027160645,
+        "relative_max": 2.5033888135951656e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          2351
+        ],
+        "append_wrote_only_designated_slot": true
+      },
+      {
+        "step": 4,
+        "kv_len": 1568,
+        "physical_blocks": [
+          7
+        ],
+        "width": 1,
+        "seqused_k": 784,
+        "effective_per_block": [
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [
+          2
+        ],
+        "write_slot": {
+          "logical_block": 2,
+          "offset": 0,
+          "physical_slot": 8624
+        },
+        "max_abs": 2.002716064453125e-05,
+        "rms": 2.002716064453125e-05,
+        "max_abs_ref": 8.000020027160645,
+        "relative_max": 2.5033888135951656e-06,
+        "within_tolerance": true,
+        "failure": null,
+        "cache_slots_changed_by_append": [
+          8624
+        ],
+        "append_wrote_only_designated_slot": true
+      }
+    ],
+    "final_read": {
+      "kv_len": 1569,
+      "physical_blocks": [
+        7,
+        11
+      ],
+      "width": 2,
+      "seqused_k": 785,
+      "effective_per_block": [
+        784,
+        1
+      ],
+      "tail_len": 1,
+      "dropped_empty_blocks": [],
+      "backend_seqused_k": [
+        785
+      ],
+      "max_abs": 0.01592254638671875,
+      "rms": 0.006990382518301678,
+      "max_abs_ref": 8.000020027160645,
+      "relative_max": 0.00199031331579928,
+      "within_tolerance": true,
+      "failure": null
+    },
+    "designated_write_slots": [
+      {
+        "logical_block": 1,
+        "offset": 780,
+        "physical_slot": 2348
+      },
+      {
+        "logical_block": 1,
+        "offset": 781,
+        "physical_slot": 2349
+      },
+      {
+        "logical_block": 1,
+        "offset": 782,
+        "physical_slot": 2350
+      },
+      {
+        "logical_block": 1,
+        "offset": 783,
+        "physical_slot": 2351
+      },
+      {
+        "logical_block": 2,
+        "offset": 0,
+        "physical_slot": 8624
+      }
+    ],
+    "all_writes_used_original_positions": true,
+    "within_tolerance": true,
+    "cache_unchanged_by_read": null,
+    "peak_memory_mib": 37.11,
+    "seconds": 0.354
+  },
+  {
+    "id": "global_recovery",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": 6272,
+    "retained": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "physical_blocks": [
+      7,
+      2,
+      11,
+      0,
+      5,
+      9,
+      1,
+      8
+    ],
+    "width": 8,
+    "seqused_k": 6272,
+    "effective_per_block": [
+      784,
+      784,
+      784,
+      784,
+      784,
+      784,
+      784,
+      784
+    ],
+    "tail_len": 784,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        2,
+        11,
+        0,
+        5,
+        9,
+        1,
+        8
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      6272
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.03049755096435547,
+    "rms": 0.005894638654576902,
+    "max_abs_ref": 14.023823738098145,
+    "relative_max": 0.0021746958271803996,
+    "within_tolerance": true,
+    "failure": null,
+    "recovery": {
+      "max_abs": 0.03049755096435547,
+      "rms": 0.005894638654576902,
+      "max_abs_ref": 14.023823738098145,
+      "relative_max": 0.0021746958271803996,
+      "within_tolerance": true,
+      "failure": null
+    },
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 38.43,
+    "seconds": 0.651
+  },
+  {
+    "id": "batch2_rows",
+    "seed": 2,
+    "block_size": 784,
+    "kv_len": null,
+    "rows": [
+      {
+        "physical_blocks": [
+          7,
+          2,
+          11,
+          0
+        ],
+        "width": 4,
+        "seqused_k": 2587,
+        "effective_per_block": [
+          784,
+          784,
+          784,
+          235
+        ],
+        "tail_len": 235,
+        "dropped_empty_blocks": [],
+        "max_abs": 0.031470298767089844,
+        "rms": 0.006648032125820418,
+        "max_abs_ref": 15.482203483581543,
+        "relative_max": 0.0020326756976462197,
+        "within_tolerance": true,
+        "failure": null,
+        "row_isolation_max_abs": 0.0,
+        "retained": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      {
+        "physical_blocks": [
+          7,
+          1,
+          8
+        ],
+        "width": 3,
+        "seqused_k": 2352,
+        "effective_per_block": [
+          784,
+          784,
+          784
+        ],
+        "tail_len": 784,
+        "dropped_empty_blocks": [],
+        "max_abs": 0.03100872039794922,
+        "rms": 0.006375059081387724,
+        "max_abs_ref": 17.881019592285156,
+        "relative_max": 0.0017341695890388748,
+        "within_tolerance": true,
+        "failure": null,
+        "row_isolation_max_abs": 0.0,
+        "retained": [
+          0,
+          6,
+          7
+        ]
+      }
+    ],
+    "block_table_no_minus_one": true,
+    "seqused_k": [
+      2587,
+      2352
+    ],
+    "within_tolerance": true,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 38.78,
+    "seconds": 0.448
+  },
+  {
+    "id": "block16_control",
+    "seed": 2,
+    "block_size": 16,
+    "kv_len": 53,
+    "retained": [
+      0,
+      2
+    ],
+    "physical_blocks": [
+      7,
+      11
+    ],
+    "width": 2,
+    "seqused_k": 32,
+    "effective_per_block": [
+      16,
+      16
+    ],
+    "tail_len": 16,
+    "dropped_empty_blocks": [],
+    "block_table": [
+      [
+        7,
+        11
+      ]
+    ],
+    "block_table_no_minus_one": true,
+    "backend_seqused_k": [
+      32
+    ],
+    "reference_selfcheck_max_abs": 0.0,
+    "max_abs": 0.0,
+    "rms": 0.0,
+    "max_abs_ref": 8.0,
+    "relative_max": 0.0,
+    "within_tolerance": true,
+    "failure": null,
+    "cache_unchanged_by_read": true,
+    "peak_memory_mib": 0.79,
+    "seconds": 0.01
+  }
+]

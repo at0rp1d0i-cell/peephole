@@ -1,0 +1,74 @@
+{
+  "purpose": "越读负对照",
+  "records": [
+    {
+      "seed": 0,
+      "kv_len": 1569,
+      "tail_len": 1,
+      "seqused_k_honest": 1569,
+      "seqused_k_overread": 1669,
+      "honest": {
+        "max_abs": 0.030759811401367188,
+        "rms": 0.004541173190028949,
+        "max_abs_ref": 17.124467849731445,
+        "relative_max": 0.0017962491839914067,
+        "within_tolerance": true,
+        "failure": null
+      },
+      "overread": {
+        "max_abs": 0.20423221588134766,
+        "rms": 0.01726425612641693,
+        "max_abs_ref": 17.124467849731445,
+        "relative_max": 0.011926339415244984,
+        "within_tolerance": false,
+        "failure": "Tensor-likes are not close!"
+      }
+    },
+    {
+      "seed": 1,
+      "kv_len": 1569,
+      "tail_len": 1,
+      "seqused_k_honest": 1569,
+      "seqused_k_overread": 1669,
+      "honest": {
+        "max_abs": 0.03116321563720703,
+        "rms": 0.006221429755816657,
+        "max_abs_ref": 14.417372703552246,
+        "relative_max": 0.002161504476438265,
+        "within_tolerance": true,
+        "failure": null
+      },
+      "overread": {
+        "max_abs": 0.3160880208015442,
+        "rms": 0.05859989094343124,
+        "max_abs_ref": 14.417372703552246,
+        "relative_max": 0.02192410692994462,
+        "within_tolerance": false,
+        "failure": "Tensor-likes are not close!"
+      }
+    },
+    {
+      "seed": 2,
+      "kv_len": 1569,
+      "tail_len": 1,
+      "seqused_k_honest": 1569,
+      "seqused_k_overread": 1669,
+      "honest": {
+        "max_abs": 0.03105926513671875,
+        "rms": 0.005843178957789529,
+        "max_abs_ref": 16.222610473632812,
+        "relative_max": 0.0019145664125512032,
+        "within_tolerance": true,
+        "failure": null
+      },
+      "overread": {
+        "max_abs": 0.32940468192100525,
+        "rms": 0.047958903199012394,
+        "max_abs_ref": 16.222610473632812,
+        "relative_max": 0.020305282091091222,
+        "within_tolerance": false,
+        "failure": "Tensor-likes are not close!"
+      }
+    }
+  ]
+}
