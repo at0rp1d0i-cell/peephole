@@ -142,6 +142,37 @@ class ParserTest(unittest.TestCase):
         events = parser.feed("<<local>", 0)
         self.assertEqual([(e.kind, e.mode_after) for e in events], [("transition", MODE_LOCAL)])
 
+    def test_buffer_overflow_focus_attempt_is_counted(self) -> None:
+        """超长缓冲的 focus 调用必须进分母（清空缓冲前识别），且不重复计数。"""
+        long_focus = '<focus magic_chunks="' + "1" * 300
+        parser = TagParser(num_segments=3, max_tag_buffer=64)
+        events = parser.feed(long_focus, 0)
+        self.assertEqual([e.reason for e in events], ["tag_buffer_overflow"])
+        self.assertTrue(events[0].is_focus_attempt)
+        self.assertEqual(events[0].name, "focus")
+        self.assertEqual(parser.mode, MODE_GLOBAL)
+
+        parser = TagParser(num_segments=3, max_tag_buffer=64)  # 跨 token 触发
+        parser.feed('<focus magic_chunks="', 0)
+        events = parser.feed("1" * 300, 1)
+        self.assertEqual([(e.reason, e.is_focus_attempt) for e in events],
+                         [("tag_buffer_overflow", True)])
+        self.assertEqual(len(parser.anomalies), 1, "整条超长缓冲只记一次尝试")
+
+        parser = TagParser(num_segments=3, max_tag_buffer=64)  # 非 focus 超长缓冲
+        events = parser.feed("<local " + "x" * 300, 0)
+        self.assertEqual([(e.name, e.is_focus_attempt) for e in events], [("local", False)])
+
+        parser = TagParser(num_segments=3, max_tag_buffer=64)  # 闭标签不算调用
+        events = parser.feed("</focus " + "x" * 300, 0)
+        self.assertEqual(len(events), 1)
+        self.assertFalse(events[0].is_focus_attempt)
+        self.assertEqual(events[0].name, "focus")
+
+        parser = TagParser(num_segments=3, max_tag_buffer=64)  # 名称不完整无法归属
+        events = parser.feed("<foc" + "x" * 300, 0)
+        self.assertEqual([(e.name, e.is_focus_attempt) for e in events], [("", False)])
+
     def test_answer_marker_does_not_change_mode(self) -> None:
         parser = TagParser(num_segments=3)
         parser.feed("<local>x</local>", 0)

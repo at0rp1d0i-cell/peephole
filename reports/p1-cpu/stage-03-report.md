@@ -15,8 +15,9 @@
 | 4 | 未闭合 `<focus magic_chunks="` 的 `focus_attempts=0`（flush 异常漏出统计） | `ParseEvent.is_focus_attempt`；flush 事件进入统计与 trace；闭标签（含不匹配）不计分母 | `feed('<focus magic_chunks="'); finish()` 初交 attempts=0 | 现在 attempts=1/successes=0，且 flush 事件在 `state.flush_events` 与 trace 里（`test_incomplete_focus_buffer_counts_as_attempt`） | 词表中途截断成"foc"这类无法归属的残片不计入（已声明规则） |
 | 5 | `state.py` 把已采样数当已写 KV 长度（off-by-one 语义错） | 重做字段：`written_kv_len = P + t`、"下一步写入位置 = P + t"、`attention_kv_len_next = P + t + 1`；trace 拆四列；覆盖 g0 / 首个闭合声明 / 尾块跨界 / **stop token 不再 forward** | prefill 采出 g0 时 KV 仍 P（`test_step_record_follows_the_timing_table`）；末 token 少一行（`test_stop_token_is_sampled_but_not_forwarded`） | 轨迹 115 行 = 114 次 forward + prefill；`attention_kv_len_last 7394`、`written_kv_len_last 7393` 逐行可核 | 与真实引擎的步对应仍需 GPU 侧时间戳验证（§2.2 路线 B） |
 | 6 | `local_window_span` 末尾 7273 < prompt_len 7280，漏掉模板生成后缀 | local window 覆盖到真实 prompt 末尾 | 两臂现在都是 `[6211,7280]` / `[5763,5960]` | 断言 `end == prompt_len`（`test_local_window_reaches_prompt_end`）；不依赖 784 对齐补回来 | — |
-| 7 | 两侧都超 cap 时被当成"无边界原子串"（`'a'*3000 + ' ' + 'b'*3000` → 单个 6001 token 段） | 每层边界只要有候选就切：优先左≤cap、其次右≤cap、否则**仍然切**并各自递归 | `test_both_sides_over_cap_still_cuts_at_coarse_boundary`、`test_multi_level_recursion_with_mixed_units` | 该输入 → 2 段（各 3000 token、原子完整）；混合多级用例无损 | 跨切割 token 的记账见下行 |
-| 7b | 跨切割位置的 token 计数语义未声明 | 新增 `OffsetsIndex.straddling()`；**包含语义 + 跨边界 token = 全部 token**（不丢不重） | `test_crossing_tokens_are_accounted_and_reported`（1+2+1=4） | 段 token 数（包含语义）与最终 span（重叠语义，只多不少）分别说明 | 段 token 数会**低估**跨边界 token；报告口径已声明 |
+| 7 | 两侧都超 cap 时被当成"无边界原子串"（`'a'*12000 + ' ' + 'b'*12000` → 单个 6001 token 段） | 每层边界只要有候选就切：优先左≤cap、其次右≤cap、否则**仍然切**并各自递归 | `test_both_sides_over_cap_still_cuts_at_coarse_boundary`、`test_multi_level_recursion_with_mixed_units` | 该输入 → 2 段（每段 3000/3000 token，按 4 字符/token 夹具）；混合多级用例无损 | 见 7c |
+| 7b | 跨切割位置的 token 计数语义未声明 | 新增 `OffsetsIndex.straddling()`；**包含语义 + 跨边界 token = 全部 token**（不丢不重） | `test_crossing_tokens_are_accounted_and_reported`（1+2+1=4） | 不丢不重的等式成立 | 包含语义会**低估**跨边界 token（这正是 7c 要解决的） |
+| 7c | **硬上限用包含语义判定 → 漏算**（监督/advisor 反例：`'ab cd ef'`、offsets `[(0,1),(1,4),(4,5),(5,8)]`、cap=2 时右段实覆盖 3 token 却报 2） | 分段全程改用**覆盖口径**：`OffsetsIndex.count_overlapping()` 参与上限判定与切点选择；**优先只切在 token 边界**；只有在任何层级都没有 token 边界切点时退让，并在 `Segment` 上记录 `cut_mid_token`/`cap_exceeded_by_covering`/`uncuttable_over_cap`；`_assert_cap_respected` 对"本可在 token 边界切却超限"的情况**直接报错**（不是改名） | `test_cap_check_uses_covering_token_count`（覆盖 2/3/1，右段如实报 3 并标记）、`test_boundary_cut_is_preferred_and_cap_holds`（存在边界时全部 ≤cap、无 mid-token 切）、`test_cap_exceedance_is_flagged_uncuttable`（每字符一个 token 时 `a*3000+空格+b*3000` → **3001/3000**，且超限只来自"没有可用边界"） | 监督给的反例现在如实报 3，并区分"可实现却破例"（会抛错）与"无边界可切"（记录计数与标志）；`Segment.token_count` 与最终 span 用**同一口径**，不再两套计数 | 在无 token 边界可切的输入上，覆盖口径必然超限者仍会超限（已记录，不隐藏）；这两类情形在证据里分别计数 |
 | 8 | 设计文档声称"worker 内 CPU parser 不需同步、不必关异步调度" | **撤回**该结论；重写 §2/§6：画出 `AsyncOutput` 发起 D2H → `copy_event.synchronize()` → host 可用 → 解析 → 下一次 metadata 构造的依赖链；给 A/B/C 三条路线与代价 | `async_utils.py:115-163`（发起）/`:166-177`（同步后 tolist） | 现有结论：**存在不可避免的同步点**；路线 B（复用既有读回点）的成立与否**未证实**，必须用时间戳验证 | 代价与最终路线未定（R10） |
 | 9 | 保真核对用字符多重集+7 句抽查，不能说逐字；`readview` 放行 `-2` 物理 ID；输入伪标签测试用桩对象 | 保真改为"有序正文逐字 + 表格行列单元格逐格 + 词多重集合"并声明能/不能证明；`readview` 拒绝负 ID、`to_kernel_args` 校验 count/width/行范围；伪标签测试改用**真实 tokenizer + 真实构造路径** | 逐格比较暴露并解释唯一差异（`ex-`+`tracted` 版式断词）；`test_negative_physical_id_in_mapping_is_rejected` | 保真 ①②③ 全通过（DA 2 表 9 行 27 格、Vanilla 1 表 5 行 15 格，de-hyphenation 1 处）；伪标签测试真实渲染后断言正文标签进了 prompt 且控制状态不变 | "真实引擎接线不会把输入喂进 parser"仍属接入测试（未验证） |
 
@@ -48,14 +49,15 @@
 | 产物 | 路径 |
 | --- | --- |
 | 实现（CPU 协议层） | `src/attnview/{segmenter,prompts,prompt,parser,state,readview,reference,extract,trace,decode}.py` |
-| 单测（**81 项**） | `tests/test_{segmenter,parser,readview,extract,state,prompt_template,decode}.py` |
+| 单测（**86 项**） | `tests/test_{segmenter,parser,readview,extract,state,prompt_template,decode}.py` |
 | 测试入口 | `bash tools/p1cpu-run-tests.sh`（内部 `CUDA_VISIBLE_DEVICES=''`，不联网、不加载权重） |
 | 演示与固定轨迹 | `python3 tools/p1cpu-demo.py`（真实 tokenizer，本地快照 `local_files_only=True`） |
 | prompt 逐字保真 | `python3 tools/p1cpu-check-prompt-fidelity.py` |
 | 证据索引 | `evidence/p1-cpu/evidence-index.md`（逐个文件 sha256） |
+| **输入夹具（E2 要求"保留原文、无损分段、token IDs/offsets"）** | `evidence/p1-cpu/demo-fixtures.json`（完整原文 19217 字符、各段文本与字符区间、生成脚本、tokenizer/模板哈希）+ `evidence/p1-cpu/prompt-ids-offsets-{da,da_no_mask,vanilla}.json`（三臂各自的 `token_ids` 与 `offsets` 全量、segment/scaffold span） |
 | 接入设计 | `reports/p1-cpu/integration-design.md`（含 M1 API 子集建议表） |
 
-退出码：测试 `Ran 81 tests ... OK`（exit 0）；保真核对 `①②③ 全部通过`（exit 0）；演示 exit 0。原始输出 `evidence/p1-cpu/run.log`。
+退出码：测试 `Ran 86 tests ... OK`（exit 0）；保真核对 `①②③ 全部通过`（exit 0）；演示 exit 0。原始输出 `evidence/p1-cpu/run.log`。
 
 ## 2. 结论要点（返工后）
 

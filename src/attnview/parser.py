@@ -121,13 +121,19 @@ class TagParser:
 
     @staticmethod
     def _name_of_incomplete(buffered: str) -> tuple[str, bool]:
-        match = _NAME_PREFIX_RE.match(buffered[1:])
+        """从未闭合的缓冲里识别标签名，并判定它是否算一次 focus **调用**。
+
+        闭标签（`</focus`）与未知名称都不算调用；名称不完整（如只剩 `<foc`）无法归属，返回空。
+        """
+        inner = buffered[1:]
+        closing = inner.startswith("/")
+        match = _NAME_PREFIX_RE.match(inner)
         if match is None:
             return "", False
         name = match.group(1)
         if name not in KNOWN_TAGS:
             return "", False
-        return name, name == "focus"
+        return name, (name == "focus" and not closing)
 
     # --- 内部 ---------------------------------------------------------------
     def _feed_char(self, ch: str, token_index: int) -> list[ParseEvent]:
@@ -163,6 +169,8 @@ class TagParser:
             return [self._close(buffered, token_index)]
         if len(self._buffer) > self.max_tag_buffer:
             buffered = "".join(self._buffer)
+            # 必须在清空缓冲**之前**判定这是不是一次 focus 调用，否则超长缓冲的 focus 尝试会漏出分母
+            tag, is_focus = self._name_of_incomplete(buffered)
             self.plain_text.append(buffered)
             start = self._buffer_token_index
             self._reset_buffer()
@@ -171,6 +179,8 @@ class TagParser:
                     "tag_buffer_overflow",
                     token_index,
                     detail=f"标签缓冲超过 {self.max_tag_buffer} 字符（自 token {start} 起，按正文处理）",
+                    tag=tag,
+                    focus_attempt=is_focus,
                 )
             ]
         return []

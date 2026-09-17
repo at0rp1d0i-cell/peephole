@@ -491,6 +491,60 @@ def main() -> int:
     }
 
     extraction = extract_public_output(GENERATION_SCRIPT)
+    # E2 要求的可复核夹具：完整原文 + 各段文本 + 三臂 token ids/offsets（不是只留 hash/head）
+    (out_dir / "demo-fixtures.json").write_text(
+        json.dumps(
+            {
+                "note": "阶段 03 演示的完整输入夹具（原文/分段/问题），供本地独立复核，不含任何私密数据",
+                "question": QUESTION,
+                "document": document,
+                "document_chars": len(document),
+                "document_sha256": facts["document_sha256"],
+                "segments": [
+                    {
+                        "index": seg.index,
+                        "text": seg.text,
+                        "char_span": [seg.char_start, seg.char_end],
+                        "token_count": seg.token_count,
+                        "sha256": sha256_text(seg.text),
+                    }
+                    for seg in segments
+                ],
+                "generation_script": GENERATION_SCRIPT,
+                "tokenizer_sha256": tokenizer_hash,
+                "chat_template_sha256": template_hash,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    for arm_name, r in arms.items():
+        (out_dir / f"prompt-ids-offsets-{arm_name}.json").write_text(
+            json.dumps(
+                {
+                    "arm": arm_name,
+                    "rendered_sha256": sha256_text(r.rendered),
+                    "prompt_len": r.prompt_len,
+                    "enable_thinking": r.enable_thinking,
+                    "tools_declared": bool(r.tools),
+                    "token_ids": list(r.token_ids),
+                    "offsets": [list(o) for o in r.offsets],
+                    "segment_spans": [list(x) for x in r.segment_spans],
+                    "question_span": list(r.question_span),
+                    "local_window_span": list(r.scaffold.local_window_span),
+                    "sink_span": list(r.scaffold.sink_span),
+                    "system_content_span": list(r.scaffold.system_content_span),
+                    "sink_message_role": r.scaffold.sink_message_role,
+                    "notes": list(r.notes),
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     (out_dir / "demo-input.json").write_text(
         json.dumps(facts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

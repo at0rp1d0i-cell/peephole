@@ -110,6 +110,18 @@ class StateIsolationTest(unittest.TestCase):
         self.assertEqual([e.reason for e in state.flush_events], ["incomplete_tag"])
         self.assertEqual([e.name for e in state.flush_events], ["focus"])
 
+    def test_overflow_focus_attempt_reaches_state_stats(self) -> None:
+        """R1#4 漏项：状态级统计里，超长缓冲的 focus 尝试必须计 1 次（跨 token 也只记一次）。"""
+        reg = ProtocolRegistry()
+        state = make_state(reg, "req-of")
+        state.feed_generated_token(0, 0, '<focus magic_chunks="')
+        state.feed_generated_token(1, 0, "1" * 300)
+        state.finish()
+        stats = state.focus_stats()
+        self.assertEqual(stats["focus_attempts"], 1)
+        self.assertEqual(stats["focus_successes"], 0)
+        self.assertEqual(state.mode, MODE_GLOBAL)
+
     def test_mismatched_close_keeps_mode_and_is_not_an_attempt(self) -> None:
         reg = ProtocolRegistry()
         state = make_state(reg, "req-m")

@@ -141,6 +141,42 @@ class SegmenterTest(unittest.TestCase):
         for seg in segs:
             self.assertIn(seg.text, text)
 
+    def test_cap_check_uses_covering_token_count(self) -> None:
+        """cap 判定必须用**覆盖口径**：`cd ` 覆盖 3 个 token（不是包含语义的 1 个）。"""
+        idx = build_offsets_index([(0, 1), (1, 4), (4, 5), (5, 8)])
+        segs = segment_context("ab cd ef", idx, target=2, cap=2)
+        self.assertEqual(join_segments(segs), "ab cd ef")
+        self.assertEqual([s.token_count for s in segs], [2, 3, 1])
+        self.assertEqual([s.contained_token_count for s in segs], [1, 1, 0])
+        self.assertTrue(segs[1].cap_exceeded_by_covering, "必须记录'覆盖口径超限'")
+        self.assertTrue(segs[1].cut_mid_token, "该切点没有 token 边界可选（退让路径）")
+        # 不丢不重：段内含 token + 跨边界 token = 全部 token
+        self.assertEqual(
+            sum(s.contained_token_count for s in segs)
+            + len(idx.straddling(3)) + len(idx.straddling(6)),
+            len(idx),
+        )
+
+    def test_boundary_cut_is_preferred_and_cap_holds(self) -> None:
+        """存在 token 边界切点时必须选它：任何一段都不得超限。"""
+        idx = build_offsets_index([(0, 4), (4, 5), (5, 9), (9, 10), (10, 14)])
+        segs = segment_context("aaaa bbbb cccc dddd", idx, target=2, cap=2)
+        self.assertTrue(all(s.token_count <= 2 for s in segs), [s.token_count for s in segs])
+        self.assertFalse(any(s.cut_mid_token for s in segs))
+        self.assertFalse(any(s.cap_exceeded_by_covering for s in segs))
+        self.assertEqual(join_segments(segs), "aaaa bbbb cccc dddd")
+
+    def test_cap_exceedance_is_flagged_uncuttable(self) -> None:
+        """每字符一个 token 时 `a*3000 + 空格 + b*3000` → 左段覆盖 3001、右段 3000（监督给的口径）。"""
+        text = "a" * 3000 + " " + "b" * 3000
+        idx = build_offsets_index([(i, i + 1) for i in range(len(text))])
+        segs = segment_context(text, idx, target=1, cap=1)
+        self.assertEqual([s.token_count for s in segs], [3001, 3000])
+        self.assertTrue(all(s.cap_exceeded_by_covering for s in segs))
+        self.assertTrue(all(s.uncuttable_over_cap for s in segs), "超限只能来自'没有可用边界'")
+        self.assertFalse(any(s.cut_mid_token for s in segs))
+        self.assertEqual(join_segments(segs), text)
+
     def test_crossing_tokens_are_accounted_and_reported(self) -> None:
         """跨切割位置的 token 既不计入任何一段的 token 数，也不丢：可查询且最终 span 用重叠语义。"""
         text = "aa bb cc dd"
