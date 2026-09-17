@@ -1,0 +1,258 @@
+{
+  "snapshot": "/root/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "config": {
+    "architectures": [
+      "Qwen3_5ForConditionalGeneration"
+    ],
+    "model_type": "qwen3_5",
+    "language_model_only": false,
+    "has_vision_config": true,
+    "image_token_id": 248056,
+    "video_token_id": 248057,
+    "text_dtype": "bfloat16",
+    "quantization_config": null,
+    "num_hidden_layers": 64,
+    "layer_type_counts": {
+      "full_attention": 16,
+      "linear_attention": 48,
+      "other": []
+    },
+    "full_attention_layer_indices": [
+      3,
+      7,
+      11,
+      15,
+      19,
+      23,
+      27,
+      31,
+      35,
+      39,
+      43,
+      47,
+      51,
+      55,
+      59,
+      63
+    ],
+    "full_attention_interval": 4,
+    "num_attention_heads": 24,
+    "num_key_value_heads": 4,
+    "head_dim": 256,
+    "gqa_ratio": 6.0,
+    "attn_output_gate": true,
+    "output_gate_type": "swish",
+    "max_position_embeddings": 262144,
+    "rope_theta": 10000000,
+    "rope_type": "default",
+    "partial_rotary_factor": 0.25,
+    "mrope_interleaved": true,
+    "mrope_section": [
+      11,
+      11,
+      10
+    ],
+    "vocab_size": 248320,
+    "tie_word_embeddings": false,
+    "hidden_size": 5120,
+    "linear_attention": {
+      "linear_num_key_heads": 16,
+      "linear_num_value_heads": 48,
+      "linear_key_head_dim": 128,
+      "linear_value_head_dim": 128,
+      "linear_conv_kernel_dim": 4,
+      "mamba_ssm_dtype": "float32"
+    },
+    "mtp_num_hidden_layers": 1,
+    "eos_token_id": 248044,
+    "bos_token_id": 248044,
+    "pad_token_id": null
+  },
+  "kv_arithmetic": {
+    "formula": "2 (K+V) * n_full_layers * num_key_value_heads * head_dim * 2 bytes",
+    "n_full_layers": 16,
+    "kv_heads": 4,
+    "head_dim": 256,
+    "bytes_per_token": 65536,
+    "kib_per_token": 64.0,
+    "plan_baseline_bytes_per_token": 65536,
+    "matches_plan": true,
+    "logical_kv_by_seqlen": {
+      "32K": {
+        "bytes": 2147483648,
+        "gib": 2.0
+      },
+      "64K": {
+        "bytes": 4294967296,
+        "gib": 4.0
+      },
+      "128K": {
+        "bytes": 8589934592,
+        "gib": 8.0
+      },
+      "256K": {
+        "bytes": 17179869184,
+        "gib": 16.0
+      },
+      "976K": {
+        "bytes": 65536000000,
+        "gib": 61.035
+      }
+    }
+  },
+  "generation_config": {
+    "bos_token_id": 248044,
+    "do_sample": true,
+    "eos_token_id": [
+      248046,
+      248044
+    ],
+    "pad_token_id": 248044,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "checkpoint_index": {
+    "metadata_total_size": 55562855904.0,
+    "plan_quoted_tensor_bytes": 55562855904,
+    "matches_plan": true,
+    "num_shards": 18
+  },
+  "renders": {
+    "thinking_disabled": {
+      "kwargs": {
+        "enable_thinking": false
+      },
+      "prompt_text": "<|im_start|>system\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "prompt_text_repr": "'<|im_start|>system\\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\\n<|im_start|>user\\nName the capital of France.<|im_end|>\\n<|im_start|>assistant\\n<think>\\n\\n</think>\\n\\n'",
+      "token_count": 36,
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        2523,
+        513,
+        264,
+        22825,
+        17313,
+        13,
+        21134,
+        440,
+        264,
+        3074,
+        2716,
+        11316,
+        13,
+        248046,
+        198,
+        248045,
+        846,
+        198,
+        657,
+        279,
+        6511,
+        314,
+        9338,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271
+      ],
+      "first_40_piece_tokens": [
+        "<|im_start|>",
+        "system",
+        "Ċ",
+        "You",
+        "Ġare",
+        "Ġa",
+        "Ġprecise",
+        "Ġassistant",
+        ".",
+        "ĠAnswer",
+        "Ġwith",
+        "Ġa",
+        "Ġsingle",
+        "Ġshort",
+        "Ġsentence",
+        ".",
+        "<|im_end|>",
+        "Ċ",
+        "<|im_start|>",
+        "user",
+        "Ċ",
+        "Name",
+        "Ġthe",
+        "Ġcapital",
+        "Ġof",
+        "ĠFrance",
+        ".",
+        "<|im_end|>",
+        "Ċ",
+        "<|im_start|>",
+        "assistant",
+        "Ċ",
+        "<think>",
+        "ĊĊ",
+        "</think>",
+        "ĊĊ"
+      ]
+    },
+    "thinking_default": {
+      "kwargs": {},
+      "prompt_text": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.\n\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "prompt_text_repr": "'<|im_start|>system\\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.\\n\\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\\n<|im_start|>user\\nName the capital of France.<|im_end|>\\n<|im_start|>assistant\\n<think>\\n'",
+      "token_count": 72,
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        24342,
+        286,
+        4879,
+        369,
+        716,
+        310,
+        830,
+        11553,
+        13,
+        5044,
+        1683,
+        15060,
+        1472,
+        279,
+        3274,
+        11,
+        9307,
+        1328,
+        30800,
+        11,
+        2814,
+        47675,
+        25605,
+        11,
+        321,
+        60445,
+        55404,
+        11,
+        27224,
+        11,
+        321,
+        30246,
+        303,
+        279,
+        1534,
+ 
+
+--- renders ---
+[thinking_disabled] kwargs={'enable_thinking': False} tokens=36
+'<|im_start|>system\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'
+[thinking_default] kwargs={} tokens=72
+'<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.\n\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n'
+
+written: evidence/p0-model/e3-config-audit.json

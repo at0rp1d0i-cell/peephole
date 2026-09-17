@@ -1,0 +1,9 @@
+<|im_start|>system
+You are precise.<|im_end|>
+<|im_start|>user
+Read the doc. Declare <global> first. Then <focus magic_chunks="8">PASSAGE-17</focus> and <local> the rest. Finally output <answer>42</answer>.<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+

@@ -1,0 +1,30 @@
+=== E2 download run ===
+CMD: hf download Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 
+HF_ENDPOINT=https://hf-mirror.com
+HF_HOME=/root/attnview/models/hf-home
+HF_HUB_CACHE=/root/attnview/models/hf-home/hub
+START_UTC=2026-09-17T17:10:35Z
+START_EPOCH=1789665035
+--- df before (bytes) ---
+Filesystem        1B-blocks       Used    Available Use% Mounted on
+/dev/md0       214748364800 9009283072 205739081728   5% /root/autodl-tmp
+--- du before ---
+23133449	/root/attnview/models/hf-home/hub
+--- hf download output ---
+Fetching 32 files:   0%|          | 0/32 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 32 files:  28%|██▊       | 9/32 [32:40<1:23:29, 217.82s/it]Fetching 32 files:  31%|███▏      | 10/32 [36:34<1:20:41, 220.06s/it]Fetching 32 files:  34%|███▍      | 11/32 [39:26<1:14:15, 212.16s/it]Fetching 32 files:  38%|███▊      | 12/32 [46:51<1:25:26, 256.31s/it]Fetching 32 files:  41%|████      | 13/32 [48:04<1:08:47, 217.22s/it]Fetching 32 files:  44%|████▍     | 14/32 [49:17<55:07, 183.73s/it]  Fetching 32 files:  47%|████▋     | 15/32 [51:14<47:16, 166.85s/it]Fetching 32 files:  50%|█████     | 16/32 [58:19<1:02:39, 234.94s/it]Fetching 32 files:  53%|█████▎    | 17/32 [58:37<43:54, 175.62s/it]  Fetching 32 files:  56%|█████▋    | 18/32 [1:04:58<54:27, 233.37s/it]Fetching 32 files:  59%|█████▉    | 19/32 [1:21:04<1:36:00, 443.08s/it]Fetching 32 files:  81%|████████▏ | 26/32 [1:23:23<12:56, 129.40s/it]  Fetching 32 files:  84%|████████▍ | 27/32 [1:25:06<10:29, 125.97s/it]Fetching 32 files:  88%|████████▊ | 28/32 [1:36:07<14:01, 210.41s/it]Fetching 32 files:  91%|█████████ | 29/32 [1:36:46<08:56, 178.91s/it]Fetching 32 files:  94%|█████████▍| 30/32 [1:38:22<05:23, 161.62s/it]Fetching 32 files:  97%|█████████▋| 31/32 [1:42:05<02:55, 175.78s/it]Fetching 32 files: 100%|██████████| 32/32 [1:42:14<00:00, 134.63s/it]Fetching 32 files: 100%|██████████| 32/32 [1:42:14<00:00, 191.72s/it]
+[32m✓ Downloaded[0m
+  path: /root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+--- end ---
+END_UTC=2026-09-17T18:52:50Z
+END_EPOCH=1789671170
+ELAPSED_SECONDS=6135
+EXIT=0
+--- df after (bytes) ---
+Filesystem        1B-blocks        Used    Available Use% Mounted on
+/dev/md0       214748364800 64574763008 150173601792  31% /root/autodl-tmp
+--- du after ---
+55586222524	/root/attnview/models/hf-home/hub
+6216	/root/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+--- snapshot file count ---
+0

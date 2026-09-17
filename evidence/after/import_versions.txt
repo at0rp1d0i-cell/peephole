@@ -1,0 +1,14 @@
+sys.executable = /root/attnview/venvs/attnview/bin/python
+torch          = 2.13.0+cu130 | torch.version.cuda = 13.0 | cudnn = 92000
+vllm.__version__ = 0.29.0
+vllm.__file__    = /root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/__init__.py
+torch.cuda.is_available() = True
+device_count = 1
+  [0] NVIDIA RTX PRO 6000 Blackwell Server Edition cc=12.0 mem=94.97 GiB sm_count=188
+transformers   = 5.17.0
+tokenizers     = 0.23.2
+triton         = 3.7.1
+numpy          = 2.3.5
+ray            = 未安装
+CUDA_VISIBLE_DEVICES = <unset: 全部可见>
+CUDA_HOME = /root/attnview/cuda

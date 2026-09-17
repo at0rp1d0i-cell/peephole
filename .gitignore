@@ -1,0 +1,21 @@
+# 远端项目仓的忽略规则：只跟踪"人或 agent 产出的文本产物"。
+# 可重建的大件与外部 checkout 一律排除（它们的来源在 env.sh / install-runtime.sh 里）。
+venvs/
+pythons/
+cuda/
+caches/
+models/
+tmp/
+vllm/
+material/
+
+# 权重与二进制大件兜底
+*.safetensors
+*.gguf
+*.bin
+*.pt
+
+# 运行期噪音
+__pycache__/
+*.pyc
+*.incomplete

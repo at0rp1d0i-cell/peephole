@@ -1,0 +1,34 @@
+# E4 网络与工具检查（2026-09-17T16:37:44Z）
+
+## DNS
+pypi.tuna.tsinghua.edu.cn        2402:f000:1:400::2
+pypi.org                         2a04:4e42:400::223
+github.com                       20.205.243.166
+hf-mirror.com                    160.16.86.14
+objects.githubusercontent.com    185.199.109.133
+
+## TLS/HTTP 可达性（直连，无代理）
+https://pypi.tuna.tsinghua.edu.cn/simple/vllm/       200 0.506458s
+https://pypi.org/simple/vllm/                        200 2.237514s
+https://github.com/vllm-project/vllm                 000 24.999724s
+https://hf-mirror.com/                               200 1.562736s
+
+## 平台学术加速（/etc/network_turbo）下的同一批目标
+https://github.com/vllm-project/vllm                 200 4.445392s
+
+## 直连 github release 资产（uv 托管 CPython 的来源，实测停滞）
+objects.githubusercontent.com 直连: 000 25.000375s 0B
+
+## 工具可用性
+git      /usr/bin/git
+curl     /usr/bin/curl
+jq       /usr/bin/jq
+tar      /usr/bin/tar
+zstd     missing
+uv       /usr/local/bin/uv
+nvcc     missing
+docker   missing
+nsys     missing
+ncu      missing
+py-spy   missing
+perf     missing

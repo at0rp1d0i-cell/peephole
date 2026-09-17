@@ -1,0 +1,17 @@
+
+== 环境 ==
+host=container-host
+venv=/root/attnview/venvs/attnview
+python=/root/attnview/venvs/attnview/bin/python
+src=/root/attnview/vllm
+vllm=0.29.0 @ 98dff2a81d747d1dba01a47f939f48c3526d4206
+log=/root/attnview/logs/install-runtime-20260917-160026.log
+uv=/root/miniconda3/bin/uv（uv 0.11.26 (x86_64-unknown-linux-gnu)）
+安装前磁盘：
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   12G   19G  39% /
+  overlay          30G   12G   19G  39% /
+
+== 1/4 uv venv（Python 3.12，由 uv 托管） ==
+Downloading cpython-3.12.13-linux-x86_64-gnu (download) (32.6MiB)
+Terminated

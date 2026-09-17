@@ -1,0 +1,25 @@
+
+== 1/3 定位 venv 内的 CUDA 工具链 ==
+工具链目录：/root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13
+nvcc      ：Build cuda_13.4.r13.4/compiler.38855100_0
+运行时    ：torch 2.13.0+cu130 | CUDA 13.0
+
+== 2/3 暴露为 /root/attnview/cuda ==
+符号链接：
+  lrwxrwxrwx 1 root root 74 Sep 18 00:36 bin -> /root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13/bin
+  lrwxrwxrwx 1 root root 78 Sep 18 00:36 include -> /root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13/include
+  lrwxrwxrwx 1 root root 74 Sep 18 00:36 lib -> /root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13/lib
+  lrwxrwxrwx 1 root root 74 Sep 18 00:36 lib64 -> /root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13/lib
+  lrwxrwxrwx 1 root root 75 Sep 18 00:36 nvvm -> /root/attnview/venvs/attnview/lib/python3.12/site-packages/nvidia/cu13/nvvm
+
+== 3/3 自检：nvcc 编一个 sm_120 cubin（只编不链，不需要系统 libcuda） ==
+CUDA_HOME   : /root/attnview/cuda
+nvcc --version:
+  nvcc: NVIDIA (R) Cuda compiler driver
+  Copyright (c) 2005-2026 NVIDIA Corporation
+  Built on Tue_Sep_01_08:45:21_PDT_2026
+  Cuda compilation tools, release 13.4, V13.4.92
+  Build cuda_13.4.r13.4/compiler.38855100_0
+编译结果    : ok，sm_120 cubin 5488 字节
+
+项目自带 CUDA 前缀就绪：/root/attnview/cuda

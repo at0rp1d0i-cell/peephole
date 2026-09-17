@@ -1,0 +1,520 @@
+{
+  "snapshot": "/root/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "config": {
+    "architectures": [
+      "Qwen3_5ForConditionalGeneration"
+    ],
+    "model_type": "qwen3_5",
+    "language_model_only": false,
+    "has_vision_config": true,
+    "image_token_id": 248056,
+    "video_token_id": 248057,
+    "text_dtype": "bfloat16",
+    "quantization_config": null,
+    "num_hidden_layers": 64,
+    "layer_type_counts": {
+      "full_attention": 16,
+      "linear_attention": 48,
+      "other": []
+    },
+    "full_attention_layer_indices": [
+      3,
+      7,
+      11,
+      15,
+      19,
+      23,
+      27,
+      31,
+      35,
+      39,
+      43,
+      47,
+      51,
+      55,
+      59,
+      63
+    ],
+    "full_attention_interval": 4,
+    "num_attention_heads": 24,
+    "num_key_value_heads": 4,
+    "head_dim": 256,
+    "gqa_ratio": 6.0,
+    "attn_output_gate": true,
+    "output_gate_type": "swish",
+    "max_position_embeddings": 262144,
+    "rope_theta": 10000000,
+    "rope_type": "default",
+    "partial_rotary_factor": 0.25,
+    "mrope_interleaved": true,
+    "mrope_section": [
+      11,
+      11,
+      10
+    ],
+    "vocab_size": 248320,
+    "tie_word_embeddings": false,
+    "hidden_size": 5120,
+    "linear_attention": {
+      "linear_num_key_heads": 16,
+      "linear_num_value_heads": 48,
+      "linear_key_head_dim": 128,
+      "linear_value_head_dim": 128,
+      "linear_conv_kernel_dim": 4,
+      "mamba_ssm_dtype": "float32"
+    },
+    "mtp_num_hidden_layers": 1,
+    "eos_token_id": 248044,
+    "bos_token_id": 248044,
+    "pad_token_id": null
+  },
+  "kv_arithmetic": {
+    "formula": "2 (K+V) * n_full_layers * num_key_value_heads * head_dim * 2 bytes",
+    "n_full_layers": 16,
+    "kv_heads": 4,
+    "head_dim": 256,
+    "bytes_per_token": 65536,
+    "kib_per_token": 64.0,
+    "plan_baseline_bytes_per_token": 65536,
+    "matches_plan": true,
+    "logical_kv_by_seqlen": {
+      "32K": {
+        "bytes": 2147483648,
+        "gib": 2.0
+      },
+      "64K": {
+        "bytes": 4294967296,
+        "gib": 4.0
+      },
+      "128K": {
+        "bytes": 8589934592,
+        "gib": 8.0
+      },
+      "256K": {
+        "bytes": 17179869184,
+        "gib": 16.0
+      },
+      "976K": {
+        "bytes": 65536000000,
+        "gib": 61.035
+      }
+    }
+  },
+  "generation_config": {
+    "bos_token_id": 248044,
+    "do_sample": true,
+    "eos_token_id": [
+      248046,
+      248044
+    ],
+    "pad_token_id": 248044,
+    "temperature": 1.0,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "checkpoint_index": {
+    "metadata_total_size": 55562855904.0,
+    "plan_quoted_tensor_bytes": 55562855904,
+    "matches_plan": true,
+    "num_shards": 18
+  },
+  "tokenizer_config": {
+    "tokenizer_class": "Qwen2Tokenizer",
+    "model_max_length": 262144,
+    "bos_token": null,
+    "eos_token": "<|im_end|>",
+    "pad_token": "<|endoftext|>",
+    "unk_token": null,
+    "add_bos_token": false,
+    "additional_special_tokens": [
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|object_ref_start|>",
+      "<|object_ref_end|>",
+      "<|box_start|>",
+      "<|box_end|>",
+      "<|quad_start|>",
+      "<|quad_end|>",
+      "<|vision_start|>",
+      "<|vision_end|>",
+      "<|vision_pad|>",
+      "<|image_pad|>",
+      "<|video_pad|>"
+    ],
+    "extra_special_tokens": {
+      "audio_bos_token": "<|audio_start|>",
+      "audio_eos_token": "<|audio_end|>",
+      "audio_token": "<|audio_pad|>",
+      "image_token": "<|image_pad|>",
+      "video_token": "<|video_pad|>",
+      "vision_bos_token": "<|vision_start|>",
+      "vision_eos_token": "<|vision_end|>"
+    },
+    "added_tokens": {
+      "248044": {
+        "content": "<|endoftext|>",
+        "special": true
+      },
+      "248045": {
+        "content": "<|im_start|>",
+        "special": true
+      },
+      "248046": {
+        "content": "<|im_end|>",
+        "special": true
+      },
+      "248047": {
+        "content": "<|object_ref_start|>",
+        "special": true
+      },
+      "248048": {
+        "content": "<|object_ref_end|>",
+        "special": true
+      },
+      "248049": {
+        "content": "<|box_start|>",
+        "special": true
+      },
+      "248050": {
+        "content": "<|box_end|>",
+        "special": true
+      },
+      "248051": {
+        "content": "<|quad_start|>",
+        "special": true
+      },
+      "248052": {
+        "content": "<|quad_end|>",
+        "special": true
+      },
+      "248053": {
+        "content": "<|vision_start|>",
+        "special": true
+      },
+      "248054": {
+        "content": "<|vision_end|>",
+        "special": true
+      },
+      "248055": {
+        "content": "<|vision_pad|>",
+        "special": true
+      },
+      "248056": {
+        "content": "<|image_pad|>",
+        "special": true
+      },
+      "248057": {
+        "content": "<|video_pad|>",
+        "special": true
+      },
+      "248058": {
+        "content": "<tool_call>",
+        "special": false
+      },
+      "248059": {
+        "content": "</tool_call>",
+        "special": false
+      },
+      "248060": {
+        "content": "<|fim_prefix|>",
+        "special": false
+      },
+      "248061": {
+        "content": "<|fim_middle|>",
+        "special": false
+      },
+      "248062": {
+        "content": "<|fim_suffix|>",
+        "special": false
+      },
+      "248063": {
+        "content": "<|fim_pad|>",
+        "special": false
+      },
+      "248064": {
+        "content": "<|repo_name|>",
+        "special": false
+      },
+      "248065": {
+        "content": "<|file_sep|>",
+        "special": false
+      },
+      "248066": {
+        "content": "<tool_response>",
+        "special": false
+      },
+      "248067": {
+        "content": "</tool_response>",
+        "special": false
+      },
+      "248068": {
+        "content": "<think>",
+        "special": false
+      },
+      "248069": {
+        "content": "</think>",
+        "special": false
+      },
+      "248070": {
+        "content": "<|audio_start|>",
+        "special": true
+      },
+      "248071": {
+        "content": "<|audio_end|>",
+        "special": true
+      },
+      "248072": {
+        "content": "<tts_pad>",
+        "special": true
+      },
+      "248073": {
+        "content": "<tts_text_bos>",
+        "special": true
+      },
+      "248074": {
+        "content": "<tts_text_eod>",
+        "special": true
+      },
+      "248075": {
+        "content": "<tts_text_bos_single>",
+        "special": true
+      },
+      "248076": {
+        "content": "<|audio_pad|>",
+        "special": true
+      }
+    },
+    "chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+    "chat_template_in_tokenizer_config_identical": true,
+    "chat_template_flags": {
+      "mentions_enable_thinking": true,
+      "mentions_preserve_thinking": true,
+      "mentions_reasoning_effort": true,
+      "default_reasoning_effort": "xhigh"
+    },
+    "file_sha256": {
+      ".gitattributes": "34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930",
+      "LICENSE": "bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a",
+      "README.md": "57e4bdb258ee1a7d2635c5174ebd4e56abe392505cdb5f8bbb356b0dc4293641",
+      "chat_template.jinja": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+      "config.json": "191e0af232104ed8b65258cf3fb2b842e288008baca7633c11b82a1ac7203aab",
+      "crc32.txt": "b42dd291f5f98b05807e458f5b47849969a9b3326acbf0c97d28b05826740b83",
+      "generation_config.json": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e",
+      "merges.txt": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+      "model.safetensors.index.json": "77042094076611b69791a610065f28b7013b8c621795fa86ddccc8bac7d1b9df",
+      "preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+      "tokenizer.json": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3",
+      "tokenizer_config.json": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27",
+      "video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+      "vocab.json": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+  },
+  "renders": {
+    "thinking_disabled": {
+      "kwargs": {
+        "enable_thinking": false
+      },
+      "prompt_text": "<|im_start|>system\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "prompt_text_repr": "'<|im_start|>system\\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\\n<|im_start|>user\\nName the capital of France.<|im_end|>\\n<|im_start|>assistant\\n<think>\\n\\n</think>\\n\\n'",
+      "token_count": 36,
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        2523,
+        513,
+        264,
+        22825,
+        17313,
+        13,
+        21134,
+        440,
+        264,
+        3074,
+        2716,
+        11316,
+        13,
+        248046,
+        198,
+        248045,
+        846,
+        198,
+        657,
+        279,
+        6511,
+        314,
+        9338,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271
+      ],
+      "first_40_piece_tokens": [
+        "<|im_start|>",
+        "system",
+        "Ċ",
+        "You",
+        "Ġare",
+        "Ġa",
+        "Ġprecise",
+        "Ġassistant",
+        ".",
+        "ĠAnswer",
+        "Ġwith",
+        "Ġa",
+        "Ġsingle",
+        "Ġshort",
+        "Ġsentence",
+        ".",
+        "<|im_end|>",
+        "Ċ",
+        "<|im_start|>",
+        "user",
+        "Ċ",
+        "Name",
+        "Ġthe",
+        "Ġcapital",
+        "Ġof",
+        "ĠFrance",
+        ".",
+        "<|im_end|>",
+        "Ċ",
+        "<|im_start|>",
+        "assistant",
+        "Ċ",
+        "<think>",
+        "ĊĊ",
+        "</think>",
+        "ĊĊ"
+      ]
+    },
+    "thinking_default": {
+      "kwargs": {},
+      "prompt_text": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.\n\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\n<|im_start|>user\nName the capital of France.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+      "prompt_text_repr": "'<|im_start|>system\\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.\\n\\nYou are a precise assistant. Answer with a single short sentence.<|im_end|>\\n<|im_start|>user\\nName the capital of France.<|im_end|>\\n<|im_start|>assistant\\n<think>\\n'",
+      "token_count": 72,
+      "token_ids": [
+        248045,
+        8678,
+        198,
+        24342,
+        286,
+        4879,
+        369,
+        716,
+        310,
+        830,
+        11553,
+        13,
+        5044,
+        1683,
+        15060,
+        1472,
+        279,
+        3274,
+        11,
+        9307,
+        1328,
+        30800,
+        11,
+        2814,
+        47675,
+        25605,
+        11,
+        321,
+        60445,
+        55404,
+        11,
+        27224,
+        11,
+        321,
+        30246,
+        303,
+        279,
+        1534,
+        4087,
+        13,
+        271,
+        2523,
+        513,
+        264,
+        22825,
+        17313,
+        13,
+        21134,
+        440,
+        264,
+        3074,
+        2716,
+        11316,
+        13,
+        248046,
+        198,
+        248045,
+        846,
+        198,
+        657,
+        279,
+        6511,
+        314,
+        9338,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        198
+      ],
+      "first_40_piece_tokens": [
+        "<|im_start|>",
+        "system",
+        "Ċ",
+        "Reason",
+        "ing",
+        "Ġeffort",
+        "Ġis",
+        "Ġset",
+        "Ġto",
+        "Ġx",
+        "high",
+        ".",
+        "ĠPlease",
+        "Ġthink",
+        "Ġcarefully",
+        "Ġthrough",
+        "Ġthe",
+        "Ġtask",
+        ",",
+        "Ġvalidate",
+        "Ġkey",
+        "Ġassumptions",
+        ",",
+        "Ġconsider",
+        "Ġplausible",
+        "Ġalternatives",
+        ",",
+        "Ġand",
+        "Ġprioritize",
+        "Ġcorrectness",
+        ",",
+        "Ġconsistency",
+        ",",
+        "Ġand",
+        "Ġclarity",
+        "Ġin",
+        "Ġthe",
+        "Ġfinal",
+        "Ġanswer",
+        "."
+      ]
+    }
+  }
+}

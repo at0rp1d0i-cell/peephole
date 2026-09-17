@@ -1,0 +1,30 @@
+# E0 baseline snapshot — 2026-09-17T17:09:56Z
+
+UTC: Thu Sep 17 17:09:56 UTC 2026
+local(CST): Fri Sep 18 01:09:56 CST 2026
+hostname: container-host
+material SNAPSHOT-COMMIT.txt: 463586c21abaa98420d858c8beb68c0810453ffe
+material has .git: no
+work-order declared baseline: 4addfcf (stage-02-model-serve.md)
+
+## nvidia-smi
+index, name, memory.used [MiB], memory.total [MiB], utilization.gpu [%], temperature.gpu, power.draw [W], driver_version, compute_cap
+0, NVIDIA RTX PRO 6000 Blackwell Server Edition, 0 MiB, 97887 MiB, 0 %, 31, 35.47 W, 580.142, 12.0
+
+## df
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/md0        200G  8.4G  192G   5% /root/autodl-tmp
+overlay          30G   13G   18G  43% /
+
+## env
+ATTNVIEW_HOME=/root/attnview
+ATTNVIEW_MATERIAL=/root/attnview/material/attnview
+ATTNVIEW_VENV=/root/attnview/venvs/attnview
+ATTNVIEW_PYTHON=/root/attnview/venvs/attnview/bin/python
+ATTNVIEW_VLLM_SRC=/root/attnview/vllm
+ATTNVIEW_MODELS=/root/attnview/models
+HF_HOME=/root/attnview/models/hf-home
+HF_HUB_CACHE=/root/attnview/models/hf-home/hub
+HF_ENDPOINT=https://hf-mirror.com
+HF_HUB_OFFLINE=
+TMPDIR=/root/attnview/tmp

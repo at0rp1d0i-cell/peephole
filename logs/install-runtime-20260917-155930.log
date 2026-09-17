@@ -1,0 +1,16 @@
+
+== 环境 ==
+host=container-host
+venv=/root/attnview/venvs/attnview
+python=/root/attnview/venvs/attnview/bin/python
+src=/root/attnview/vllm
+vllm=0.29.0 @ 98dff2a81d747d1dba01a47f939f48c3526d4206
+log=/root/attnview/logs/install-runtime-20260917-155930.log
+uv=missing（-）
+安装前磁盘：
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   12G   19G  40% /
+  overlay          30G   12G   19G  40% /
+
+== 1/4 uv venv（Python 3.12，由 uv 托管） ==
+/root/attnview/install-runtime.sh: line 46: uv: command not found

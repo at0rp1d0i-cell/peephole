@@ -1,0 +1,302 @@
+{
+  "vocab_size": 248077,
+  "probes": {
+    "<global>": {
+      "ids": [
+        27,
+        9461,
+        29
+      ],
+      "pieces": [
+        "<",
+        "global",
+        ">"
+      ],
+      "decode_roundtrip": "<global>"
+    },
+    "</global>": {
+      "ids": [
+        510,
+        9461,
+        29
+      ],
+      "pieces": [
+        "</",
+        "global",
+        ">"
+      ],
+      "decode_roundtrip": "</global>"
+    },
+    "<focus>": {
+      "ids": [
+        27,
+        16900,
+        29
+      ],
+      "pieces": [
+        "<",
+        "focus",
+        ">"
+      ],
+      "decode_roundtrip": "<focus>"
+    },
+    "<focus magic_chunks=\"8\">": {
+      "ids": [
+        27,
+        16900,
+        10642,
+        63261,
+        420,
+        23,
+        731
+      ],
+      "pieces": [
+        "<",
+        "focus",
+        "Ġmagic",
+        "_chunks",
+        "=\"",
+        "8",
+        "\">"
+      ],
+      "decode_roundtrip": "<focus magic_chunks=\"8\">"
+    },
+    "</focus>": {
+      "ids": [
+        510,
+        16900,
+        29
+      ],
+      "pieces": [
+        "</",
+        "focus",
+        ">"
+      ],
+      "decode_roundtrip": "</focus>"
+    },
+    "<local>": {
+      "ids": [
+        27,
+        2359,
+        29
+      ],
+      "pieces": [
+        "<",
+        "local",
+        ">"
+      ],
+      "decode_roundtrip": "<local>"
+    },
+    "</local>": {
+      "ids": [
+        510,
+        2359,
+        29
+      ],
+      "pieces": [
+        "</",
+        "local",
+        ">"
+      ],
+      "decode_roundtrip": "</local>"
+    },
+    "<answer>": {
+      "ids": [
+        27,
+        8944,
+        29
+      ],
+      "pieces": [
+        "<",
+        "answer",
+        ">"
+      ],
+      "decode_roundtrip": "<answer>"
+    },
+    "</answer>": {
+      "ids": [
+        510,
+        8944,
+        29
+      ],
+      "pieces": [
+        "</",
+        "answer",
+        ">"
+      ],
+      "decode_roundtrip": "</answer>"
+    },
+    "<answer>42</answer>": {
+      "ids": [
+        27,
+        8944,
+        29,
+        19,
+        17,
+        510,
+        8944,
+        29
+      ],
+      "pieces": [
+        "<",
+        "answer",
+        ">",
+        "4",
+        "2",
+        "</",
+        "answer",
+        ">"
+      ],
+      "decode_roundtrip": "<answer>42</answer>"
+    }
+  },
+  "protocol_tags_in_vocab": {
+    "<global>": false,
+    "</global>": false,
+    "<focus>": false,
+    "</focus>": false,
+    "<local>": false,
+    "</local>": false,
+    "<answer>": false,
+    "</answer>": false
+  },
+  "mixed_prompt": {
+    "kwargs": {
+      "enable_thinking": false
+    },
+    "prompt_text": "<|im_start|>system\nYou are precise.<|im_end|>\n<|im_start|>user\nRead the doc. Declare <global> first. Then <focus magic_chunks=\"8\">PASSAGE-17</focus> and <local> the rest. Finally output <answer>42</answer>.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "token_count": 64,
+    "token_ids": [
+      248045,
+      8678,
+      198,
+      2523,
+      513,
+      22825,
+      13,
+      248046,
+      198,
+      248045,
+      846,
+      198,
+      4274,
+      279,
+      4479,
+      13,
+      59240,
+      361,
+      9461,
+      29,
+      1118,
+      13,
+      4844,
+      361,
+      16900,
+      10642,
+      63261,
+      420,
+      23,
+      731,
+      48117,
+      3466,
+      12,
+      16,
+      22,
+      510,
+      16900,
+      29,
+      321,
+      361,
+      2359,
+      29,
+      279,
+      2645,
+      13,
+      16864,
+      2468,
+      361,
+      8944,
+      29,
+      19,
+      17,
+      510,
+      8944,
+      13867,
+      248046,
+      198,
+      248045,
+      74455,
+      198,
+      248068,
+      271,
+      248069,
+      271
+    ],
+    "tokens": [
+      "<|im_start|>",
+      "system",
+      "Ċ",
+      "You",
+      "Ġare",
+      "Ġprecise",
+      ".",
+      "<|im_end|>",
+      "Ċ",
+      "<|im_start|>",
+      "user",
+      "Ċ",
+      "Read",
+      "Ġthe",
+      "Ġdoc",
+      ".",
+      "ĠDeclare",
+      "Ġ<",
+      "global",
+      ">",
+      "Ġfirst",
+      ".",
+      "ĠThen",
+      "Ġ<",
+      "focus",
+      "Ġmagic",
+      "_chunks",
+      "=\"",
+      "8",
+      "\">",
+      "PASS",
+      "AGE",
+      "-",
+      "1",
+      "7",
+      "</",
+      "focus",
+      ">",
+      "Ġand",
+      "Ġ<",
+      "local",
+      ">",
+      "Ġthe",
+      "Ġrest",
+      ".",
+      "ĠFinally",
+      "Ġoutput",
+      "Ġ<",
+      "answer",
+      ">",
+      "4",
+      "2",
+      "</",
+      "answer",
+      ">.",
+      "<|im_end|>",
+      "Ċ",
+      "<|im_start|>",
+      "assistant",
+      "Ċ",
+      "<think>",
+      "ĊĊ",
+      "</think>",
+      "ĊĊ"
+    ]
+  }
+}

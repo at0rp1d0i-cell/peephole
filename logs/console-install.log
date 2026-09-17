@@ -1,0 +1,62 @@
+
+== 环境 ==
+host=container-host
+venv=/root/attnview/venvs/attnview
+python=/root/attnview/venvs/attnview/bin/python
+src=/root/attnview/vllm
+vllm=0.29.0 @ 98dff2a81d747d1dba01a47f939f48c3526d4206
+log=/root/attnview/logs/install-runtime-20260917-163051.log
+uv=/root/attnview/venvs/attnview/bin/uv（uv 0.12.15 (x86_64-unknown-linux-gnu)）
+安装前磁盘：
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   22G  8.9G  71% /
+  overlay          30G   22G  8.9G  71% /
+
+== 1/4 uv venv（Python 3.12） ==
+复用已有 venv：/root/attnview/venvs/attnview/bin/python
+python: Python 3.12.13
+pip   : pip 26.2.1 from /root/attnview/venvs/attnview/lib/python3.12/site-packages/pip (python 3.12)
+uv（项目自带）: uv 0.12.15 (x86_64-unknown-linux-gnu)
+
+== 2/4 安装 vLLM 0.29.0（含 torch 与 nvidia-*-cu12 运行时） ==
+索引：https://pypi.tuna.tsinghua.edu.cn/simple
+Using Python 3.12.13 environment at: attnview/venvs/attnview
+Checked 1 package in 91ms
+  vllm                 0.29.0
+  torch                2.13.0
+  torchvision          0.28.0
+  torchaudio           2.11.0
+  triton               3.7.1
+  transformers         5.17.0
+  tokenizers           0.23.2
+  numpy                2.3.5
+  xformers             未安装
+  flashinfer-python    0.6.18
+  ray                  未安装
+  xgrammar             0.2.7
+
+== 3/4 冻结实际解析到的版本 ==
+freeze=/root/attnview/reports/requirements.freeze.txt（197 行）
+
+== 4/4 检出 vLLM 源码 @ 98dff2a81d747d1dba01a47f939f48c3526d4206 ==
+Cloning into '/root/attnview/vllm'...
+HEAD is now at 98dff2a81d [Bugfix][Core] Remove misleading Mamba prefix cache warning (#55863)
+HEAD          = 98dff2a81d747d1dba01a47f939f48c3526d4206
+HEAD 描述     = v0.29.0
+工作区状态    :
+  ## HEAD (no branch)
+源码体积      : 411M
+
+== import 来源核对（clone 不等于 Python 正在跑的代码） ==
+sys.executable = /root/attnview/venvs/attnview/bin/python
+vllm.__file__  = /root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/__init__.py
+vllm.__version__ = 0.29.0
+
+== 安装后磁盘 ==
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   22G  8.3G  73% /
+  overlay          30G   22G  8.3G  73% /
+venv 体积：7.6G
+
+安装完成。日志：/root/attnview/logs/install-runtime-20260917-163051.log
+下一步：bash /root/attnview/setup-local-cuda.sh，然后 bash /root/attnview/verify-runtime.sh

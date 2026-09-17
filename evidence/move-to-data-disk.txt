@@ -1,0 +1,18 @@
+# 环境迁移到数据盘（2026-09-17T16:45Z 前后）
+
+动机（用户）：与性能有关的资产优先放本机数据盘 /root/autodl-tmp；该盘读写更快，且可跨实例复制。
+
+目标：物理位置 /root/autodl-tmp/attnview，路径保持 /root/attnview（符号链接），
+      因此 venv/pyvenv.cfg、脚本 shebang、脚本内的绝对路径全部无需重写。
+
+命令与结果：
+  cp -a /root/attnview/. /root/autodl-tmp/attnview/     # 8.3 GiB，121244 个文件，7.7 s
+  mv /root/attnview /root/attnview.on-system-disk
+  ln -s /root/autodl-tmp/attnview /root/attnview
+  bash /root/attnview/verify-runtime.sh                # 全部 exit 0，见 evidence/verify-after-move.log
+  rm -rf /root/attnview.on-system-disk                  # 删除系统盘上的冗余副本
+
+迁移后磁盘：
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   22G  8.1G  74% /
+  /dev/md0         50G  8.4G   42G  17% /root/autodl-tmp

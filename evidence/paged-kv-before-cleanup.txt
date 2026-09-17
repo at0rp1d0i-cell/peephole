@@ -1,0 +1,10 @@
+# paged-kv-attention-kernel-lab 清理前快照
+时间（UTC）：2026-09-17T15:58:20Z
+路径：/root/paged-kv-attention-kernel-lab
+大小：5.5G（其中 .venv 占 5.5G）
+git HEAD：8e6b0dc859241a653a2e4e7cb29bfc5c12517a26 2026-08-19 11:46:24 +0800 Replace week-based labels with semantic project stages
+git 状态：## main...origin/main
+未推送提交：0 个
+stash：0 条
+remote：git@github.com-pkv:at0rp1d0i-cell/paged-kv-attention-kernel-lab.git
+处置：仅删除 .venv（可由 uv sync --locked 重建）；项目源码与 .git 保留

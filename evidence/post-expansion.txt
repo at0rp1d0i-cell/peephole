@@ -1,0 +1,35 @@
+# 数据盘扩容落地与收尾（2026-09-17T16:54Z 起）
+
+## 扩容结果
+用户完成扩容。`/root/autodl-tmp` 配额 50 GiB → 200 GiB（`/dev/md0`，xfs）。
+  Filesystem      Size  Used Avail Use% Mounted on
+  overlay          30G   13G   18G  43% /
+  /dev/md0        200G  8.4G  192G   5% /root/autodl-tmp
+
+挂载与底层设备（两个盘实际同源，见下）：
+  数据盘 /dev/md0[/docker/volumes/container-host-storage/_data] xfs
+  系统盘 overlay overlay
+
+容器未重启（同一实例、同一 hostname），`/root/attnview` 符号链接与环境全部保留，无需重装。
+
+## 收尾动作
+1. 确认配额与挂载点：见上，符号链接 /root/attnview -> /root/autodl-tmp/attnview 仍在。
+2. 无需重建符号链接。
+3. 建目录：/root/attnview/models/{hf-home,weights}
+4. env.sh：HF_HOME=$ATTNVIEW_HOME/models/hf-home，HF_HUB_CACHE=$HF_HOME/hub（原为 caches/huggingface，该目录此前不存在）。
+5. 重跑 verify-runtime.sh：exit 0，7 项检查全通过（evidence/verify-after-expand.log）。
+
+## 顺序 I/O 实测（各 3 次，2 GiB/次）
+宿主 load average：24.36 / 19.21 / 17.67（208 逻辑 CPU，共享宿主，可能有邻租户干扰）
+写：dd bs=1M count=2048 conv=fdatasync；读：dd bs=1M iflag=direct（绕过页缓存）
+
+  数据盘 写 #1: 713 MB/s  #2: 616 MB/s  #3: 699 MB/s   （中位 699 MB/s）
+  数据盘 读 #1: 2.1 GB/s  #2: 2.0 GB/s  #3: 1.9 GB/s   （中位 2.0 GB/s）
+  系统盘 写 #1: 735 MB/s  #2: 647 MB/s  #3: 729 MB/s   （中位 729 MB/s）
+  系统盘 读 #1: 2.1 GB/s  #2: 2.0 GB/s  #3: 2.0 GB/s   （中位 2.0 GB/s）
+
+结论：**两盘在本机实测同速**（写 ~0.7 GB/s、读 ~2.0 GB/s，差异在噪声内）。
+原因可从挂载看到：数据盘是 /dev/md0 上 docker volume 的子目录，系统盘 overlay 的上层也在同一块 /data NVMe 上——同一物理设备池。
+因此数据盘更快这一前提在本实例**未被测量支持**；迁移的实际收益是持久性（跨实例保留）、可复制、以及可用容量 192 GiB 而非 18 GiB。
+
+限制：单流 dd，未做 fio（本机无 fio）、未测随机/小文件/多队列深度，宿主有邻租户负载，样本 3 次。

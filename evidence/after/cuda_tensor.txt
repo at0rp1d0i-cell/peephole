@@ -1,0 +1,5 @@
+设备： NVIDIA RTX PRO 6000 Blackwell Server Edition
+arange(1024).sum() = 523776（期望 523776）→ ok
+512x512 fp32 matmul 与 CPU 参考的最大绝对误差 = 5.341e-05
+显存：已分配 32.0 MiB / 保留 36.0 MiB
+小张量 CUDA 与同步：ok

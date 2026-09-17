@@ -1,0 +1,17 @@
+{
+  "snapshot": "/root/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "hub_file_count": 32,
+  "local_file_count": 32,
+  "missing": 0,
+  "extra_local_files": [],
+  "size_matches": 32,
+  "size_mismatches": 0,
+  "lfs_sha256_matches": 19,
+  "lfs_sha256_mismatches": 0,
+  "hashed": true,
+  "total_local_bytes": 55586114863,
+  "hub_total_bytes": 55586114863,
+  "total_bytes_match": true
+}
+bad: none

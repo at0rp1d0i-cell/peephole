@@ -1,0 +1,14 @@
+[OK] Qwen/Qwen3.8-27B
+  sha=1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+  match=True gated=False private=False
+  files=32 (recorded 32)
+  bytes=55586114863 (recorded 55586114863, delta 0)
+  GiB=51.769
+[OK] Qwen/Qwen3.6-27B
+  sha=6a9e13bd6fc8f0983b9b99948120bc37f49c13e9
+  match=True gated=False private=False
+  files=29 (recorded 29)
+  bytes=55586107940 (recorded 55586107940, delta 0)
+  GiB=51.769
+
+written: evidence/p0-model/e1-model-identity.json
