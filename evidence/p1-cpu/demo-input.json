@@ -1,0 +1,222 @@
+{
+  "tokenizer": "/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "tokenizer_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3",
+  "chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+  "question": "What was the approval year of the Falcon program, and what was its budget?",
+  "document_sha256": "0ada45f5a62edd3926d263d8d04ff3135c30762bf37cb666b2e4a528727e51fa",
+  "document_chars": 19217,
+  "document_tokens": 5745,
+  "segment_count": 3,
+  "segments": [
+    {
+      "index": 1,
+      "char_span": [
+        0,
+        6549
+      ],
+      "tokens": 1955,
+      "sha256": "b5981c0c3ce412e451571872b960861f77423d7bbd3d29a0c71175ccd13d1032",
+      "head": "Chapter A: programme history\n\nThe Falcon program was approved in 2019 after a tw"
+    },
+    {
+      "index": 2,
+      "char_span": [
+        6549,
+        12838
+      ],
+      "tokens": 1891,
+      "sha256": "36644f23112f552f9296504209c328e440ac577455b04a7bd32c62f3e5b09bb1",
+      "head": "Note 0000: the platform review of the budget dossier was recorded as complete 10"
+    },
+    {
+      "index": 3,
+      "char_span": [
+        12838,
+        19217
+      ],
+      "tokens": 1899,
+      "sha256": "9c9f5dd48592700a575d93f669474af6b9a68ebedff7e6424226693e3eb693f8",
+      "head": "Note 0000: the platform review of the logistics dossier was scheduled for week 1"
+    }
+  ],
+  "lossless_join_ok": true,
+  "single_segment_rule_ok": true,
+  "arms": {
+    "da": {
+      "prompt_len": 7280,
+      "segment_spans": [
+        [
+          362,
+          2316
+        ],
+        [
+          2365,
+          4255
+        ],
+        [
+          4304,
+          6202
+        ]
+      ],
+      "question_span": [
+        6211,
+        6227
+      ],
+      "local_window_span": [
+        6211,
+        7273
+      ],
+      "system_content_span": [
+        288,
+        294
+      ],
+      "sink_span": [
+        0,
+        16
+      ],
+      "sink_message_role": "system",
+      "sink_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "#",
+        " Tools",
+        "\n\n",
+        "You",
+        " have",
+        " access",
+        " to",
+        " the",
+        " following",
+        " functions",
+        ":",
+        "\n\n",
+        "<"
+      ],
+      "sink_inside_system_content": false,
+      "sink_overlaps_context": false,
+      "prompt_sha256": "1f5e2361f32622b4bb513847a7a7ca54789beb8e7daf71b8b2d68a93749ae60e",
+      "enable_thinking": false,
+      "notes": [
+        "模板 |trim 裁掉了 segment 1 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+        "模板 |trim 裁掉了 segment 2 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+        "模板 |trim 裁掉了 segment 3 的尾部空白 1 字符（定位按裁剪后文本，segment 本体不改）"
+      ],
+      "tools_declared": true
+    },
+    "da_no_mask": {
+      "prompt_len": 7280,
+      "segment_spans": [
+        [
+          362,
+          2316
+        ],
+        [
+          2365,
+          4255
+        ],
+        [
+          4304,
+          6202
+        ]
+      ],
+      "question_span": [
+        6211,
+        6227
+      ],
+      "local_window_span": [
+        6211,
+        7273
+      ],
+      "system_content_span": [
+        288,
+        294
+      ],
+      "sink_span": [
+        0,
+        16
+      ],
+      "sink_message_role": "system",
+      "sink_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "#",
+        " Tools",
+        "\n\n",
+        "You",
+        " have",
+        " access",
+        " to",
+        " the",
+        " following",
+        " functions",
+        ":",
+        "\n\n",
+        "<"
+      ],
+      "sink_inside_system_content": false,
+      "sink_overlaps_context": false,
+      "prompt_sha256": "1f5e2361f32622b4bb513847a7a7ca54789beb8e7daf71b8b2d68a93749ae60e",
+      "enable_thinking": false,
+      "notes": [
+        "模板 |trim 裁掉了 segment 1 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+        "模板 |trim 裁掉了 segment 2 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+        "模板 |trim 裁掉了 segment 3 的尾部空白 1 字符（定位按裁剪后文本，segment 本体不改）"
+      ],
+      "tools_declared": true
+    },
+    "vanilla": {
+      "prompt_len": 5960,
+      "segment_spans": [],
+      "question_span": [
+        5763,
+        5779
+      ],
+      "local_window_span": [
+        5763,
+        5779
+      ],
+      "system_content_span": [
+        3,
+        9
+      ],
+      "sink_span": [
+        0,
+        16
+      ],
+      "sink_message_role": "system",
+      "sink_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "You",
+        " are",
+        " a",
+        " helpful",
+        " assistant",
+        ".",
+        "<|im_end|>",
+        "\n",
+        "<|im_start|>",
+        "user",
+        "\n",
+        "Context",
+        "\n"
+      ],
+      "sink_inside_system_content": false,
+      "sink_overlaps_context": false,
+      "prompt_sha256": "34c33bf6c38ce8d0e7b482e2195afe4b52990a7de01512acd337218031fec5a8",
+      "enable_thinking": false,
+      "notes": [],
+      "tools_declared": false
+    }
+  },
+  "da_no_mask_same_prompt_as_da": true,
+  "template_kwargs_check": {
+    "direct_kwarg_disables_thinking": true,
+    "chat_template_kwargs_disables_thinking": false,
+    "default_disables_thinking": false,
+    "direct_equals_default": false
+  }
+}

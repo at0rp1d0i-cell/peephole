@@ -1,0 +1,24 @@
+{
+  "raw_stream": "<global>The question needs two facts: the approval year and the budget. Magic Chunk 1 should hold the programme history.</global><focus magic_chunks=\"1\">Approved in 2019.</focus><global>The budget is still missing; Magic Chunk 2 covers funding lines.</global><focus magic_chunks=\"2,3\">Budget of 41 million.</focus><local>Approval 2019; budget 41 million.</local><answer>Approved in 2019, with a budget of 41 million.</answer>",
+  "result": {
+    "ok": true,
+    "answer": "Approved in 2019, with a budget of 41 million.",
+    "error_code": null,
+    "error_message": null,
+    "answer_char_span": [
+      370,
+      416
+    ],
+    "stripped_tags": [],
+    "answer_count": 1
+  },
+  "accounting": {
+    "raw_chars": 425,
+    "answer_chars": 46,
+    "protocol_tag_count": 10,
+    "protocol_tag_chars": 115,
+    "analysis_chars": 264,
+    "ok": true,
+    "error_code": null
+  }
+}

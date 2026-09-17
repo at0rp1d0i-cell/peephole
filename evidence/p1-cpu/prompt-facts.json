@@ -1,0 +1,171 @@
+{
+  "da": {
+    "prompt_len": 7280,
+    "segment_spans": [
+      [
+        362,
+        2316
+      ],
+      [
+        2365,
+        4255
+      ],
+      [
+        4304,
+        6202
+      ]
+    ],
+    "question_span": [
+      6211,
+      6227
+    ],
+    "local_window_span": [
+      6211,
+      7273
+    ],
+    "system_content_span": [
+      288,
+      294
+    ],
+    "sink_span": [
+      0,
+      16
+    ],
+    "sink_message_role": "system",
+    "sink_decoded": [
+      "<|im_start|>",
+      "system",
+      "\n",
+      "#",
+      " Tools",
+      "\n\n",
+      "You",
+      " have",
+      " access",
+      " to",
+      " the",
+      " following",
+      " functions",
+      ":",
+      "\n\n",
+      "<"
+    ],
+    "sink_inside_system_content": false,
+    "sink_overlaps_context": false,
+    "prompt_sha256": "1f5e2361f32622b4bb513847a7a7ca54789beb8e7daf71b8b2d68a93749ae60e",
+    "enable_thinking": false,
+    "notes": [
+      "模板 |trim 裁掉了 segment 1 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+      "模板 |trim 裁掉了 segment 2 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+      "模板 |trim 裁掉了 segment 3 的尾部空白 1 字符（定位按裁剪后文本，segment 本体不改）"
+    ],
+    "tools_declared": true
+  },
+  "da_no_mask": {
+    "prompt_len": 7280,
+    "segment_spans": [
+      [
+        362,
+        2316
+      ],
+      [
+        2365,
+        4255
+      ],
+      [
+        4304,
+        6202
+      ]
+    ],
+    "question_span": [
+      6211,
+      6227
+    ],
+    "local_window_span": [
+      6211,
+      7273
+    ],
+    "system_content_span": [
+      288,
+      294
+    ],
+    "sink_span": [
+      0,
+      16
+    ],
+    "sink_message_role": "system",
+    "sink_decoded": [
+      "<|im_start|>",
+      "system",
+      "\n",
+      "#",
+      " Tools",
+      "\n\n",
+      "You",
+      " have",
+      " access",
+      " to",
+      " the",
+      " following",
+      " functions",
+      ":",
+      "\n\n",
+      "<"
+    ],
+    "sink_inside_system_content": false,
+    "sink_overlaps_context": false,
+    "prompt_sha256": "1f5e2361f32622b4bb513847a7a7ca54789beb8e7daf71b8b2d68a93749ae60e",
+    "enable_thinking": false,
+    "notes": [
+      "模板 |trim 裁掉了 segment 1 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+      "模板 |trim 裁掉了 segment 2 的尾部空白 2 字符（定位按裁剪后文本，segment 本体不改）",
+      "模板 |trim 裁掉了 segment 3 的尾部空白 1 字符（定位按裁剪后文本，segment 本体不改）"
+    ],
+    "tools_declared": true
+  },
+  "vanilla": {
+    "prompt_len": 5960,
+    "segment_spans": [],
+    "question_span": [
+      5763,
+      5779
+    ],
+    "local_window_span": [
+      5763,
+      5779
+    ],
+    "system_content_span": [
+      3,
+      9
+    ],
+    "sink_span": [
+      0,
+      16
+    ],
+    "sink_message_role": "system",
+    "sink_decoded": [
+      "<|im_start|>",
+      "system",
+      "\n",
+      "You",
+      " are",
+      " a",
+      " helpful",
+      " assistant",
+      ".",
+      "<|im_end|>",
+      "\n",
+      "<|im_start|>",
+      "user",
+      "\n",
+      "Context",
+      "\n"
+    ],
+    "sink_inside_system_content": false,
+    "sink_overlaps_context": false,
+    "prompt_sha256": "34c33bf6c38ce8d0e7b482e2195afe4b52990a7de01512acd337218031fec5a8",
+    "enable_thinking": false,
+    "notes": [],
+    "tools_declared": false
+  }
+}

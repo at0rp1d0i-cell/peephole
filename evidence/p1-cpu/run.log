@@ -1,0 +1,39 @@
+=== 测试 ===
+.............................................................
+----------------------------------------------------------------------
+Ran 61 tests in 3.829s
+
+OK
+
+=== 演示 ===
+{
+  "segments": 3,
+  "segment_tokens": [
+    1955,
+    1891,
+    1899
+  ],
+  "lossless_join_ok": true,
+  "prompt_len_da": 7280,
+  "prompt_len_vanilla": 5960,
+  "kv_len_max": 7395,
+  "budget_ok": true,
+  "reference_mismatch_steps": [],
+  "excluded_block_steps": 34,
+  "read_list_changes": 6,
+  "extraction_ok": true,
+  "answer": "Approved in 2019, with a budget of 41 million.",
+  "sink_role_da": "system",
+  "sink_overlaps_context": false,
+  "template_kwargs_check": {
+    "direct_kwarg_disables_thinking": true,
+    "chat_template_kwargs_disables_thinking": false,
+    "default_disables_thinking": false,
+    "direct_equals_default": false
+  },
+  "segment_token_range": [
+    1891,
+    1955
+  ],
+  "sink_role_vanilla": "system"
+}

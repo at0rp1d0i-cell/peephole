@@ -1,0 +1,346 @@
+<|im_start|>system
+# Tools
+
+You have access to the following functions:
+
+<tools>
+{"type": "function", "function": {"name": "get_magic_chunk", "description": "Retrieve one magic chunk of the document. Magic chunks are arbitrary retrieval units that do not align with the document's own sections or chapters.", "parameters": {"type": "object", "properties": {"chunk": {"type": "integer", "description": "1-based magic chunk index."}}, "required": ["chunk"]}}}
+</tools>
+
+If you choose to call a function ONLY reply in the following format with NO suffix:
+
+<tool_call>
+<function=example_function_name>
+<parameter=example_parameter_1>
+value_1
+</parameter>
+<parameter=example_parameter_2>
+This is the value for the second parameter
+that can span
+multiple lines
+</parameter>
+</function>
+</tool_call>
+
+<IMPORTANT>
+Reminder:
+- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags
+- Required parameters MUST be specified
+- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after
+- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls
+</IMPORTANT>
+
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+Retrieve the document one magic chunk at a time using the get_magic_chunk tool.<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+<tool_call>
+<function=get_magic_chunk>
+<parameter=chunk>
+1
+</parameter>
+</function>
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+Magic Chunk 1
+Chapter A: programme history
+
+The Falcon program was approved in 2019 after a two-year review cycle.
+Its first prototype was assembled at the northern site.
+The approving minute lists the programme office as the owner of record.
+
+Note 0000: the platform review of the Falcon dossier was scheduled for week 100 in record 1; the reviewer initialled item 2.
+Note 0001: the supplier audit of the Falcon dossier was scheduled for week 113 in record 4; the reviewer initialled item 7.
+Note 0002: the field trial of the Falcon dossier was recorded as complete 126 in record 7; the reviewer initialled item 12.
+Note 0003: the funding line of the Falcon dossier was revised during quarter 139 in record 10; the reviewer initialled item 17.
+Note 0004: the steering committee of the Falcon dossier was scheduled for week 152 in record 13; the reviewer initialled item 22.
+Note 0005: the deployment plan of the Falcon dossier was scheduled for week 165 in record 16; the reviewer initialled item 27.
+Note 0006: the safety review of the Falcon dossier was scheduled for week 178 in record 19; the reviewer initialled item 32.
+Note 0007: the cost model of the Falcon dossier was recorded as complete 191 in record 22; the reviewer initialled item 37.
+Note 0008: the staffing plan of the Falcon dossier was flagged as pending 204 in record 25; the reviewer initialled item 42.
+Note 0009: the procurement round of the Falcon dossier was scheduled for week 217 in record 28; the reviewer initialled item 47.
+Note 0010: the platform review of the Falcon dossier reported a delta of 230 in record 31; the reviewer initialled item 52.
+Note 0011: the supplier audit of the Falcon dossier remained under review 243 in record 34; the reviewer initialled item 57.
+Note 0012: the field trial of the Falcon dossier reported a delta of 256 in record 37; the reviewer initialled item 62.
+Note 0013: the funding line of the Falcon dossier remained under review 269 in record 40; the reviewer initialled item 67.
+Note 0014: the steering committee of the Falcon dossier was recorded as complete 282 in record 43; the reviewer initialled item 72.
+Note 0015: the deployment plan of the Falcon dossier remained under review 295 in record 46; the reviewer initialled item 77.
+Note 0016: the safety review of the Falcon dossier was recorded as complete 308 in record 49; the reviewer initialled item 82.
+Note 0017: the cost model of the Falcon dossier reported a delta of 321 in record 52; the reviewer initialled item 87.
+Note 0018: the staffing plan of the Falcon dossier was recorded as complete 334 in record 55; the reviewer initialled item 92.
+Note 0019: the procurement round of the Falcon dossier was scheduled for week 347 in record 58; the reviewer initialled item 97.
+Note 0020: the platform review of the Falcon dossier was revised during quarter 360 in record 61; the reviewer initialled item 102.
+Note 0021: the supplier audit of the Falcon dossier was revised during quarter 373 in record 64; the reviewer initialled item 107.
+Note 0022: the field trial of the Falcon dossier was recorded as complete 386 in record 67; the reviewer initialled item 112.
+Note 0023: the funding line of the Falcon dossier was recorded as complete 399 in record 70; the reviewer initialled item 117.
+Note 0024: the steering committee of the Falcon dossier reported a delta of 412 in record 73; the reviewer initialled item 122.
+Note 0025: the deployment plan of the Falcon dossier reported a delta of 425 in record 76; the reviewer initialled item 127.
+Note 0026: the safety review of the Falcon dossier was flagged as pending 438 in record 79; the reviewer initialled item 132.
+Note 0027: the cost model of the Falcon dossier was flagged as pending 451 in record 82; the reviewer initialled item 137.
+Note 0028: the staffing plan of the Falcon dossier was scheduled for week 464 in record 85; the reviewer initialled item 142.
+Note 0029: the procurement round of the Falcon dossier was flagged as pending 477 in record 88; the reviewer initialled item 147.
+Note 0030: the platform review of the Falcon dossier was revised during quarter 490 in record 91; the reviewer initialled item 152.
+Note 0031: the supplier audit of the Falcon dossier was recorded as complete 503 in record 94; the reviewer initialled item 157.
+Note 0032: the field trial of the Falcon dossier was flagged as pending 516 in record 97; the reviewer initialled item 162.
+Note 0033: the funding line of the Falcon dossier remained under review 529 in record 100; the reviewer initialled item 167.
+Note 0034: the steering committee of the Falcon dossier reported a delta of 542 in record 103; the reviewer initialled item 172.
+Note 0035: the deployment plan of the Falcon dossier was flagged as pending 555 in record 106; the reviewer initialled item 177.
+Note 0036: the safety review of the Falcon dossier was flagged as pending 568 in record 109; the reviewer initialled item 182.
+Note 0037: the cost model of the Falcon dossier was flagged as pending 581 in record 112; the reviewer initialled item 187.
+Note 0038: the staffing plan of the Falcon dossier was recorded as complete 594 in record 115; the reviewer initialled item 192.
+Note 0039: the procurement round of the Falcon dossier was revised during quarter 607 in record 118; the reviewer initialled item 197.
+
+Note 0040: the platform review of the Falcon dossier was scheduled for week 620 in record 121; the reviewer initialled item 202.
+Note 0041: the supplier audit of the Falcon dossier was recorded as complete 633 in record 124; the reviewer initialled item 207.
+Note 0042: the field trial of the Falcon dossier remained under review 646 in record 127; the reviewer initialled item 212.
+Note 0043: the funding line of the Falcon dossier was scheduled for week 659 in record 130; the reviewer initialled item 217.
+Note 0044: the steering committee of the Falcon dossier was revised during quarter 672 in record 133; the reviewer initialled item 222.
+Note 0045: the deployment plan of the Falcon dossier was scheduled for week 685 in record 136; the reviewer initialled item 227.
+Note 0046: the safety review of the Falcon dossier was scheduled for week 698 in record 139; the reviewer initialled item 232.
+Note 0047: the cost model of the Falcon dossier was recorded as complete 711 in record 142; the reviewer initialled item 237.
+
+Chapter B: funding lines
+
+The Falcon program carries a budget of 41 million for its first phase.
+Later phases are not yet allocated in the current plan.
+The funding line is reviewed each quarter against the cost model.
+</tool_response><|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+<tool_call>
+<function=get_magic_chunk>
+<parameter=chunk>
+2
+</parameter>
+</function>
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+Magic Chunk 2
+Note 0000: the platform review of the budget dossier was recorded as complete 100 in record 1; the reviewer initialled item 2.
+Note 0001: the supplier audit of the budget dossier was flagged as pending 113 in record 4; the reviewer initialled item 7.
+Note 0002: the field trial of the budget dossier was flagged as pending 126 in record 7; the reviewer initialled item 12.
+Note 0003: the funding line of the budget dossier was recorded as complete 139 in record 10; the reviewer initialled item 17.
+Note 0004: the steering committee of the budget dossier was recorded as complete 152 in record 13; the reviewer initialled item 22.
+Note 0005: the deployment plan of the budget dossier reported a delta of 165 in record 16; the reviewer initialled item 27.
+Note 0006: the safety review of the budget dossier was scheduled for week 178 in record 19; the reviewer initialled item 32.
+Note 0007: the cost model of the budget dossier reported a delta of 191 in record 22; the reviewer initialled item 37.
+Note 0008: the staffing plan of the budget dossier was recorded as complete 204 in record 25; the reviewer initialled item 42.
+Note 0009: the procurement round of the budget dossier was flagged as pending 217 in record 28; the reviewer initialled item 47.
+Note 0010: the platform review of the budget dossier reported a delta of 230 in record 31; the reviewer initialled item 52.
+Note 0011: the supplier audit of the budget dossier remained under review 243 in record 34; the reviewer initialled item 57.
+Note 0012: the field trial of the budget dossier was recorded as complete 256 in record 37; the reviewer initialled item 62.
+Note 0013: the funding line of the budget dossier reported a delta of 269 in record 40; the reviewer initialled item 67.
+Note 0014: the steering committee of the budget dossier was recorded as complete 282 in record 43; the reviewer initialled item 72.
+Note 0015: the deployment plan of the budget dossier remained under review 295 in record 46; the reviewer initialled item 77.
+Note 0016: the safety review of the budget dossier reported a delta of 308 in record 49; the reviewer initialled item 82.
+Note 0017: the cost model of the budget dossier reported a delta of 321 in record 52; the reviewer initialled item 87.
+Note 0018: the staffing plan of the budget dossier remained under review 334 in record 55; the reviewer initialled item 92.
+Note 0019: the procurement round of the budget dossier remained under review 347 in record 58; the reviewer initialled item 97.
+Note 0020: the platform review of the budget dossier was scheduled for week 360 in record 61; the reviewer initialled item 102.
+Note 0021: the supplier audit of the budget dossier was flagged as pending 373 in record 64; the reviewer initialled item 107.
+Note 0022: the field trial of the budget dossier was scheduled for week 386 in record 67; the reviewer initialled item 112.
+Note 0023: the funding line of the budget dossier was flagged as pending 399 in record 70; the reviewer initialled item 117.
+Note 0024: the steering committee of the budget dossier was recorded as complete 412 in record 73; the reviewer initialled item 122.
+Note 0025: the deployment plan of the budget dossier remained under review 425 in record 76; the reviewer initialled item 127.
+Note 0026: the safety review of the budget dossier reported a delta of 438 in record 79; the reviewer initialled item 132.
+Note 0027: the cost model of the budget dossier was revised during quarter 451 in record 82; the reviewer initialled item 137.
+Note 0028: the staffing plan of the budget dossier was scheduled for week 464 in record 85; the reviewer initialled item 142.
+Note 0029: the procurement round of the budget dossier remained under review 477 in record 88; the reviewer initialled item 147.
+Note 0030: the platform review of the budget dossier reported a delta of 490 in record 91; the reviewer initialled item 152.
+Note 0031: the supplier audit of the budget dossier was revised during quarter 503 in record 94; the reviewer initialled item 157.
+Note 0032: the field trial of the budget dossier reported a delta of 516 in record 97; the reviewer initialled item 162.
+Note 0033: the funding line of the budget dossier was flagged as pending 529 in record 100; the reviewer initialled item 167.
+Note 0034: the steering committee of the budget dossier was flagged as pending 542 in record 103; the reviewer initialled item 172.
+Note 0035: the deployment plan of the budget dossier was flagged as pending 555 in record 106; the reviewer initialled item 177.
+Note 0036: the safety review of the budget dossier was revised during quarter 568 in record 109; the reviewer initialled item 182.
+Note 0037: the cost model of the budget dossier was revised during quarter 581 in record 112; the reviewer initialled item 187.
+Note 0038: the staffing plan of the budget dossier remained under review 594 in record 115; the reviewer initialled item 192.
+Note 0039: the procurement round of the budget dossier was recorded as complete 607 in record 118; the reviewer initialled item 197.
+
+Note 0040: the platform review of the budget dossier was flagged as pending 620 in record 121; the reviewer initialled item 202.
+Note 0041: the supplier audit of the budget dossier was recorded as complete 633 in record 124; the reviewer initialled item 207.
+Note 0042: the field trial of the budget dossier was revised during quarter 646 in record 127; the reviewer initialled item 212.
+Note 0043: the funding line of the budget dossier was flagged as pending 659 in record 130; the reviewer initialled item 217.
+Note 0044: the steering committee of the budget dossier reported a delta of 672 in record 133; the reviewer initialled item 222.
+Note 0045: the deployment plan of the budget dossier was scheduled for week 685 in record 136; the reviewer initialled item 227.
+Note 0046: the safety review of the budget dossier was flagged as pending 698 in record 139; the reviewer initialled item 232.
+Note 0047: the cost model of the budget dossier was recorded as complete 711 in record 142; the reviewer initialled item 237.
+
+Chapter C: unrelated logistics
+
+Warehouse throughput improved after the conveyor upgrade.
+The logistics annex describes pallet routing and dock scheduling.
+Nothing in this chapter concerns the Falcon program.
+</tool_response><|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+<tool_call>
+<function=get_magic_chunk>
+<parameter=chunk>
+3
+</parameter>
+</function>
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+Magic Chunk 3
+Note 0000: the platform review of the logistics dossier was scheduled for week 100 in record 1; the reviewer initialled item 2.
+Note 0001: the supplier audit of the logistics dossier was scheduled for week 113 in record 4; the reviewer initialled item 7.
+Note 0002: the field trial of the logistics dossier was scheduled for week 126 in record 7; the reviewer initialled item 12.
+Note 0003: the funding line of the logistics dossier was recorded as complete 139 in record 10; the reviewer initialled item 17.
+Note 0004: the steering committee of the logistics dossier was recorded as complete 152 in record 13; the reviewer initialled item 22.
+Note 0005: the deployment plan of the logistics dossier was flagged as pending 165 in record 16; the reviewer initialled item 27.
+Note 0006: the safety review of the logistics dossier reported a delta of 178 in record 19; the reviewer initialled item 32.
+Note 0007: the cost model of the logistics dossier was recorded as complete 191 in record 22; the reviewer initialled item 37.
+Note 0008: the staffing plan of the logistics dossier was flagged as pending 204 in record 25; the reviewer initialled item 42.
+Note 0009: the procurement round of the logistics dossier reported a delta of 217 in record 28; the reviewer initialled item 47.
+Note 0010: the platform review of the logistics dossier was scheduled for week 230 in record 31; the reviewer initialled item 52.
+Note 0011: the supplier audit of the logistics dossier was revised during quarter 243 in record 34; the reviewer initialled item 57.
+Note 0012: the field trial of the logistics dossier was flagged as pending 256 in record 37; the reviewer initialled item 62.
+Note 0013: the funding line of the logistics dossier was recorded as complete 269 in record 40; the reviewer initialled item 67.
+Note 0014: the steering committee of the logistics dossier reported a delta of 282 in record 43; the reviewer initialled item 72.
+Note 0015: the deployment plan of the logistics dossier was revised during quarter 295 in record 46; the reviewer initialled item 77.
+Note 0016: the safety review of the logistics dossier was flagged as pending 308 in record 49; the reviewer initialled item 82.
+Note 0017: the cost model of the logistics dossier reported a delta of 321 in record 52; the reviewer initialled item 87.
+Note 0018: the staffing plan of the logistics dossier was scheduled for week 334 in record 55; the reviewer initialled item 92.
+Note 0019: the procurement round of the logistics dossier was flagged as pending 347 in record 58; the reviewer initialled item 97.
+Note 0020: the platform review of the logistics dossier reported a delta of 360 in record 61; the reviewer initialled item 102.
+Note 0021: the supplier audit of the logistics dossier remained under review 373 in record 64; the reviewer initialled item 107.
+Note 0022: the field trial of the logistics dossier was recorded as complete 386 in record 67; the reviewer initialled item 112.
+Note 0023: the funding line of the logistics dossier was recorded as complete 399 in record 70; the reviewer initialled item 117.
+Note 0024: the steering committee of the logistics dossier was revised during quarter 412 in record 73; the reviewer initialled item 122.
+Note 0025: the deployment plan of the logistics dossier was flagged as pending 425 in record 76; the reviewer initialled item 127.
+Note 0026: the safety review of the logistics dossier was revised during quarter 438 in record 79; the reviewer initialled item 132.
+Note 0027: the cost model of the logistics dossier was recorded as complete 451 in record 82; the reviewer initialled item 137.
+Note 0028: the staffing plan of the logistics dossier was scheduled for week 464 in record 85; the reviewer initialled item 142.
+Note 0029: the procurement round of the logistics dossier was recorded as complete 477 in record 88; the reviewer initialled item 147.
+Note 0030: the platform review of the logistics dossier was flagged as pending 490 in record 91; the reviewer initialled item 152.
+Note 0031: the supplier audit of the logistics dossier was revised during quarter 503 in record 94; the reviewer initialled item 157.
+Note 0032: the field trial of the logistics dossier was recorded as complete 516 in record 97; the reviewer initialled item 162.
+Note 0033: the funding line of the logistics dossier reported a delta of 529 in record 100; the reviewer initialled item 167.
+Note 0034: the steering committee of the logistics dossier reported a delta of 542 in record 103; the reviewer initialled item 172.
+Note 0035: the deployment plan of the logistics dossier was recorded as complete 555 in record 106; the reviewer initialled item 177.
+Note 0036: the safety review of the logistics dossier was revised during quarter 568 in record 109; the reviewer initialled item 182.
+Note 0037: the cost model of the logistics dossier was revised during quarter 581 in record 112; the reviewer initialled item 187.
+Note 0038: the staffing plan of the logistics dossier was recorded as complete 594 in record 115; the reviewer initialled item 192.
+Note 0039: the procurement round of the logistics dossier was scheduled for week 607 in record 118; the reviewer initialled item 197.
+
+Note 0040: the platform review of the logistics dossier was revised during quarter 620 in record 121; the reviewer initialled item 202.
+Note 0041: the supplier audit of the logistics dossier was recorded as complete 633 in record 124; the reviewer initialled item 207.
+Note 0042: the field trial of the logistics dossier reported a delta of 646 in record 127; the reviewer initialled item 212.
+Note 0043: the funding line of the logistics dossier was recorded as complete 659 in record 130; the reviewer initialled item 217.
+Note 0044: the steering committee of the logistics dossier was flagged as pending 672 in record 133; the reviewer initialled item 222.
+Note 0045: the deployment plan of the logistics dossier reported a delta of 685 in record 136; the reviewer initialled item 227.
+Note 0046: the safety review of the logistics dossier was recorded as complete 698 in record 139; the reviewer initialled item 232.
+Note 0047: the cost model of the logistics dossier remained under review 711 in record 142; the reviewer initialled item 237.
+Note 0048: the staffing plan of the logistics dossier remained under review 724 in record 145; the reviewer initialled item 242.
+</tool_response><|im_end|>
+<|im_start|>user
+Question
+What was the approval year of the Falcon program, and what was its budget?
+
+Instructions
+Answer the question above using only the retrieved document. Each get_magic_chunk response above
+is one magic chunk of the document, in order from magic chunk 1. Magic chunks are arbitrary retrieval
+splits and do not align with the document’s own sections or chapters. The document is now fully
+retrieved. Do not call get_magic_chunk again.
+
+Reason through the magic chunks using three modes. Use the <answer> tag to output your final answer,
+e.g., <answer>...</answer>.
+
+
+  Mode                           What you can see              Use it when
+  <global> (default)             all magic chunks              . . . you’re identifying which magic chunk
+                                                               to focus on next.
+  <focus magic_chunks="K">       only magic chunk K (plus      . . . you’re pulling a verbatim value out of
+                                 values you’ve already       magic chunk K.
+                                 extracted)
+  <local>                        only values you’ve already  . . . you’re planning over the question, or
+                                 extracted (no magic chunks)   synthesizing values you’ve already extracted.
+
+
+Global mode (default)
+Use global mode to identify the next magic chunk to examine. Briefly explain why the magic chunk is
+relevant. Do not reason about the answer itself in global mode.
+
+Focus mode
+Switch to focus mode to examine a specific magic chunk and extract facts.
+
+Syntax: <focus magic_chunks="K">VALUE</focus> (or <focus magic_chunks="K,M">, <focus
+magic_chunks="K,M,N"> for multiple magic chunks).
+
+VALUE is the answer the magic chunk provides: a name, number, date, or short noun phrase (typically
+1 to 12 words).
+
+When the document was delivered without any magic chunk retrievals (short document, inline only),
+this tag is unavailable.
+
+Local mode
+In local mode you cannot see the document magic chunks, and you cannot re-read them. Local
+mode is for reasoning that builds on facts you have already extracted via earlier <focus> blocks, the
+question, and your prior reasoning.
+
+Syntax: <local>your reasoning here</local>
+
+
+Refer to verbatim values you extracted in earlier focus blocks by name. You do not need to re-state
+them. If you find you need a value you have not yet extracted, close the <local> block, open <global>,
+and identify the magic chunk to focus on next.
+
+Strategy
+Use <global>, <focus ...>, and <local> in any order. Repeat any of them as needed, then write
+<answer>.
+
+Three soft requirements:
+1. Use at least one <focus> block. The point of focus mode is to pull the exact value(s) into your
+   attention before answering. Skipping focus and guessing from memory is the most common failure
+   mode.
+2. End with a <local> block that names the single value, phrase, or summary you will put inside
+   <answer>. This is the commitment step. Without it, the model often retrieves multiple values and
+   forgets which one the question actually asks for.
+3. Don’t try to recall magic chunk content in <local>. Once you open <local>, the magic chunks
+   are no longer visible to you. Anything you “remember” about a magic chunk you didn’t focus on is a
+   guess. If you need a value you haven’t extracted, close </local> and go back to <global> to pick
+   the magic chunk to focus on next.
+
+Examples of valid orders:
+• <local> → <global> → <focus> → <local> → <answer>. Typical shape for most questions: plan,
+  locate, extract, conclude.
+• <global> → <focus> → <local> → <answer>. Short factual / needle-in-haystack: the target magic
+  chunk is obvious from the question.
+• <global> → <focus> → <global> → <focus> → <local> → <answer>. Multi-fact, separate magic
+  chunks.
+• <global> → <focus> → <local> → <global> → <focus> → <local> → <answer>. Extract, sanity-
+  check, fetch what’s still missing, commit.
+
+Answer
+End your response with the final answer wrapped in <answer>...</answer>. The content depends on the
+question type:
+
+
+  Question type      Answer format        Example
+  Multiple choice    the letter only      <answer>D</answer>
+  Cloze (<mask-N>)   the missing word(s)  <answer>Britney</answer>
+  Short factual      the value            <answer>March 14, 2024</answer>
+  Summary            2 to 3 sentences     <answer>Congress passed the BUILD Act in 2018, creating
+                                          the IDFC.</answer>
+
+
+After </answer>, the response is complete.<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
