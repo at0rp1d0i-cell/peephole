@@ -178,8 +178,8 @@ vLLM 自身的填充约定是 `NULL_BLOCK_ID=0`（`v1/attention/backends/utils.p
 | --- | --- | --- |
 | 端点 | `POST /v1/chat/completions`，非流式（`stream=false`） | 方案 §4.1 已确认 M1 仅非流式 |
 | 上下文与问题 | **必须接收调用者任务**：文档/上下文与问题都由请求携带（或由服务端按既有数据合同装载），服务端不得把某份文档硬编码、也不得只读用户最后一句 | R1 明确指出"伪 API"风险；上下文的具体封装字段仍**待决**，但"只读最后一句"不可接受 |
-| 必要请求字段 | `model`、`messages`（取最后一条 user 内容作为 question）、`max_tokens`、`temperature`/`top_p` | 其余选项**不支持即报错**，不做静默忽略 |
-| 上下文注入 | 素材由服务端按方案组织（DA 臂把文档切成 magic chunk），**不从 `messages` 里读长文档** | 避免把协议机制暴露给客户端 |
+| 必要请求字段 | `model`、`messages`、`max_tokens`、`temperature`/`top_p`；其余选项**不支持即报错**，不静默忽略 | 任务内容由**调用者**提供；"question 取哪一条消息"属**待定**输入合同，实现不得默认只读最后一条 user 消息作为整个任务 |
+| 上下文注入 | 服务端把上下文按方案组织成 magic chunk（DA 臂）；**上下文的来源与封装字段待定**：请求内联与"服务端按既有数据合同装载"都是候选，但**不得硬编码某份文档**，也不得把调用者任务退化成"只读最后一句" | 呼应 R1："上下文与问题的输入封装可以保持待决，但必须接收实际调用者任务且不暴露内部声明" |
 | 不支持选项 | `tools`、`tool_choice`、`response_format`、`logprobs`、`n>1`、`stop` 之外的自定义、`stream=true` | 首版明确返回 400 + 错误码，**不静默降级** |
 | 响应内容 | `choices[0].message.content` = `extract_public_output()` 的答案；`finish_reason` 由引擎原因映射 | 答案区外分析与标签**不进响应** |
 | `usage` | `prompt_tokens`（含协议包装，**公开口径**）、`completion_tokens`（**内部实际生成**）、`visible_completion_tokens`（公开内容量） | 隐藏输出不免除耗时与计费口径：内部/公开分开记账（方案 §4.1） |

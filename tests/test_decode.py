@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from attnview.decode import (  # noqa: E402
     IncrementalDetokenizer,
-    split_complete_utf8,
+    bytes_to_unicode,
+    reference_decode,
     token_bytes,
 )
 
@@ -77,6 +78,34 @@ class IncrementalDecodeTest(unittest.TestCase):
         self.assertEqual(naive, "\ufffd\ufffd", "naive 逐 token 拼接的确定性反例")
         self.assertEqual(incremental, joint)
         self.assertNotIn("\ufffd", incremental)
+
+    def test_invalid_prefix_does_not_swallow_later_valid_sequence(self) -> None:
+        """反例（R1 第二轮）：字节 `e2 41 e2 82 ac` 按单字节 token 喂入。
+
+        手写"只看前导字节长度"的实现会给 `"\ufffdA\ufffd\ufffd\ufffd"`（错误前缀提前吃掉后面的合法尾段）；
+        标准库增量解码给 `"\ufffdA€"`，与整体解码一致。
+        """
+        by = bytes_to_unicode()
+
+        def one_byte_token(byte: int) -> str:
+            return by[byte]
+
+        payload = bytes([0xE2, 0x41, 0xE2, 0x82, 0xAC])
+        decoder = IncrementalDetokenizer(lambda i: one_byte_token(i))
+        got = "".join(decoder.feed(i) for i in payload) + decoder.flush()
+        self.assertEqual(got, reference_decode(payload))
+        self.assertEqual(got, "\ufffdA€")
+
+    def test_incomplete_tail_is_flushed_not_dropped(self) -> None:
+        """结尾未完成的 UTF-8 序列必须在 flush 时按 replace 吐出，不得静默丢弃。"""
+        by = bytes_to_unicode()
+        payload = bytes([0x41, 0xE2, 0x82])
+        decoder = IncrementalDetokenizer(lambda i: by[i])
+        streamed = "".join(decoder.feed(i) for i in payload)
+        tail = decoder.flush()
+        self.assertEqual(streamed, "A")
+        self.assertEqual(tail, "\ufffd")
+        self.assertEqual(streamed + tail, reference_decode(payload))
 
     def test_incremental_decoder_repairs_real_split_sequence(self) -> None:
         """在真实混排文本里，凡是被跨 token 拆开的字符，增量解码都能还原。"""
