@@ -72,12 +72,20 @@ GDN 每请求状态（TP=1；`mamba_cache_dtype=auto` 与 `mamba_ssm_cache_dtype
 
 ## D. head_size=256 与 kernel 块大小的判定链（R02 的 P0 待测项，先给可证伪的预期）
 
+> **事后更正（2026-09-18）**：本节第 3 步的预期"kernel 块大小 = 16"**是错的**，已由运行时探针推翻。
+> `MultipleOf(16)` 的语义是"16 的任意倍数都可接受"，而 `select_common_block_size`（`v1/worker/utils.py:310`）
+> 的 **Case 1** 在 manager 块被所有 backend 支持时**直接返回 manager 块本身**；784 % 16 == 0 → 取 784、
+> 不做 hybrid 拆分。实测值见 `evidence/p0-model/e4-kernel-block-probe.json`
+> （`kernel_block_sizes=[784,784,784,784]`、`hybrid_splitting_used=false`）与 model-report §4.3 第 3 项。
+> 下文保留原始推断文本，作为"推断≠证据"的对照记录。
+
 `R02` 的 scouter 曾推断"FA4 的 hd256 内核要求 major ∈ (10,11)，SM120 不适用 → 预期内核块大小 16"。
 本地源码把这条链写成了可核对的三步：
 
 1. `uses_fa4_hd256_kernel(head_size, head_size_v)` → 本模型 `head_dim=256` → **True**（`v1/attention/backends/fa_utils.py:224-233`）。
-2. `get_flash_attn_version(..., supports_fa4_hd256=True)` 只有在 `fa_version==4 and is_device_capability_family(100)` 时才保留 FA4（`fa_utils.py:306-308`）；本机 capability 为 **(12,0)**，不属于 family 100 → 预期**退回 FA2 路径**或直接不被选中。
-3. `FlashAttentionBackend.get_supported_kernel_block_sizes()` 在没有 FA4 hd256 块大小时返回 **`MultipleOf(16)`**（`v1/attention/backends/flash_attn.py:112-116`）；`_get_fa4_hd256_block_size()` 返回 `None`（`fa_utils.py:13-14` 的 `FA4_HD256_PAGE_SIZE=128` 只在 FA4 路径生效）。
+2. `get_flash_attn_version(..., supports_fa4_hd256=True)` 只有在 `fa_version==4 and is_device_capability_family(100)` 时才保留 FA4（`fa_utils.py:306-308`）；本机 capability 为 **(12,0)**，不属于 family 100 → 预期**退回 FA2 路径**或直接不被选中。（这一步与实测一致。）
+3. ~~`FlashAttentionBackend.get_supported_kernel_block_sizes()` 返回 `MultipleOf(16)` → kernel 块 = 16。~~
+   **（该步错误，见上方更正）**
 
 FlashInfer 侧：`get_supported_kernel_block_sizes()` 只在与 trtllm-gen 动态内核可用时广告 ≥128 的页大小，
 且断言 `page_size <= 64 or (is_device_capability_family(100) and ...)`（`v1/attention/backends/flashinfer.py:422,802-806`）。

@@ -51,6 +51,11 @@ export PIP_INDEX_URL="$UV_DEFAULT_INDEX"
 # 可重建的缓存与临时目录统一放项目内（默认 /root/.cache 与 /root/autodl-tmp 混放）。
 export PIP_CACHE_DIR="$ATTNVIEW_HOME/caches/pip"
 export TRITON_CACHE_DIR="$ATTNVIEW_HOME/caches/triton"
+# vLLM 的 torch.compile / AOT / FlashInfer autotune 缓存默认落 ~/.cache/vllm（系统盘）；
+# 2026-09-18 实测一次运行即写 243 MB，而系统盘只剩 18 GiB，故显式改到数据盘。
+export VLLM_CACHE_ROOT="$ATTNVIEW_HOME/caches/vllm"
+# FlashInfer 的 JIT 缓存 = $FLASHINFER_WORKSPACE_BASE/.cache/flashinfer（沿用上游布局）。
+export FLASHINFER_WORKSPACE_BASE="$ATTNVIEW_HOME/caches"
 export TORCH_EXTENSIONS_DIR="$ATTNVIEW_HOME/caches/torch-extensions"
 export TORCH_HOME="$ATTNVIEW_HOME/caches/torch"
 export CUDA_CACHE_PATH="$ATTNVIEW_HOME/caches/cuda"

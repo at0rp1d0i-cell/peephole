@@ -1,0 +1,77 @@
+{
+  "runner_class": "GPUModelRunner",
+  "kernel_block_sizes": [
+    784,
+    784,
+    784,
+    784
+  ],
+  "kv_manager_block_sizes": [
+    784,
+    784,
+    784,
+    784
+  ],
+  "kv_group_spec_types": [
+    "MambaSpec",
+    "MambaSpec",
+    "MambaSpec",
+    "FullAttentionSpec"
+  ],
+  "num_blocks": 652,
+  "hybrid_splitting_used": false,
+  "backends": [
+    {
+      "group_id": 0,
+      "backend": "GDNAttentionBackend",
+      "supported_kernel_block_sizes": [
+        "MultipleOf(1)"
+      ],
+      "supports_manager_block_size": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "group_id": 1,
+      "backend": "GDNAttentionBackend",
+      "supported_kernel_block_sizes": [
+        "MultipleOf(1)"
+      ],
+      "supports_manager_block_size": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "group_id": 2,
+      "backend": "GDNAttentionBackend",
+      "supported_kernel_block_sizes": [
+        "MultipleOf(1)"
+      ],
+      "supports_manager_block_size": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "group_id": 3,
+      "backend": "FlashAttentionBackend",
+      "supported_kernel_block_sizes": [
+        "MultipleOf(16)"
+      ],
+      "supports_manager_block_size": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ]
+}

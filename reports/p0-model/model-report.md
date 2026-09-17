@@ -120,13 +120,30 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
    （修复后运行日志出现 `Using FlashInfer for top-p & top-k sampling.`；修复前那次规避运行见 §4.1 注）。
    另有 `Using V2 Model Runner`、`JIT kernel warmup`、`Warming up Qwen Triton kernels (model_type=qwen3_5_text)`、
    `Running FlashInfer autotune with 8192 tokens`（FlashInfer 的预编译与 JIT 两条路径现均可用，见 §6.1）。
-3. **块大小**：框架/manager 块 **`block_size = 784` token**（日志 `interface.py:918`：为让注意力页 ≥ mamba 页而抬升；
-   metrics `block_size="784"`、`user_specified_block_size="False"`、`_block_size_resolved="True"`）；
-   `mamba_block_size = 784`（`align`）、mamba 页 +0.13% 填充至与注意力页**恰好相等**（=784×64 KiB=49 MiB）。
-   **kernel 块大小 = 16（代码推导，非日志观测）**：FLASH_ATTN 的 `get_supported_kernel_block_sizes()` 在非 FA4-hd256 路径返回
-   `[MultipleOf(16)]`（`v1/attention/backends/flash_attn.py:112-116`），框架块 784 是它的整数倍（784/16=49），
-   由 `prepare_kernel_block_sizes`（`v1/worker/gpu_model_runner.py:7514`）拆分为 **hybrid blocks**。
-   **v0.29.0 的日志与 `/metrics` 都不直接打印 kernel 块大小**——本条属代码路径推导，未冻结。
+3. **块大小**：
+   - **manager（框架）块大小 = 784 token**：日志 `platforms/interface.py:918`（为让注意力页 ≥ mamba 页而抬升）；
+     metrics `block_size="784"`、`mamba_block_size="784"`、`mamba_cache_mode="align"`、`user_specified_block_size="False"`、
+     `_block_size_resolved="True"`；mamba 页 +0.13% 填充至与注意力页**恰好相等**（784 × 64 KiB = 49 MiB）。
+   - **kernel 块大小 = 784（运行时实测，与 manager 块相同、不做拆分）**：
+     `evidence/p0-model/e4-kernel-block-probe.json` → `kernel_block_sizes = [784, 784, 784, 784]`、
+     `hybrid_splitting_used = false`、`num_blocks = 652`。
+   - **判据（源码）**：`prepare_kernel_block_sizes`（`vllm/v1/worker/utils.py:442`）对注意力组调用
+     `select_common_block_size(manager_block_size, backends)`（同文件 `:310`），其 **Case 1** 是
+     "manager 块大小被所有 backend 支持则**直接返回它**"；`FlashAttentionBackend` 声明
+     `[MultipleOf(16)]`（`v1/attention/backends/flash_attn.py:112-116`），784 % 16 == 0 → 命中 Case 1；
+     mamba 组按 `kernel_block_sizes.append(kv_cache_spec.block_size)` 直接取同值。
+     V2 runner 把它存为 `self.kernel_block_sizes`（`v1/worker/gpu/model_runner.py:587`）。
+   - **更正**：本报告早期版本曾由 `[MultipleOf(16)]` 推出"kernel 块 = 16、784/16=49 走 hybrid 拆分"，
+     该推断**错误**（`MultipleOf(16)` 表示"16 的任意倍数都可接受"，不是"最小值 16"）。以本次实测为准。
+   - **kv 组结构（顺带实测）**：4 个组 = 3 × `MambaSpec`（backend `GDNAttentionBackend`，声明 `[MultipleOf(1)]`）
+     + 1 × `FullAttentionSpec`（`FlashAttentionBackend`，`[MultipleOf(16)]`）；四组的 manager 块均为 784，
+     `supports_manager_block_size=true`。这也解释了 0.13% 的 mamba 页填充（3 个 mamba 组各 16 层的状态页
+     略小于 49 MiB，被补齐到与注意力页相等）。
+   - **探针配置（可复现）**：`PYTHONPATH=tools/kbs-probe`（内含 `sitecustomize.py`）+ `KBS_PROBE_OUT=<输出>`，
+     在**与基线完全相同的 serve 参数**下运行一次（`tools/e4-kernel-block-probe.sh`，日志 `logs/serve-e4c.log`）。
+     钩子只读地包装 `GPUModelRunner.initialize_kv_cache`，调用后抄出 `kernel_block_sizes` 等字段；
+     必须用 sitecustomize 是因为 **EngineCore 跑在子进程**，父进程的 monkeypatch 不生效。
+     **未修改 vLLM 源码**，钩子不改变任何返回值。
 4. **head_size=256 是否被接受**：**接受**（走 FA2 路径；未触发 backend 校验失败，无 `invalid_reasons`）。
 5. **CUDA Graph / 编译模式**：`cudagraph_mode = FULL_AND_PIECEWISE`、`mode = VLLM_COMPILE`（`backend=inductor`）；
    实捕获 **PIECEWISE 51 个 + FULL 35 个**，`Graph capturing finished in 14 s (0.62 GiB)` 与 `16 s (0.30 GiB)`；
@@ -193,6 +210,19 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
 | 采样实现 | PyTorch 原生（规避态） | **FlashInfer top-k/top-p** |
 | KV 池 / 块数 / token 容量 | 31.24 GiB / 652 / 314,187 | **逐项相同** |
 
+**最终配置的干净会话复跑（`E6b`，2026-09-18；取代修复前的 `E6`）**
+
+| 项 | 实测 |
+| --- | --- |
+| 会话 | `env -i PATH=<最小 PATH> HOME=/root bash --noprofile --norc tools/serve-vanilla.sh --tag e6b` |
+| 配置 | 与 `serve-command.sh` 完全一致（含全部已授权 CUDA 修复与缓存重定向） |
+| 启动 | `Application startup complete.`，`/health` 200；`init engine` 44.40 s（compilation 1.13 s） |
+| FlashInfer 采样 | `Using FlashInfer for top-p & top-k sampling.` |
+| KV 池 / 块数 / 容量 | 31.24 GiB / 652 blocks / 314,187 tokens（38.35×@8192） |
+| 缓存落点 | `/root/attnview/caches/vllm/{torch_compile_cache,flashinfer_autotune_cache}`（新 `VLLM_CACHE_ROOT` 生效） |
+| 短请求 | HTTP 200 / `stop` / usage 25-8-33 / **0.371 s**，输出与前述各次一致 |
+| 四次运行一致性 | `e5`(0.397s) → `e5b`(0.394s) → `e6`(0.404s) → `e6b`(0.371s)，usage 与输出文本逐次相同 |
+
 另做一次**非贪心冒烟**（`temperature=0.7, top_p=0.95, top_k=20`，`--tag e5b-sampling`）：HTTP 200、
 `finish_reason=stop`、0.422 s、输出非空——用于证明 FlashInfer 采样路径在**运行时**确实被走到，
 而不只是编译通过。**该冒烟不产生任何质量或性能结论。**
@@ -200,6 +230,23 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
 ## 6. 环境缺陷修复记录与剩余建议
 
 ### 6.1 已修复：CUDA 套件 minor 版本不一致 + 前缀缺少 JIT 链接件（2026-09-18，经用户授权）
+
+**最终状态（全部已授权修复完成后）**
+
+| 组件 | 修复前 | 最终 | 说明 |
+| --- | --- | --- | --- |
+| `nvidia-cuda-runtime` | 13.0.96 | **13.4.92** | 与 nvcc 对齐（头文件 `CUDA_VERSION=13040`） |
+| `nvidia-cuda-nvrtc` | 13.0.88 | **13.4.92** | 同批对齐 |
+| `nvidia-cuda-cupti` | 13.0.85 | **13.4.92** | 同批对齐 |
+| `nvidia-cuda-nvcc` / `crt` | 13.4.92 | 13.4.92 | 本来就一致 |
+| `nvidia-cuda-cccl` | 13.3.4.3.1 | 13.3.4.3.1 | **不动**：上游 redist 无 13.4.x（最高 13.3.4.3） |
+
+- 依赖清单：197 行未变，仅上述 3 行版本变化；`pip check` 干净。三段快照与差异见 `dependency-delta.md`
+  与 `requirements.freeze.txt`（修复前的 `cuda-upgrade-freeze-before.txt` 原样保留）。
+- 缓存位置：`env.sh` 新增 `VLLM_CACHE_ROOT=$ATTNVIEW_HOME/caches/vllm` 与
+  `FLASHINFER_WORKSPACE_BASE=$ATTNVIEW_HOME/caches`；已把系统盘既有的 243 MB(vLLM) + 7 MB(FlashInfer)
+  迁到数据盘（现 270 MB + 14 MB），系统盘不再被这两类缓存增长挤占。
+- 重建顺序见 `environment-rebuild.md`。
 
 - **现象**：FlashInfer 的 JIT 路径整体不可用。先表现为 sampling 算子编译期失败
   （CCCL `cuda/std/__cccl/cuda_toolkit.h:41` 的 `#error`，因为 `nvcc 13.4` 对 `cuda.h 13.0`），
@@ -216,22 +263,24 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
   幂等、重跑结果一致；`verify-runtime.sh` 仍全项通过。
 - **验证**：`sampling.so` JIT 构建成功（2.3 MB）；服务以**无任何规避 flag** 的命令启动并打印
   `Using FlashInfer for top-p & top-k sampling.`；KV/块数/容量与修复前逐项相同；非贪心采样冒烟通过（§5）。
-- **剩余同类风险**：`nvidia-cuda-nvrtc 13.0.88`、`nvidia-cuda-cupti 13.0.85`、`nvidia-cuda-cccl 13.3.4.3.1`
-  仍与本套 13.4.92 有 minor 偏斜。它们不代表当前有阻塞（nvrtc 走 torch/triton 自带路径，cupti 仅 profiling），
-  但若后续出现"某算子 JIT 行为异常"，应优先按同一口径统一到 13.4.x 再排查。
+- **剩余同类风险（已收敛）**：`nvidia-cuda-nvrtc` / `nvidia-cuda-cupti` 已同批升到 13.4.92；
+  仅 `nvidia-cuda-cccl 13.3.4.3.1` 保持在 13.3.4.3.x，因为**上游不存在 13.4.x 的 cccl**
+  （redist 中 cccl 的最高版本即 13.3.4.3）。当前无阻塞；若日后出现某算子 JIT 行为异常，
+  应先确认是否与 cccl 的版本上限有关。
 
-### 6.2 建议在 env.sh 增加 `VLLM_CACHE_ROOT`（未改，待你确认）
+### 6.2 已处理：`VLLM_CACHE_ROOT` / FlashInfer 缓存改到数据盘
 
-vLLM 的 `torch.compile` 与 FlashInfer autotune 缓存默认落 `~/.cache/vllm`（系统盘，仅剩 18 GiB），
-本次已写入约 200 MB。建议在 `env.sh` 增加 `VLLM_CACHE_ROOT="$ATTNVIEW_HOME/caches/vllm"`。
-该文件属阶段 01 脚本范围，本阶段未擅自改动。
+`env.sh` 现有两行（见 §6.1 最终状态表）：`VLLM_CACHE_ROOT="$ATTNVIEW_HOME/caches/vllm"` 与
+`FLASHINFER_WORKSPACE_BASE="$ATTNVIEW_HOME/caches"`（后者使 FlashInfer 的 JIT 缓存落在
+`$ATTNVIEW_HOME/caches/.cache/flashinfer`，沿用上游布局）。既有缓存已迁移，并在最终复跑中验证新路径生效。
 
 ### 6.3 其余需带入下一阶段的约束
 
 1. **`max_num_seqs` 受 mamba 块池硬约束**：本配置下上限 652（实测值，随 gmu/长度变化）。
    下一阶段做容量/并发扫描（P0 C/D）时必须显式设置，否则默认 1024 会直接启动失败。
-2. **`kernel_block_size` 未冻结**：仅代码推导为 16，日志与 `/metrics` 均不输出。下一阶段若要在
-   P2 依赖块对齐，建议先用一行探针（读 model runner 的 `_kernel_block_sizes`）把它变成实测值。
+2. **`kernel_block_size` 已实测为 784（等于 manager 块，无拆分）**，但仍**未冻结为契约**：
+   v0.29.0 不打印该值，需要 `tools/e4-kernel-block-probe.sh` 这类注入式探针才能观测（见 §4.3 第 3 项）。
+   下一阶段若要依赖块对齐，应把该探针纳入常规取证，并在每次改动 `--block-size`/模型后重测。
 3. 容器可用 RAM 报 **63.22 GiB**（vLLM 视角；阶段 01 的 `MemTotal` 为 ≈1007 GiB），加载 51.75 GiB 权重可行但余量不大，
    与后续是否开启 prefetch/多进程有关，记录备查。
 
@@ -239,7 +288,8 @@ vLLM 的 `torch.compile` 与 FlashInfer autotune 缓存默认落 `~/.cache/vllm`
 
 1. 模型是**原生 VL**（vision tower 参与加载与 profiling），方案 §3 未记录；§3.2 的"纯文本可少加载模块"未发生。
 2. CUDA Graph 实际为 **FULL_AND_PIECEWISE 并成功捕获 FULL 图**，与方案 §3.1 的 `UNIFORM_BATCH` 预期不符。
-3. 框架块大小是 **784 token**（非 16），与 kernel 块 16 通过 hybrid blocks 桥接；论文时代的 16/32 假设与本栈无关。
+3. 框架/manager 块大小是 **784 token**（非 16）；**kernel 块大小实测同为 784、不做 hybrid 拆分**
+   （见 §4.3 第 3 项）。论文时代的 16/32 假设与本栈无关。
 4. `enable_prefix_caching` **默认开启**，因此 `mamba_cache_mode` 自动取 `align`——方案首版列为"明确不支持 prefix caching"，
    下一阶段需决定是否 `--no-enable-prefix-caching` 并记录其对照影响。
 5. 上游 `crc32.txt` 对 3 个文件陈旧。
@@ -261,20 +311,24 @@ CUDA Graph 下读取视图可用性；prefix caching 与 DA 的交互；第二�
 | 权重落数据盘且校验通过 | 支持 | 32/32 大小、19/19 LFS sha256、总字节精确一致 |
 | config / tokenizer / 模板核对 | 支持（含 6 处与方案的差异） | E3 JSON + 渲染样例 |
 | 原版服务可启动并留完整日志 | 支持（修复后**无任何规避 flag**） | E4/E4b 日志 + `/health` 200 |
-| backend / 块大小 / 图模式 / dtype / KV 预算取证 | 支持（`kernel_block_size` 仅为代码推导，未冻结） | E4 日志 + `/metrics` |
+| backend / 块大小 / 图模式 / dtype / KV 预算取证 | 支持（kernel 块大小已有运行时实测值 784） | E4 日志 + `/metrics` + `e4-kernel-block-probe.json` |
 | 一次短生成成功且原始请求响应留档 | 支持 | E5 JSON |
-| 干净会话可复跑 | 支持 | E6 日志（逐项一致） |
+| 干净会话可复跑（最终配置） | 支持 | `serve-e6b.log` + `e6b-record.json`（修复前的 E6 已被其取代） |
 | FlashInfer JIT 路径可用 | **支持（修复后）** | 修复前失败日志 attempt3 + 修复后 `sampling.so` 与 `serve-e4b.log` |
 | 长上下文、容量、性能、质量、DA | 本阶段未验证 | — |
 
 ## 10. 原始产物位置（远端）
 
-- 日志：`/root/attnview/logs/serve-e4.log`（修复前，含规避）、`serve-e4b.log`（修复后，无规避）、`serve-e6.log`、
+- 日志：`/root/attnview/logs/serve-e4.log`（修复前，含规避）、`serve-e4b.log`（修复后，无规避）、
+  `serve-e4c.log`（kernel 块大小探针）、`serve-e6.log`（修复前的旧复跑，已被取代）、`serve-e6b.log`（最终配置复跑）、
   `serve-e4-attempt{1,2,3}-*.log`（三次失败原始日志）
 - 证据：`/root/attnview/evidence/p0-model/`（E1/E2/E3/E5/E6 的 JSON 与控制台输出、`e4-metrics.txt`、`e4b-metrics.txt`、
-  `e6-metrics.txt`、`e4-extract.json`、`e6-extract.json`、`e5b-*` 与 `e5b-sampling-*` 记录、
-  `cuda-upgrade-freeze-{before,after}.txt`）
+  `e4c`/`e6b` 相关记录、`e4-extract.json`、`e6-extract.json`、`e5b-*` 与 `e5b-sampling-*`、
+  `e4-kernel-block-probe.json`（kernel 块大小实测）、
+  `cuda-upgrade-freeze-{before,after,final}.txt` 与 `requirements.freeze.txt`）
 - 启动前预置基线（含事前推断与事中更正）：`/root/attnview/evidence/p0-model/e4-expected-baseline.md`
 - 环境探针：`/root/attnview/evidence/after-model/env-report-20260917-1910.md`
-- 可复跑命令：`/root/attnview/tools/serve-vanilla.sh`（= 本目录 `serve-command.sh` 的实现）
+- 可复跑命令：`/root/attnview/tools/serve-vanilla.sh`（= 本目录 `serve-command.sh` 的实现）；
+  kernel 块大小探针：`/root/attnview/tools/e4-kernel-block-probe.sh` + `tools/kbs-probe/sitecustomize.py`
 - CUDA 前缀修复：`/root/attnview/setup-local-cuda.sh` 第 4 步（版本一致性校验 + dev 链接 + 官方驱动 stub + 链接自检）
+- 依赖差异与重建顺序：本目录 `dependency-delta.md`、`environment-rebuild.md`
