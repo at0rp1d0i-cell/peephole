@@ -36,9 +36,10 @@ GROUPS: dict[str, list[str]] = {
         r"mamba",
     ],
     "block_size": [
-        r"block_?size",
+        r"block[\s_\-]?size",
         r"kernel_block",
         r"mamba[_-]block[_-]size",
+        r"page size",
     ],
     "cudagraph": [
         r"cudagraph",

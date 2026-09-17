@@ -1,0 +1,990 @@
+{
+  "logs": {
+    "logs/serve-e6.log": {
+      "lines": 287
+    }
+  },
+  "groups": {
+    "dtype_and_loading": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 3,
+        "text": "CMD: HF_HUB_OFFLINE=1 VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 --served-model-name qwen3.8-27b --host 127.0.0.1 --port 8000 --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 8192 --max-num-seqs 256 --gpu-memory-utilization 0.90 "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 15,
+        "text": "(APIServer pid=94068) INFO 09-18 03:08:42 [api_utils.py:286] non-default args: {'model_tag': 'Qwen/Qwen3.8-27B', 'host': '127.0.0.1', 'model': 'Qwen/Qwen3.8-27B', 'dtype': 'bfloat16', 'revision': '1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 'max_model_len': 8192, 'served_model_name': ['qwen3.8-27b'], 'gpu_memory_utilization': 0.9, 'max_num_seqs': 256}"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 23,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 77,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:10 [default_loader.py:430] Loading weights took 10.64 seconds"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 78,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [model_runner.py:404] Model loading took 51.1 GiB memory and 12.355386 seconds"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 149,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM"
+      }
+    ],
+    "attention_backend": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 3,
+        "text": "CMD: HF_HUB_OFFLINE=1 VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 --served-model-name qwen3.8-27b --host 127.0.0.1 --port 8000 --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 8192 --max-num-seqs 256 --gpu-memory-utilization 0.90 "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 20,
+        "text": "(APIServer pid=94068) INFO 09-18 03:08:43 [config.py:625] Mamba cache mode is set to 'align' for Qwen3_5ForConditionalGeneration by default when prefix caching is enabled"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 23,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 28,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [cuda.py:551] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 29,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 30,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [qwen_gdn_linear_attn.py:167] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128)."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 31,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [qwen_gdn_linear_attn.py:519] GDN decode kernel: cuda"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 32,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [cuda.py:492] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION']."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 33,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [flash_attn.py:897] Using FlashAttention version 2"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 79,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 80,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:918] Setting attention block size to 784 tokens to ensure that attention page size is >= mamba page size."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 81,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:942] Padding mamba page size by 0.13% to ensure that mamba page size and attention page size are exactly equal."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 154,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [kernel_warmup.py:309] Using FlashInfer autotune cache file: /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 155,
+        "text": "(EngineCore pid=94530) 2026-09-18 03:09:37,566 - INFO - autotuner.py:2789 - flashinfer.jit: [Autotuner]: Loaded 0 configs from /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 156,
+        "text": "(EngineCore pid=94530) 2026-09-18 03:09:37,567 - INFO - autotuner.py:972 - flashinfer.jit: [Autotuner]: Autotuning process starts ..."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 157,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [kernel_warmup.py:266] Running FlashInfer autotune with 8192 tokens."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 158,
+        "text": "(EngineCore pid=94530) 2026-09-18 03:09:37,581 - INFO - autotuner.py:995 - flashinfer.jit: [Autotuner]: Autotuning process ends"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 159,
+        "text": "(EngineCore pid=94530) 2026-09-18 03:09:37,588 - INFO - autotuner.py:2652 - flashinfer.jit: [Autotuner]: Saved 0 configs to /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json (0 new, 0 from previous config)"
+      }
+    ],
+    "block_size": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 80,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:918] Setting attention block size to 784 tokens to ensure that attention page size is >= mamba page size."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 81,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:942] Padding mamba page size by 0.13% to ensure that mamba page size and attention page size are exactly equal."
+      }
+    ],
+    "cudagraph": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 23,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 85,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:20 [caching.py:343] reconstructed serializable fn from standalone compile artifacts. num_artifacts=21 num_submods=65"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 86,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:21 [decorators.py:313] Directly load AOT compilation from path /root/.cache/vllm/torch_compile_cache/torch_aot_compile/6a13274dc5a8c0d905f65d1adc35dfc988b021d80ea3fb77ece8804c680d660e/rank_0_0/model"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 87,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:21 [monitor.py:53] torch.compile took 1.11 s in total"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 90,
+        "text": "Capturing CUDA graphs (PIECEWISE):   0%|          | 0/51 [00:00<?, ?it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 91,
+        "text": "Capturing CUDA graphs (PIECEWISE):   2%|▏         | 1/51 [00:01<00:50,  1.00s/it]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 92,
+        "text": "Capturing CUDA graphs (PIECEWISE):   4%|▍         | 2/51 [00:01<00:43,  1.13it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 93,
+        "text": "Capturing CUDA graphs (PIECEWISE):   6%|▌         | 3/51 [00:02<00:38,  1.25it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 94,
+        "text": "Capturing CUDA graphs (PIECEWISE):   8%|▊         | 4/51 [00:03<00:35,  1.31it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 95,
+        "text": "Capturing CUDA graphs (PIECEWISE):  10%|▉         | 5/51 [00:03<00:32,  1.40it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 96,
+        "text": "Capturing CUDA graphs (PIECEWISE):  12%|█▏        | 6/51 [00:04<00:30,  1.50it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 97,
+        "text": "Capturing CUDA graphs (PIECEWISE):  14%|█▎        | 7/51 [00:04<00:27,  1.59it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 98,
+        "text": "Capturing CUDA graphs (PIECEWISE):  16%|█▌        | 8/51 [00:05<00:25,  1.71it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 99,
+        "text": "Capturing CUDA graphs (PIECEWISE):  18%|█▊        | 9/51 [00:06<00:24,  1.73it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 100,
+        "text": "Capturing CUDA graphs (PIECEWISE):  20%|█▉        | 10/51 [00:06<00:22,  1.85it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 101,
+        "text": "Capturing CUDA graphs (PIECEWISE):  22%|██▏       | 11/51 [00:06<00:20,  1.98it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 102,
+        "text": "Capturing CUDA graphs (PIECEWISE):  24%|██▎       | 12/51 [00:07<00:18,  2.15it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 103,
+        "text": "Capturing CUDA graphs (PIECEWISE):  25%|██▌       | 13/51 [00:07<00:16,  2.33it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 104,
+        "text": "Capturing CUDA graphs (PIECEWISE):  27%|██▋       | 14/51 [00:07<00:14,  2.54it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 105,
+        "text": "Capturing CUDA graphs (PIECEWISE):  29%|██▉       | 15/51 [00:08<00:12,  2.81it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 106,
+        "text": "Capturing CUDA graphs (PIECEWISE):  31%|███▏      | 16/51 [00:08<00:11,  3.13it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 107,
+        "text": "Capturing CUDA graphs (PIECEWISE):  33%|███▎      | 17/51 [00:08<00:09,  3.47it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 108,
+        "text": "Capturing CUDA graphs (PIECEWISE):  35%|███▌      | 18/51 [00:08<00:07,  4.17it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 109,
+        "text": "Capturing CUDA graphs (PIECEWISE):  37%|███▋      | 19/51 [00:08<00:06,  4.83it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 110,
+        "text": "Capturing CUDA graphs (PIECEWISE):  39%|███▉      | 20/51 [00:09<00:05,  5.44it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 111,
+        "text": "Capturing CUDA graphs (PIECEWISE):  41%|████      | 21/51 [00:09<00:05,  5.98it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 112,
+        "text": "Capturing CUDA graphs (PIECEWISE):  43%|████▎     | 22/51 [00:09<00:04,  6.45it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 113,
+        "text": "Capturing CUDA graphs (PIECEWISE):  45%|████▌     | 23/51 [00:09<00:04,  6.80it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 114,
+        "text": "Capturing CUDA graphs (PIECEWISE):  47%|████▋     | 24/51 [00:09<00:03,  7.07it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 115,
+        "text": "Capturing CUDA graphs (PIECEWISE):  49%|████▉     | 25/51 [00:09<00:03,  7.25it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 116,
+        "text": "Capturing CUDA graphs (PIECEWISE):  51%|█████     | 26/51 [00:09<00:03,  7.36it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 117,
+        "text": "Capturing CUDA graphs (PIECEWISE):  53%|█████▎    | 27/51 [00:09<00:03,  7.28it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 118,
+        "text": "Capturing CUDA graphs (PIECEWISE):  55%|█████▍    | 28/51 [00:10<00:03,  7.42it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 119,
+        "text": "Capturing CUDA graphs (PIECEWISE):  57%|█████▋    | 29/51 [00:10<00:02,  7.54it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 120,
+        "text": "Capturing CUDA graphs (PIECEWISE):  59%|█████▉    | 30/51 [00:10<00:02,  7.58it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 121,
+        "text": "Capturing CUDA graphs (PIECEWISE):  61%|██████    | 31/51 [00:10<00:02,  7.63it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 122,
+        "text": "Capturing CUDA graphs (PIECEWISE):  63%|██████▎   | 32/51 [00:10<00:02,  7.68it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 123,
+        "text": "Capturing CUDA graphs (PIECEWISE):  65%|██████▍   | 33/51 [00:10<00:02,  7.76it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 124,
+        "text": "Capturing CUDA graphs (PIECEWISE):  67%|██████▋   | 34/51 [00:10<00:02,  7.82it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 125,
+        "text": "Capturing CUDA graphs (PIECEWISE):  69%|██████▊   | 35/51 [00:10<00:02,  7.87it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 126,
+        "text": "Capturing CUDA graphs (PIECEWISE):  71%|███████   | 36/51 [00:11<00:01,  7.78it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 127,
+        "text": "Capturing CUDA graphs (PIECEWISE):  73%|███████▎  | 37/51 [00:11<00:01,  7.46it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 128,
+        "text": "Capturing CUDA graphs (PIECEWISE):  75%|███████▍  | 38/51 [00:11<00:01,  7.65it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 129,
+        "text": "Capturing CUDA graphs (PIECEWISE):  76%|███████▋  | 39/51 [00:11<00:01,  7.81it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 130,
+        "text": "Capturing CUDA graphs (PIECEWISE):  78%|███████▊  | 40/51 [00:11<00:01,  6.67it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 131,
+        "text": "Capturing CUDA graphs (PIECEWISE):  80%|████████  | 41/51 [00:11<00:01,  6.97it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 132,
+        "text": "Capturing CUDA graphs (PIECEWISE):  82%|████████▏ | 42/51 [00:11<00:01,  7.25it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 133,
+        "text": "Capturing CUDA graphs (PIECEWISE):  84%|████████▍ | 43/51 [00:12<00:01,  7.39it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 134,
+        "text": "Capturing CUDA graphs (PIECEWISE):  86%|████████▋ | 44/51 [00:12<00:00,  7.57it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 135,
+        "text": "Capturing CUDA graphs (PIECEWISE):  88%|████████▊ | 45/51 [00:12<00:00,  7.73it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 136,
+        "text": "Capturing CUDA graphs (PIECEWISE):  90%|█████████ | 46/51 [00:12<00:00,  7.68it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 137,
+        "text": "Capturing CUDA graphs (PIECEWISE):  92%|█████████▏| 47/51 [00:12<00:00,  7.78it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 138,
+        "text": "Capturing CUDA graphs (PIECEWISE):  94%|█████████▍| 48/51 [00:12<00:00,  7.88it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 139,
+        "text": "Capturing CUDA graphs (PIECEWISE):  96%|█████████▌| 49/51 [00:12<00:00,  7.95it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 140,
+        "text": "Capturing CUDA graphs (PIECEWISE):  98%|█████████▊| 50/51 [00:12<00:00,  7.98it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 141,
+        "text": "Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:13<00:00,  7.83it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 142,
+        "text": "Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:13<00:00,  3.90it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 144,
+        "text": "Capturing CUDA graphs (FULL):   0%|          | 0/2 [00:00<?, ?it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 145,
+        "text": "Capturing CUDA graphs (FULL): 100%|██████████| 2/2 [00:00<00:00, 11.58it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 146,
+        "text": "Capturing CUDA graphs (FULL): 100%|██████████| 2/2 [00:00<00:00, 11.57it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 147,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:36 [model_runner.py:960] Graph capturing finished in 14 secs, took 0.62 GiB"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 149,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 161,
+        "text": "Capturing CUDA graphs (PIECEWISE):   0%|          | 0/51 [00:00<?, ?it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 162,
+        "text": "Capturing CUDA graphs (PIECEWISE):   2%|▏         | 1/51 [00:00<00:37,  1.34it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 163,
+        "text": "Capturing CUDA graphs (PIECEWISE):   4%|▍         | 2/51 [00:01<00:38,  1.28it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 164,
+        "text": "Capturing CUDA graphs (PIECEWISE):   6%|▌         | 3/51 [00:02<00:35,  1.36it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 165,
+        "text": "Capturing CUDA graphs (PIECEWISE):   8%|▊         | 4/51 [00:02<00:33,  1.39it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 166,
+        "text": "Capturing CUDA graphs (PIECEWISE):  10%|▉         | 5/51 [00:03<00:31,  1.46it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 167,
+        "text": "Capturing CUDA graphs (PIECEWISE):  12%|█▏        | 6/51 [00:04<00:29,  1.55it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 168,
+        "text": "Capturing CUDA graphs (PIECEWISE):  14%|█▎        | 7/51 [00:04<00:26,  1.64it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 169,
+        "text": "Capturing CUDA graphs (PIECEWISE):  16%|█▌        | 8/51 [00:05<00:24,  1.75it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 170,
+        "text": "Capturing CUDA graphs (PIECEWISE):  18%|█▊        | 9/51 [00:05<00:22,  1.84it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 171,
+        "text": "Capturing CUDA graphs (PIECEWISE):  20%|█▉        | 10/51 [00:06<00:21,  1.95it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 172,
+        "text": "Capturing CUDA graphs (PIECEWISE):  22%|██▏       | 11/51 [00:06<00:20,  1.96it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 173,
+        "text": "Capturing CUDA graphs (PIECEWISE):  24%|██▎       | 12/51 [00:06<00:18,  2.12it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 174,
+        "text": "Capturing CUDA graphs (PIECEWISE):  25%|██▌       | 13/51 [00:07<00:16,  2.32it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 175,
+        "text": "Capturing CUDA graphs (PIECEWISE):  27%|██▋       | 14/51 [00:07<00:14,  2.55it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 176,
+        "text": "Capturing CUDA graphs (PIECEWISE):  29%|██▉       | 15/51 [00:07<00:12,  2.80it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 177,
+        "text": "Capturing CUDA graphs (PIECEWISE):  31%|███▏      | 16/51 [00:08<00:11,  3.13it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 178,
+        "text": "Capturing CUDA graphs (PIECEWISE):  33%|███▎      | 17/51 [00:08<00:08,  3.83it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 179,
+        "text": "Capturing CUDA graphs (PIECEWISE):  35%|███▌      | 18/51 [00:08<00:07,  4.53it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 180,
+        "text": "Capturing CUDA graphs (PIECEWISE):  37%|███▋      | 19/51 [00:08<00:06,  5.21it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 181,
+        "text": "Capturing CUDA graphs (PIECEWISE):  39%|███▉      | 20/51 [00:08<00:05,  5.81it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 182,
+        "text": "Capturing CUDA graphs (PIECEWISE):  41%|████      | 21/51 [00:08<00:04,  6.32it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 183,
+        "text": "Capturing CUDA graphs (PIECEWISE):  43%|████▎     | 22/51 [00:08<00:04,  6.73it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 184,
+        "text": "Capturing CUDA graphs (PIECEWISE):  45%|████▌     | 23/51 [00:08<00:03,  7.06it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 185,
+        "text": "Capturing CUDA graphs (PIECEWISE):  47%|████▋     | 24/51 [00:09<00:03,  7.30it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 186,
+        "text": "Capturing CUDA graphs (PIECEWISE):  49%|████▉     | 25/51 [00:09<00:03,  7.42it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 187,
+        "text": "Capturing CUDA graphs (PIECEWISE):  51%|█████     | 26/51 [00:09<00:03,  7.53it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 188,
+        "text": "Capturing CUDA graphs (PIECEWISE):  53%|█████▎    | 27/51 [00:09<00:03,  7.61it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 189,
+        "text": "Capturing CUDA graphs (PIECEWISE):  55%|█████▍    | 28/51 [00:09<00:02,  7.68it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 190,
+        "text": "Capturing CUDA graphs (PIECEWISE):  57%|█████▋    | 29/51 [00:09<00:02,  7.74it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 191,
+        "text": "Capturing CUDA graphs (PIECEWISE):  59%|█████▉    | 30/51 [00:09<00:02,  7.79it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 192,
+        "text": "Capturing CUDA graphs (PIECEWISE):  61%|██████    | 31/51 [00:10<00:02,  7.58it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 193,
+        "text": "Capturing CUDA graphs (PIECEWISE):  63%|██████▎   | 32/51 [00:10<00:02,  7.66it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 194,
+        "text": "Capturing CUDA graphs (PIECEWISE):  65%|██████▍   | 33/51 [00:10<00:02,  7.80it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 195,
+        "text": "Capturing CUDA graphs (PIECEWISE):  67%|██████▋   | 34/51 [00:10<00:02,  7.90it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 196,
+        "text": "Capturing CUDA graphs (PIECEWISE):  69%|██████▊   | 35/51 [00:10<00:02,  7.97it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 197,
+        "text": "Capturing CUDA graphs (PIECEWISE):  71%|███████   | 36/51 [00:10<00:01,  8.02it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 198,
+        "text": "Capturing CUDA graphs (PIECEWISE):  73%|███████▎  | 37/51 [00:10<00:01,  8.05it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 199,
+        "text": "Capturing CUDA graphs (PIECEWISE):  75%|███████▍  | 38/51 [00:10<00:01,  8.06it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 200,
+        "text": "Capturing CUDA graphs (PIECEWISE):  76%|███████▋  | 39/51 [00:11<00:01,  8.08it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 201,
+        "text": "Capturing CUDA graphs (PIECEWISE):  78%|███████▊  | 40/51 [00:11<00:01,  7.93it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 202,
+        "text": "Capturing CUDA graphs (PIECEWISE):  80%|████████  | 41/51 [00:11<00:01,  7.99it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 203,
+        "text": "Capturing CUDA graphs (PIECEWISE):  82%|████████▏ | 42/51 [00:11<00:01,  8.06it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 204,
+        "text": "Capturing CUDA graphs (PIECEWISE):  84%|████████▍ | 43/51 [00:11<00:01,  7.04it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 205,
+        "text": "Capturing CUDA graphs (PIECEWISE):  86%|████████▋ | 44/51 [00:11<00:00,  7.23it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 206,
+        "text": "Capturing CUDA graphs (PIECEWISE):  88%|████████▊ | 45/51 [00:11<00:00,  7.23it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 207,
+        "text": "Capturing CUDA graphs (PIECEWISE):  90%|█████████ | 46/51 [00:11<00:00,  7.48it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 208,
+        "text": "Capturing CUDA graphs (PIECEWISE):  92%|█████████▏| 47/51 [00:12<00:00,  7.70it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 209,
+        "text": "Capturing CUDA graphs (PIECEWISE):  94%|█████████▍| 48/51 [00:12<00:00,  7.71it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 210,
+        "text": "Capturing CUDA graphs (PIECEWISE):  96%|█████████▌| 49/51 [00:12<00:00,  7.84it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 211,
+        "text": "Capturing CUDA graphs (PIECEWISE):  98%|█████████▊| 50/51 [00:12<00:00,  7.90it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 212,
+        "text": "Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:12<00:00,  8.07it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 213,
+        "text": "Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:12<00:00,  4.06it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 215,
+        "text": "Capturing CUDA graphs (FULL):   0%|          | 0/35 [00:00<?, ?it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 216,
+        "text": "Capturing CUDA graphs (FULL):   6%|▌         | 2/35 [00:00<00:02, 12.63it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 217,
+        "text": "Capturing CUDA graphs (FULL):  11%|█▏        | 4/35 [00:00<00:02, 12.57it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 218,
+        "text": "Capturing CUDA graphs (FULL):  17%|█▋        | 6/35 [00:00<00:02, 12.62it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 219,
+        "text": "Capturing CUDA graphs (FULL):  23%|██▎       | 8/35 [00:00<00:02, 12.58it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 220,
+        "text": "Capturing CUDA graphs (FULL):  29%|██▊       | 10/35 [00:00<00:02, 12.37it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 221,
+        "text": "Capturing CUDA graphs (FULL):  34%|███▍      | 12/35 [00:00<00:01, 12.43it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 222,
+        "text": "Capturing CUDA graphs (FULL):  40%|████      | 14/35 [00:01<00:01, 12.51it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 223,
+        "text": "Capturing CUDA graphs (FULL):  46%|████▌     | 16/35 [00:01<00:01, 12.64it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 224,
+        "text": "Capturing CUDA graphs (FULL):  51%|█████▏    | 18/35 [00:01<00:01, 12.94it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 225,
+        "text": "Capturing CUDA graphs (FULL):  57%|█████▋    | 20/35 [00:01<00:01, 13.07it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 226,
+        "text": "Capturing CUDA graphs (FULL):  63%|██████▎   | 22/35 [00:01<00:00, 13.28it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 227,
+        "text": "Capturing CUDA graphs (FULL):  69%|██████▊   | 24/35 [00:01<00:00, 13.58it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 228,
+        "text": "Capturing CUDA graphs (FULL):  74%|███████▍  | 26/35 [00:01<00:00, 13.74it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 229,
+        "text": "Capturing CUDA graphs (FULL):  80%|████████  | 28/35 [00:02<00:00, 13.96it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 230,
+        "text": "Capturing CUDA graphs (FULL):  86%|████████▌ | 30/35 [00:02<00:00, 14.06it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 231,
+        "text": "Capturing CUDA graphs (FULL):  91%|█████████▏| 32/35 [00:02<00:00, 14.19it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 232,
+        "text": "Capturing CUDA graphs (FULL):  97%|█████████▋| 34/35 [00:02<00:00, 14.37it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 233,
+        "text": "Capturing CUDA graphs (FULL): 100%|██████████| 35/35 [00:02<00:00, 13.41it/s]"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 234,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:53 [model_runner.py:960] Graph capturing finished in 16 secs, took 0.30 GiB"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 235,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:53 [gpu_worker.py:797] CUDA graph pool memory: 0.3 GiB (actual), 0.69 GiB (estimated), difference: 0.39 GiB (130.5%)."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 236,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:53 [gpu_worker.py:860] Free memory on device (94.43/94.97 GiB) on startup. Desired GPU memory utilization is (0.9, 85.47 GiB). Actual usage is 51.65 GiB for consumed memory (weights + non-torch), 2.58 GiB for peak activation, and 0.3 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=33065392026` (30.79 GiB) to fit into r"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 237,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:54 [jit_monitor.py:85] Kernel JIT monitor activated; monitored JIT compilations during inference will use mode=warn."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 238,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:55 [core.py:361] init engine (profile, create kv cache, warmup model) took 44.06 s (compilation: 1.11 s)"
+      }
+    ],
+    "kv_cache": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 23,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 82,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [utils.py:306] Using LBNHC KV cache layout."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 148,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:625] Available KV cache memory: 31.24 GiB"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 149,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 150,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [kv_cache_utils.py:2032] GPU KV cache size: 314,187 tokens, Maximum concurrency for 8,192 tokens per request: 38.35x"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 236,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:53 [gpu_worker.py:860] Free memory on device (94.43/94.97 GiB) on startup. Desired GPU memory utilization is (0.9, 85.47 GiB). Actual usage is 51.65 GiB for consumed memory (weights + non-torch), 2.58 GiB for peak activation, and 0.3 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=33065392026` (30.79 GiB) to fit into r"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 238,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:55 [core.py:361] init engine (profile, create kv cache, warmup model) took 44.06 s (compilation: 1.11 s)"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 287,
+        "text": "(APIServer pid=94068) INFO 09-18 03:10:24 [loggers.py:310] Engine 000: Avg prompt throughput: 1.7 tokens/s, Avg generation throughput: 0.6 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%"
+      }
+    ],
+    "context_and_scheduling": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 15,
+        "text": "(APIServer pid=94068) INFO 09-18 03:08:42 [api_utils.py:286] non-default args: {'model_tag': 'Qwen/Qwen3.8-27B', 'host': '127.0.0.1', 'model': 'Qwen/Qwen3.8-27B', 'dtype': 'bfloat16', 'revision': '1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 'max_model_len': 8192, 'served_model_name': ['qwen3.8-27b'], 'gpu_memory_utilization': 0.9, 'max_num_seqs': 256}"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 19,
+        "text": "(APIServer pid=94068) INFO 09-18 03:08:43 [scheduler.py:277] Chunked prefill is enabled with max_num_batched_tokens=8192."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 20,
+        "text": "(APIServer pid=94068) INFO 09-18 03:08:43 [config.py:625] Mamba cache mode is set to 'align' for Qwen3_5ForConditionalGeneration by default when prefix caching is enabled"
+      }
+    ],
+    "startup_timing": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 77,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:10 [default_loader.py:430] Loading weights took 10.64 seconds"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 78,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [model_runner.py:404] Model loading took 51.1 GiB memory and 12.355386 seconds"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 87,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:21 [monitor.py:53] torch.compile took 1.11 s in total"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 88,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:22 [monitor.py:81] Initial profiling/warmup run took 1.25 s"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 147,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:36 [model_runner.py:960] Graph capturing finished in 14 secs, took 0.62 GiB"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 234,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:53 [model_runner.py:960] Graph capturing finished in 16 secs, took 0.30 GiB"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 238,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:55 [core.py:361] init engine (profile, create kv cache, warmup model) took 44.06 s (compilation: 1.11 s)"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 246,
+        "text": "(APIServer pid=94068) INFO 09-18 03:10:13 [entry.py:139] Starting vLLM server on http://127.0.0.1:8000"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 279,
+        "text": "(APIServer pid=94068) INFO:     Started server process [94068]"
+      }
+    ],
+    "warnings_and_degradation": [
+      {
+        "log": "logs/serve-e6.log",
+        "line": 22,
+        "text": "(APIServer pid=94068) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend=\"torchvision\"` instead of `use_fast=True`, or `backend=\"pil\"` instead of `use_fast=False`."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 23,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 35,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:08:59 [weight_utils.py:886] Auto-prefetch is disabled because the filesystem (XFS) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 79,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:11 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 83,
+        "text": "(EngineCore pid=94530) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend=\"torchvision\"` instead of `use_fast=True`, or `backend=\"pil\"` instead of `use_fast=False`."
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 149,
+        "text": "(EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM"
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 242,
+        "text": "(APIServer pid=94068) [transformers] Qwen3VL video processing does not apply the per-frame pixel cap the reference implementation (qwen-vl-utils) applies, so some videos cost far more tokens than they would there. In v5.22 the capped behavior will become the default and `cap_pixels_per_frame` will be removed. Pass `cap_pixels_per_frame=True` to adopt the reference behavior now, or `False` to keep "
+      },
+      {
+        "log": "logs/serve-e6.log",
+        "line": 245,
+        "text": "(APIServer pid=94068) WARNING 09-18 03:10:13 [model.py:1759] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`."
+      }
+    ]
+  }
+}

@@ -1,0 +1,133 @@
+
+=== dtype_and_loading (6 hits) ===
+  logs/serve-e6.log:3: CMD: HF_HUB_OFFLINE=1 VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 --served-model-name qwen3.8-27b --host 127.0.0.1 --port 8000 --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 8192 --max-num-seqs 256 --gpu-memory-utilization 0.90 
+  logs/serve-e6.log:15: (APIServer pid=94068) INFO 09-18 03:08:42 [api_utils.py:286] non-default args: {'model_tag': 'Qwen/Qwen3.8-27B', 'host': '127.0.0.1', 'model': 'Qwen/Qwen3.8-27B', 'dtype': 'bfloat16', 'revision': '1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 'max_model_len': 8192, 'served_model_name': ['qwen3.8-27b'], 'gpu_memory_utilization': 0.9, 'max_num_seqs': 256}
+  logs/serve-e6.log:23: (EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 
+  logs/serve-e6.log:77: (EngineCore pid=94530) INFO 09-18 03:09:10 [default_loader.py:430] Loading weights took 10.64 seconds
+  logs/serve-e6.log:78: (EngineCore pid=94530) INFO 09-18 03:09:11 [model_runner.py:404] Model loading took 51.1 GiB memory and 12.355386 seconds
+  logs/serve-e6.log:149: (EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM
+
+=== attention_backend (18 hits) ===
+  logs/serve-e6.log:3: CMD: HF_HUB_OFFLINE=1 VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve Qwen/Qwen3.8-27B --revision 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0 --served-model-name qwen3.8-27b --host 127.0.0.1 --port 8000 --dtype bfloat16 --tensor-parallel-size 1 --max-model-len 8192 --max-num-seqs 256 --gpu-memory-utilization 0.90 
+  logs/serve-e6.log:20: (APIServer pid=94068) INFO 09-18 03:08:43 [config.py:625] Mamba cache mode is set to 'align' for Qwen3_5ForConditionalGeneration by default when prefix caching is enabled
+  logs/serve-e6.log:23: (EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 
+  logs/serve-e6.log:28: (EngineCore pid=94530) INFO 09-18 03:08:59 [cuda.py:551] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+  logs/serve-e6.log:29: (EngineCore pid=94530) INFO 09-18 03:08:59 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+  logs/serve-e6.log:30: (EngineCore pid=94530) INFO 09-18 03:08:59 [qwen_gdn_linear_attn.py:167] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128).
+  logs/serve-e6.log:31: (EngineCore pid=94530) INFO 09-18 03:08:59 [qwen_gdn_linear_attn.py:519] GDN decode kernel: cuda
+  logs/serve-e6.log:32: (EngineCore pid=94530) INFO 09-18 03:08:59 [cuda.py:492] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+  logs/serve-e6.log:33: (EngineCore pid=94530) INFO 09-18 03:08:59 [flash_attn.py:897] Using FlashAttention version 2
+  logs/serve-e6.log:79: (EngineCore pid=94530) INFO 09-18 03:09:11 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0.
+  logs/serve-e6.log:80: (EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:918] Setting attention block size to 784 tokens to ensure that attention page size is >= mamba page size.
+  logs/serve-e6.log:81: (EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:942] Padding mamba page size by 0.13% to ensure that mamba page size and attention page size are exactly equal.
+  logs/serve-e6.log:154: (EngineCore pid=94530) INFO 09-18 03:09:37 [kernel_warmup.py:309] Using FlashInfer autotune cache file: /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json
+  logs/serve-e6.log:155: (EngineCore pid=94530) 2026-09-18 03:09:37,566 - INFO - autotuner.py:2789 - flashinfer.jit: [Autotuner]: Loaded 0 configs from /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json
+  logs/serve-e6.log:156: (EngineCore pid=94530) 2026-09-18 03:09:37,567 - INFO - autotuner.py:972 - flashinfer.jit: [Autotuner]: Autotuning process starts ...
+  logs/serve-e6.log:157: (EngineCore pid=94530) INFO 09-18 03:09:37 [kernel_warmup.py:266] Running FlashInfer autotune with 8192 tokens.
+  logs/serve-e6.log:158: (EngineCore pid=94530) 2026-09-18 03:09:37,581 - INFO - autotuner.py:995 - flashinfer.jit: [Autotuner]: Autotuning process ends
+  logs/serve-e6.log:159: (EngineCore pid=94530) 2026-09-18 03:09:37,588 - INFO - autotuner.py:2652 - flashinfer.jit: [Autotuner]: Saved 0 configs to /root/.cache/vllm/flashinfer_autotune_cache/0.6.18/120f/d82a6d8c4c33432ea659128f370ceb64ad269e1fd516e15fa347dcb0c5c59e2b/autotune_configs.json (0 new, 0 from previous config)
+
+=== block_size (2 hits) ===
+  logs/serve-e6.log:80: (EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:918] Setting attention block size to 784 tokens to ensure that attention page size is >= mamba page size.
+  logs/serve-e6.log:81: (EngineCore pid=94530) INFO 09-18 03:09:11 [interface.py:942] Padding mamba page size by 0.13% to ensure that mamba page size and attention page size are exactly equal.
+
+=== cudagraph (139 hits) ===
+  logs/serve-e6.log:23: (EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 
+  logs/serve-e6.log:85: (EngineCore pid=94530) INFO 09-18 03:09:20 [caching.py:343] reconstructed serializable fn from standalone compile artifacts. num_artifacts=21 num_submods=65
+  logs/serve-e6.log:86: (EngineCore pid=94530) INFO 09-18 03:09:21 [decorators.py:313] Directly load AOT compilation from path /root/.cache/vllm/torch_compile_cache/torch_aot_compile/6a13274dc5a8c0d905f65d1adc35dfc988b021d80ea3fb77ece8804c680d660e/rank_0_0/model
+  logs/serve-e6.log:87: (EngineCore pid=94530) INFO 09-18 03:09:21 [monitor.py:53] torch.compile took 1.11 s in total
+  logs/serve-e6.log:90: Capturing CUDA graphs (PIECEWISE):   0%|          | 0/51 [00:00<?, ?it/s]
+  logs/serve-e6.log:91: Capturing CUDA graphs (PIECEWISE):   2%|▏         | 1/51 [00:01<00:50,  1.00s/it]
+  logs/serve-e6.log:92: Capturing CUDA graphs (PIECEWISE):   4%|▍         | 2/51 [00:01<00:43,  1.13it/s]
+  logs/serve-e6.log:93: Capturing CUDA graphs (PIECEWISE):   6%|▌         | 3/51 [00:02<00:38,  1.25it/s]
+  logs/serve-e6.log:94: Capturing CUDA graphs (PIECEWISE):   8%|▊         | 4/51 [00:03<00:35,  1.31it/s]
+  logs/serve-e6.log:95: Capturing CUDA graphs (PIECEWISE):  10%|▉         | 5/51 [00:03<00:32,  1.40it/s]
+  logs/serve-e6.log:96: Capturing CUDA graphs (PIECEWISE):  12%|█▏        | 6/51 [00:04<00:30,  1.50it/s]
+  logs/serve-e6.log:97: Capturing CUDA graphs (PIECEWISE):  14%|█▎        | 7/51 [00:04<00:27,  1.59it/s]
+  logs/serve-e6.log:98: Capturing CUDA graphs (PIECEWISE):  16%|█▌        | 8/51 [00:05<00:25,  1.71it/s]
+  logs/serve-e6.log:99: Capturing CUDA graphs (PIECEWISE):  18%|█▊        | 9/51 [00:06<00:24,  1.73it/s]
+  logs/serve-e6.log:100: Capturing CUDA graphs (PIECEWISE):  20%|█▉        | 10/51 [00:06<00:22,  1.85it/s]
+  logs/serve-e6.log:101: Capturing CUDA graphs (PIECEWISE):  22%|██▏       | 11/51 [00:06<00:20,  1.98it/s]
+  logs/serve-e6.log:102: Capturing CUDA graphs (PIECEWISE):  24%|██▎       | 12/51 [00:07<00:18,  2.15it/s]
+  logs/serve-e6.log:103: Capturing CUDA graphs (PIECEWISE):  25%|██▌       | 13/51 [00:07<00:16,  2.33it/s]
+  logs/serve-e6.log:104: Capturing CUDA graphs (PIECEWISE):  27%|██▋       | 14/51 [00:07<00:14,  2.54it/s]
+  logs/serve-e6.log:105: Capturing CUDA graphs (PIECEWISE):  29%|██▉       | 15/51 [00:08<00:12,  2.81it/s]
+  logs/serve-e6.log:106: Capturing CUDA graphs (PIECEWISE):  31%|███▏      | 16/51 [00:08<00:11,  3.13it/s]
+  logs/serve-e6.log:107: Capturing CUDA graphs (PIECEWISE):  33%|███▎      | 17/51 [00:08<00:09,  3.47it/s]
+  logs/serve-e6.log:108: Capturing CUDA graphs (PIECEWISE):  35%|███▌      | 18/51 [00:08<00:07,  4.17it/s]
+  logs/serve-e6.log:109: Capturing CUDA graphs (PIECEWISE):  37%|███▋      | 19/51 [00:08<00:06,  4.83it/s]
+  logs/serve-e6.log:110: Capturing CUDA graphs (PIECEWISE):  39%|███▉      | 20/51 [00:09<00:05,  5.44it/s]
+  logs/serve-e6.log:111: Capturing CUDA graphs (PIECEWISE):  41%|████      | 21/51 [00:09<00:05,  5.98it/s]
+  logs/serve-e6.log:112: Capturing CUDA graphs (PIECEWISE):  43%|████▎     | 22/51 [00:09<00:04,  6.45it/s]
+  logs/serve-e6.log:113: Capturing CUDA graphs (PIECEWISE):  45%|████▌     | 23/51 [00:09<00:04,  6.80it/s]
+  logs/serve-e6.log:114: Capturing CUDA graphs (PIECEWISE):  47%|████▋     | 24/51 [00:09<00:03,  7.07it/s]
+  logs/serve-e6.log:115: Capturing CUDA graphs (PIECEWISE):  49%|████▉     | 25/51 [00:09<00:03,  7.25it/s]
+  logs/serve-e6.log:116: Capturing CUDA graphs (PIECEWISE):  51%|█████     | 26/51 [00:09<00:03,  7.36it/s]
+  logs/serve-e6.log:117: Capturing CUDA graphs (PIECEWISE):  53%|█████▎    | 27/51 [00:09<00:03,  7.28it/s]
+  logs/serve-e6.log:118: Capturing CUDA graphs (PIECEWISE):  55%|█████▍    | 28/51 [00:10<00:03,  7.42it/s]
+  logs/serve-e6.log:119: Capturing CUDA graphs (PIECEWISE):  57%|█████▋    | 29/51 [00:10<00:02,  7.54it/s]
+  logs/serve-e6.log:120: Capturing CUDA graphs (PIECEWISE):  59%|█████▉    | 30/51 [00:10<00:02,  7.58it/s]
+  logs/serve-e6.log:121: Capturing CUDA graphs (PIECEWISE):  61%|██████    | 31/51 [00:10<00:02,  7.63it/s]
+  logs/serve-e6.log:122: Capturing CUDA graphs (PIECEWISE):  63%|██████▎   | 32/51 [00:10<00:02,  7.68it/s]
+  logs/serve-e6.log:123: Capturing CUDA graphs (PIECEWISE):  65%|██████▍   | 33/51 [00:10<00:02,  7.76it/s]
+  logs/serve-e6.log:124: Capturing CUDA graphs (PIECEWISE):  67%|██████▋   | 34/51 [00:10<00:02,  7.82it/s]
+  logs/serve-e6.log:125: Capturing CUDA graphs (PIECEWISE):  69%|██████▊   | 35/51 [00:10<00:02,  7.87it/s]
+  logs/serve-e6.log:126: Capturing CUDA graphs (PIECEWISE):  71%|███████   | 36/51 [00:11<00:01,  7.78it/s]
+  logs/serve-e6.log:127: Capturing CUDA graphs (PIECEWISE):  73%|███████▎  | 37/51 [00:11<00:01,  7.46it/s]
+  logs/serve-e6.log:128: Capturing CUDA graphs (PIECEWISE):  75%|███████▍  | 38/51 [00:11<00:01,  7.65it/s]
+  logs/serve-e6.log:129: Capturing CUDA graphs (PIECEWISE):  76%|███████▋  | 39/51 [00:11<00:01,  7.81it/s]
+  logs/serve-e6.log:130: Capturing CUDA graphs (PIECEWISE):  78%|███████▊  | 40/51 [00:11<00:01,  6.67it/s]
+  logs/serve-e6.log:131: Capturing CUDA graphs (PIECEWISE):  80%|████████  | 41/51 [00:11<00:01,  6.97it/s]
+  logs/serve-e6.log:132: Capturing CUDA graphs (PIECEWISE):  82%|████████▏ | 42/51 [00:11<00:01,  7.25it/s]
+  logs/serve-e6.log:133: Capturing CUDA graphs (PIECEWISE):  84%|████████▍ | 43/51 [00:12<00:01,  7.39it/s]
+  logs/serve-e6.log:134: Capturing CUDA graphs (PIECEWISE):  86%|████████▋ | 44/51 [00:12<00:00,  7.57it/s]
+  logs/serve-e6.log:135: Capturing CUDA graphs (PIECEWISE):  88%|████████▊ | 45/51 [00:12<00:00,  7.73it/s]
+  logs/serve-e6.log:136: Capturing CUDA graphs (PIECEWISE):  90%|█████████ | 46/51 [00:12<00:00,  7.68it/s]
+  logs/serve-e6.log:137: Capturing CUDA graphs (PIECEWISE):  92%|█████████▏| 47/51 [00:12<00:00,  7.78it/s]
+  logs/serve-e6.log:138: Capturing CUDA graphs (PIECEWISE):  94%|█████████▍| 48/51 [00:12<00:00,  7.88it/s]
+  logs/serve-e6.log:139: Capturing CUDA graphs (PIECEWISE):  96%|█████████▌| 49/51 [00:12<00:00,  7.95it/s]
+  logs/serve-e6.log:140: Capturing CUDA graphs (PIECEWISE):  98%|█████████▊| 50/51 [00:12<00:00,  7.98it/s]
+  logs/serve-e6.log:141: Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:13<00:00,  7.83it/s]
+  logs/serve-e6.log:142: Capturing CUDA graphs (PIECEWISE): 100%|██████████| 51/51 [00:13<00:00,  3.90it/s]
+  logs/serve-e6.log:144: Capturing CUDA graphs (FULL):   0%|          | 0/2 [00:00<?, ?it/s]
+  logs/serve-e6.log:145: Capturing CUDA graphs (FULL): 100%|██████████| 2/2 [00:00<00:00, 11.58it/s]
+  logs/serve-e6.log:146: Capturing CUDA graphs (FULL): 100%|██████████| 2/2 [00:00<00:00, 11.57it/s]
+  ... 79 more in evidence/p0-model/e4-extract.json
+
+=== kv_cache (8 hits) ===
+  logs/serve-e6.log:23: (EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 
+  logs/serve-e6.log:82: (EngineCore pid=94530) INFO 09-18 03:09:11 [utils.py:306] Using LBNHC KV cache layout.
+  logs/serve-e6.log:148: (EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:625] Available KV cache memory: 31.24 GiB
+  logs/serve-e6.log:149: (EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM
+  logs/serve-e6.log:150: (EngineCore pid=94530) INFO 09-18 03:09:37 [kv_cache_utils.py:2032] GPU KV cache size: 314,187 tokens, Maximum concurrency for 8,192 tokens per request: 38.35x
+  logs/serve-e6.log:236: (EngineCore pid=94530) INFO 09-18 03:09:53 [gpu_worker.py:860] Free memory on device (94.43/94.97 GiB) on startup. Desired GPU memory utilization is (0.9, 85.47 GiB). Actual usage is 51.65 GiB for consumed memory (weights + non-torch), 2.58 GiB for peak activation, and 0.3 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=33065392026` (30.79 GiB) to fit into r
+  logs/serve-e6.log:238: (EngineCore pid=94530) INFO 09-18 03:09:55 [core.py:361] init engine (profile, create kv cache, warmup model) took 44.06 s (compilation: 1.11 s)
+  logs/serve-e6.log:287: (APIServer pid=94068) INFO 09-18 03:10:24 [loggers.py:310] Engine 000: Avg prompt throughput: 1.7 tokens/s, Avg generation throughput: 0.6 tokens/s, Running: 0 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.0%, Prefix cache hit rate: 0.0%
+
+=== context_and_scheduling (3 hits) ===
+  logs/serve-e6.log:15: (APIServer pid=94068) INFO 09-18 03:08:42 [api_utils.py:286] non-default args: {'model_tag': 'Qwen/Qwen3.8-27B', 'host': '127.0.0.1', 'model': 'Qwen/Qwen3.8-27B', 'dtype': 'bfloat16', 'revision': '1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 'max_model_len': 8192, 'served_model_name': ['qwen3.8-27b'], 'gpu_memory_utilization': 0.9, 'max_num_seqs': 256}
+  logs/serve-e6.log:19: (APIServer pid=94068) INFO 09-18 03:08:43 [scheduler.py:277] Chunked prefill is enabled with max_num_batched_tokens=8192.
+  logs/serve-e6.log:20: (APIServer pid=94068) INFO 09-18 03:08:43 [config.py:625] Mamba cache mode is set to 'align' for Qwen3_5ForConditionalGeneration by default when prefix caching is enabled
+
+=== startup_timing (9 hits) ===
+  logs/serve-e6.log:77: (EngineCore pid=94530) INFO 09-18 03:09:10 [default_loader.py:430] Loading weights took 10.64 seconds
+  logs/serve-e6.log:78: (EngineCore pid=94530) INFO 09-18 03:09:11 [model_runner.py:404] Model loading took 51.1 GiB memory and 12.355386 seconds
+  logs/serve-e6.log:87: (EngineCore pid=94530) INFO 09-18 03:09:21 [monitor.py:53] torch.compile took 1.11 s in total
+  logs/serve-e6.log:88: (EngineCore pid=94530) INFO 09-18 03:09:22 [monitor.py:81] Initial profiling/warmup run took 1.25 s
+  logs/serve-e6.log:147: (EngineCore pid=94530) INFO 09-18 03:09:36 [model_runner.py:960] Graph capturing finished in 14 secs, took 0.62 GiB
+  logs/serve-e6.log:234: (EngineCore pid=94530) INFO 09-18 03:09:53 [model_runner.py:960] Graph capturing finished in 16 secs, took 0.30 GiB
+  logs/serve-e6.log:238: (EngineCore pid=94530) INFO 09-18 03:09:55 [core.py:361] init engine (profile, create kv cache, warmup model) took 44.06 s (compilation: 1.11 s)
+  logs/serve-e6.log:246: (APIServer pid=94068) INFO 09-18 03:10:13 [entry.py:139] Starting vLLM server on http://127.0.0.1:8000
+  logs/serve-e6.log:279: (APIServer pid=94068) INFO:     Started server process [94068]
+
+=== warnings_and_degradation (8 hits) ===
+  logs/serve-e6.log:22: (APIServer pid=94068) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+  logs/serve-e6.log:23: (EngineCore pid=94530) INFO 09-18 03:08:56 [core.py:123] Initializing a V1 LLM engine (v0.29.0) with config: model='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', speculative_config=None, tokenizer='/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0', 
+  logs/serve-e6.log:35: (EngineCore pid=94530) INFO 09-18 03:08:59 [weight_utils.py:886] Auto-prefetch is disabled because the filesystem (XFS) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+  logs/serve-e6.log:79: (EngineCore pid=94530) INFO 09-18 03:09:11 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0.
+  logs/serve-e6.log:83: (EngineCore pid=94530) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+  logs/serve-e6.log:149: (EngineCore pid=94530) INFO 09-18 03:09:37 [gpu_worker.py:640] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9000 is equivalent to --gpu-memory-utilization=0.8927 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9073. To disable, set VLLM_MEMORY_PROFILER_ESTIM
+  logs/serve-e6.log:242: (APIServer pid=94068) [transformers] Qwen3VL video processing does not apply the per-frame pixel cap the reference implementation (qwen-vl-utils) applies, so some videos cost far more tokens than they would there. In v5.22 the capped behavior will become the default and `cap_pixels_per_frame` will be removed. Pass `cap_pixels_per_frame=True` to adopt the reference behavior now, or `False` to keep 
+  logs/serve-e6.log:245: (APIServer pid=94068) WARNING 09-18 03:10:13 [model.py:1759] Default vLLM sampling parameters have been overridden by the model's `generation_config.json`: `{'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}`. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+
+written: evidence/p0-model/e4-extract.json
