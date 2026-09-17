@@ -44,7 +44,7 @@ class Scaffold:
 
     sink_span: tuple[int, int]
     question_span: tuple[int, int]
-    """question 起点到 prompt 末尾（含 DA 指令）——local window 的 prompt 侧部分。"""
+    """question 起点到 prompt 末尾（含 DA 指令 / Vanilla 指令与答案格式）——local window 的 prompt 侧部分。"""
     local_window_span: tuple[int, int]
     system_content_span: tuple[int, int]
     sink_decoded: tuple[str, ...]
@@ -250,13 +250,17 @@ def render_arm(
                 at = _locate_unique(full[block_bounds[idx][0] : block_bounds[idx][1]], question, what="question")
                 question_start = at + block_bounds[idx][0]
                 question_span = _char_range_to_token_range(offsets, question_start, question_start + len(question))
-        local_window_span = question_span
     else:
         span = located[-1]
         if span is None:
             raise SpanMappingError("未能定位 DA prompt")
         question_span = _char_range_to_token_range(offsets, span[0], span[0] + len(question))
-        local_window_span = _char_range_to_token_range(offsets, *span)
+
+    # local window 必须覆盖 question/指令直到**真实 prompt 末尾**（含模板在最后一个 user turn 之后
+    # 追加的 `...<|im_end|>\n<|im_start|>assistant\n<think>…` 这一段），否则会漏掉 prompt 尾部。
+    if question_span == (0, 0):
+        raise SpanMappingError("未能定位 question，无法确定 local window 起点")
+    local_window_span = (question_span[0], len(token_ids))
 
     system_span = _char_range_to_token_range(offsets, *(located[0] or (0, 0)))
     sink_span = (0, min(SINK_TOKENS, len(token_ids)))

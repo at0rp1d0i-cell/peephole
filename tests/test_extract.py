@@ -36,9 +36,9 @@ class ExtractTest(unittest.TestCase):
         result = extract_public_output(PATCH)
         self.assertTrue(result.ok)
         expected = (
-            "def add(a, b):\n    if a is None:\n        return b\n\n    return a + b"
+            "def add(a, b):\n    if a is None:\n        return b\n\n    return a + b\n"
         )
-        self.assertEqual(result.answer, expected)
+        self.assertEqual(result.answer, expected, "答案正文首尾空白必须保留（含结尾换行）")
 
     def test_plain_words_and_foreign_tags_preserved(self) -> None:
         raw = (
@@ -73,12 +73,27 @@ class ExtractTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.error_code, "answer_empty")
 
-    def test_multiple_answer_regions_use_last_complete_one(self) -> None:
-        raw = "<answer>first</answer><local>check</local><answer>final</answer>"
-        result = extract_public_output(raw)
+    def test_leading_and_trailing_whitespace_is_preserved(self) -> None:
+        result = extract_public_output("<answer>  x\n</answer>")
         self.assertTrue(result.ok)
-        self.assertEqual(result.answer, "final")
-        self.assertEqual(result.answer_count, 2)
+        self.assertEqual(result.answer, "  x\n")
+
+    def test_multiple_or_nested_or_stray_answers_are_ambiguous(self) -> None:
+        """多个/嵌套/多余闭标签属"无法可靠分类"→ 内部失败；不自行冻结 last-complete 语义。"""
+        cases = {
+            "multiple_regions": "<answer>first</answer><local>check</local><answer>final</answer>",
+            "truncated_second": "<answer>old</answer><answer>new",
+            "nested": "<answer>a<answer>b</answer>",
+            "stray_close": "<answer>a</answer>tail</answer>",
+            "close_before_open": "</answer>oops<answer>x</answer>",
+        }
+        for name, raw in cases.items():
+            result = extract_public_output(raw)
+            self.assertFalse(result.ok, name)
+            self.assertIn(result.error_code, {"answer_ambiguous", "answer_unterminated"}, name)
+            self.assertIsNone(result.answer, name)
+        nested = extract_public_output("<answer>a<answer>b</answer>")
+        self.assertNotIn("<answer>", str(nested.as_dict()), "不得把内部标签暴露到结果")
 
     def test_no_residue_between_calls(self) -> None:
         raw = "<local>x</local><answer>A</answer>"

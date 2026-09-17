@@ -7,6 +7,13 @@
   "generation_tokens": 115,
   "kv_len_max": 7395,
   "max_width": 10,
+  "timing_table": {
+    "decode_step_s": "输入=生成流第 s-1 个 token；写入位置=prompt_len+s-1；写入前已写=prompt_len+s-1；本步 attention KV 上界=prompt_len+s；下一步写入位置=prompt_len+s",
+    "prompt_len": 7280,
+    "generation_tokens": 115,
+    "attention_kv_len_last": 7395,
+    "written_kv_len_last": 7394
+  },
   "canonical_blocks": [
     109,
     104,
@@ -48,7 +55,9 @@
         9
       ],
       "visible_tokens": 4177,
-      "kv_len": 7313,
+      "attention_kv_len": 7313,
+      "write_position": 7312,
+      "next_write_position": 7313,
       "declared_positions_all_visible": true
     },
     {
@@ -73,7 +82,9 @@
         9
       ],
       "visible_tokens": 4178,
-      "kv_len": 7314,
+      "attention_kv_len": 7314,
+      "write_position": 7313,
+      "next_write_position": 7314,
       "declared_positions_all_visible": true
     },
     {
@@ -98,7 +109,9 @@
         9
       ],
       "visible_tokens": 4179,
-      "kv_len": 7315,
+      "attention_kv_len": 7315,
+      "write_position": 7314,
+      "next_write_position": 7315,
       "declared_positions_all_visible": true
     },
     {
@@ -123,7 +136,9 @@
         9
       ],
       "visible_tokens": 4180,
-      "kv_len": 7316,
+      "attention_kv_len": 7316,
+      "write_position": 7315,
+      "next_write_position": 7316,
       "declared_positions_all_visible": true
     },
     {
@@ -148,7 +163,9 @@
         9
       ],
       "visible_tokens": 4181,
-      "kv_len": 7317,
+      "attention_kv_len": 7317,
+      "write_position": 7316,
+      "next_write_position": 7317,
       "declared_positions_all_visible": true
     },
     {
@@ -173,18 +190,22 @@
         9
       ],
       "visible_tokens": 4182,
-      "kv_len": 7318,
+      "attention_kv_len": 7318,
+      "write_position": 7317,
+      "next_write_position": 7318,
       "declared_positions_all_visible": true
     }
   ],
   "independence": {
-    "steps": 116,
-    "generation_steps": 115,
+    "steps": 115,
+    "generation_steps": 114,
     "read_list_changes": 6,
     "write_position_step1": 7280,
-    "write_position_last": 7394,
+    "write_position_last": 7393,
     "write_monotonic_plus_one": true,
-    "read_list_changes_while_write_advances": 6
+    "attention_kv_len_last": 7394,
+    "next_write_position_last": 7394,
+    "forwards": 114
   },
   "protocol_trace": {
     "request_id": "demo-request-1",
@@ -192,19 +213,24 @@
     "num_segments": 3,
     "prompt_len": 7280,
     "generated_tokens": 115,
-    "kv_len": 7395,
+    "written_kv_len": 7394,
+    "attention_kv_len_next": 7395,
+    "stop_token_index": 114,
     "final_mode": "global",
     "focus_attempts": 2,
     "focus_successes": 2,
     "anomalies": [],
+    "flush_events": [],
     "steps": [
       {
         "token_index": 0,
         "token_id": 27,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 1,
-        "kv_len_after": 7281,
+        "sampled_tokens": 1,
+        "written_kv_len": 7280,
+        "attention_kv_len_next": 7281,
+        "next_write_position": 7280,
         "events": []
       },
       {
@@ -212,8 +238,10 @@
         "token_id": 9461,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 2,
-        "kv_len_after": 7282,
+        "sampled_tokens": 2,
+        "written_kv_len": 7281,
+        "attention_kv_len_next": 7282,
+        "next_write_position": 7281,
         "events": []
       },
       {
@@ -221,8 +249,10 @@
         "token_id": 15877,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 3,
-        "kv_len_after": 7283,
+        "sampled_tokens": 3,
+        "written_kv_len": 7282,
+        "attention_kv_len_next": 7283,
+        "next_write_position": 7282,
         "events": [
           {
             "kind": "noop",
@@ -233,7 +263,8 @@
             "closed_at_token_index": 2,
             "effect_step": 3,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -242,8 +273,10 @@
         "token_id": 3296,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 4,
-        "kv_len_after": 7284,
+        "sampled_tokens": 4,
+        "written_kv_len": 7283,
+        "attention_kv_len_next": 7284,
+        "next_write_position": 7283,
         "events": []
       },
       {
@@ -251,8 +284,10 @@
         "token_id": 3749,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 5,
-        "kv_len_after": 7285,
+        "sampled_tokens": 5,
+        "written_kv_len": 7284,
+        "attention_kv_len_next": 7285,
+        "next_write_position": 7284,
         "events": []
       },
       {
@@ -260,8 +295,10 @@
         "token_id": 1330,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 6,
-        "kv_len_after": 7286,
+        "sampled_tokens": 6,
+        "written_kv_len": 7285,
+        "attention_kv_len_next": 7286,
+        "next_write_position": 7285,
         "events": []
       },
       {
@@ -269,8 +306,10 @@
         "token_id": 12688,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 7,
-        "kv_len_after": 7287,
+        "sampled_tokens": 7,
+        "written_kv_len": 7286,
+        "attention_kv_len_next": 7287,
+        "next_write_position": 7286,
         "events": []
       },
       {
@@ -278,8 +317,10 @@
         "token_id": 25,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 8,
-        "kv_len_after": 7288,
+        "sampled_tokens": 8,
+        "written_kv_len": 7287,
+        "attention_kv_len_next": 7288,
+        "next_write_position": 7287,
         "events": []
       },
       {
@@ -287,8 +328,10 @@
         "token_id": 279,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 9,
-        "kv_len_after": 7289,
+        "sampled_tokens": 9,
+        "written_kv_len": 7288,
+        "attention_kv_len_next": 7289,
+        "next_write_position": 7288,
         "events": []
       },
       {
@@ -296,8 +339,10 @@
         "token_id": 14014,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 10,
-        "kv_len_after": 7290,
+        "sampled_tokens": 10,
+        "written_kv_len": 7289,
+        "attention_kv_len_next": 7290,
+        "next_write_position": 7289,
         "events": []
       },
       {
@@ -305,8 +350,10 @@
         "token_id": 1007,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 11,
-        "kv_len_after": 7291,
+        "sampled_tokens": 11,
+        "written_kv_len": 7290,
+        "attention_kv_len_next": 7291,
+        "next_write_position": 7290,
         "events": []
       },
       {
@@ -314,8 +361,10 @@
         "token_id": 321,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 12,
-        "kv_len_after": 7292,
+        "sampled_tokens": 12,
+        "written_kv_len": 7291,
+        "attention_kv_len_next": 7292,
+        "next_write_position": 7291,
         "events": []
       },
       {
@@ -323,8 +372,10 @@
         "token_id": 279,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 13,
-        "kv_len_after": 7293,
+        "sampled_tokens": 13,
+        "written_kv_len": 7292,
+        "attention_kv_len_next": 7293,
+        "next_write_position": 7292,
         "events": []
       },
       {
@@ -332,8 +383,10 @@
         "token_id": 7786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 14,
-        "kv_len_after": 7294,
+        "sampled_tokens": 14,
+        "written_kv_len": 7293,
+        "attention_kv_len_next": 7294,
+        "next_write_position": 7293,
         "events": []
       },
       {
@@ -341,8 +394,10 @@
         "token_id": 13,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 15,
-        "kv_len_after": 7295,
+        "sampled_tokens": 15,
+        "written_kv_len": 7294,
+        "attention_kv_len_next": 7295,
+        "next_write_position": 7294,
         "events": []
       },
       {
@@ -350,8 +405,10 @@
         "token_id": 15030,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 16,
-        "kv_len_after": 7296,
+        "sampled_tokens": 16,
+        "written_kv_len": 7295,
+        "attention_kv_len_next": 7296,
+        "next_write_position": 7295,
         "events": []
       },
       {
@@ -359,8 +416,10 @@
         "token_id": 43996,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 17,
-        "kv_len_after": 7297,
+        "sampled_tokens": 17,
+        "written_kv_len": 7296,
+        "attention_kv_len_next": 7297,
+        "next_write_position": 7296,
         "events": []
       },
       {
@@ -368,8 +427,10 @@
         "token_id": 220,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 18,
-        "kv_len_after": 7298,
+        "sampled_tokens": 18,
+        "written_kv_len": 7297,
+        "attention_kv_len_next": 7298,
+        "next_write_position": 7297,
         "events": []
       },
       {
@@ -377,8 +438,10 @@
         "token_id": 16,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 19,
-        "kv_len_after": 7299,
+        "sampled_tokens": 19,
+        "written_kv_len": 7298,
+        "attention_kv_len_next": 7299,
+        "next_write_position": 7298,
         "events": []
       },
       {
@@ -386,8 +449,10 @@
         "token_id": 1220,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 20,
-        "kv_len_after": 7300,
+        "sampled_tokens": 20,
+        "written_kv_len": 7299,
+        "attention_kv_len_next": 7300,
+        "next_write_position": 7299,
         "events": []
       },
       {
@@ -395,8 +460,10 @@
         "token_id": 3222,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 21,
-        "kv_len_after": 7301,
+        "sampled_tokens": 21,
+        "written_kv_len": 7300,
+        "attention_kv_len_next": 7301,
+        "next_write_position": 7300,
         "events": []
       },
       {
@@ -404,8 +471,10 @@
         "token_id": 279,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 22,
-        "kv_len_after": 7302,
+        "sampled_tokens": 22,
+        "written_kv_len": 7301,
+        "attention_kv_len_next": 7302,
+        "next_write_position": 7301,
         "events": []
       },
       {
@@ -413,8 +482,10 @@
         "token_id": 17597,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 23,
-        "kv_len_after": 7303,
+        "sampled_tokens": 23,
+        "written_kv_len": 7302,
+        "attention_kv_len_next": 7303,
+        "next_write_position": 7302,
         "events": []
       },
       {
@@ -422,8 +493,10 @@
         "token_id": 3712,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 24,
-        "kv_len_after": 7304,
+        "sampled_tokens": 24,
+        "written_kv_len": 7303,
+        "attention_kv_len_next": 7304,
+        "next_write_position": 7303,
         "events": []
       },
       {
@@ -431,8 +504,10 @@
         "token_id": 3786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 25,
-        "kv_len_after": 7305,
+        "sampled_tokens": 25,
+        "written_kv_len": 7304,
+        "attention_kv_len_next": 7305,
+        "next_write_position": 7304,
         "events": []
       },
       {
@@ -440,8 +515,10 @@
         "token_id": 9461,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 26,
-        "kv_len_after": 7306,
+        "sampled_tokens": 26,
+        "written_kv_len": 7305,
+        "attention_kv_len_next": 7306,
+        "next_write_position": 7305,
         "events": []
       },
       {
@@ -449,8 +526,10 @@
         "token_id": 1721,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 27,
-        "kv_len_after": 7307,
+        "sampled_tokens": 27,
+        "written_kv_len": 7306,
+        "attention_kv_len_next": 7307,
+        "next_write_position": 7306,
         "events": [
           {
             "kind": "noop",
@@ -461,7 +540,8 @@
             "closed_at_token_index": 26,
             "effect_step": 27,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -470,8 +550,10 @@
         "token_id": 16900,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 28,
-        "kv_len_after": 7308,
+        "sampled_tokens": 28,
+        "written_kv_len": 7307,
+        "attention_kv_len_next": 7308,
+        "next_write_position": 7307,
         "events": []
       },
       {
@@ -479,8 +561,10 @@
         "token_id": 10642,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 29,
-        "kv_len_after": 7309,
+        "sampled_tokens": 29,
+        "written_kv_len": 7308,
+        "attention_kv_len_next": 7309,
+        "next_write_position": 7308,
         "events": []
       },
       {
@@ -488,8 +572,10 @@
         "token_id": 63261,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 30,
-        "kv_len_after": 7310,
+        "sampled_tokens": 30,
+        "written_kv_len": 7309,
+        "attention_kv_len_next": 7310,
+        "next_write_position": 7309,
         "events": []
       },
       {
@@ -497,8 +583,10 @@
         "token_id": 420,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 31,
-        "kv_len_after": 7311,
+        "sampled_tokens": 31,
+        "written_kv_len": 7310,
+        "attention_kv_len_next": 7311,
+        "next_write_position": 7310,
         "events": []
       },
       {
@@ -506,8 +594,10 @@
         "token_id": 16,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 32,
-        "kv_len_after": 7312,
+        "sampled_tokens": 32,
+        "written_kv_len": 7311,
+        "attention_kv_len_next": 7312,
+        "next_write_position": 7311,
         "events": []
       },
       {
@@ -517,8 +607,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 33,
-        "kv_len_after": 7313,
+        "sampled_tokens": 33,
+        "written_kv_len": 7312,
+        "attention_kv_len_next": 7313,
+        "next_write_position": 7312,
         "events": [
           {
             "kind": "transition",
@@ -531,7 +623,8 @@
             "closed_at_token_index": 32,
             "effect_step": 33,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": true
           }
         ]
       },
@@ -542,8 +635,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 34,
-        "kv_len_after": 7314,
+        "sampled_tokens": 34,
+        "written_kv_len": 7313,
+        "attention_kv_len_next": 7314,
+        "next_write_position": 7313,
         "events": []
       },
       {
@@ -553,8 +648,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 35,
-        "kv_len_after": 7315,
+        "sampled_tokens": 35,
+        "written_kv_len": 7314,
+        "attention_kv_len_next": 7315,
+        "next_write_position": 7314,
         "events": []
       },
       {
@@ -564,8 +661,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 36,
-        "kv_len_after": 7316,
+        "sampled_tokens": 36,
+        "written_kv_len": 7315,
+        "attention_kv_len_next": 7316,
+        "next_write_position": 7315,
         "events": []
       },
       {
@@ -575,8 +674,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 37,
-        "kv_len_after": 7317,
+        "sampled_tokens": 37,
+        "written_kv_len": 7316,
+        "attention_kv_len_next": 7317,
+        "next_write_position": 7316,
         "events": []
       },
       {
@@ -586,8 +687,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 38,
-        "kv_len_after": 7318,
+        "sampled_tokens": 38,
+        "written_kv_len": 7317,
+        "attention_kv_len_next": 7318,
+        "next_write_position": 7317,
         "events": []
       },
       {
@@ -597,8 +700,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 39,
-        "kv_len_after": 7319,
+        "sampled_tokens": 39,
+        "written_kv_len": 7318,
+        "attention_kv_len_next": 7319,
+        "next_write_position": 7318,
         "events": []
       },
       {
@@ -608,8 +713,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 40,
-        "kv_len_after": 7320,
+        "sampled_tokens": 40,
+        "written_kv_len": 7319,
+        "attention_kv_len_next": 7320,
+        "next_write_position": 7319,
         "events": []
       },
       {
@@ -619,8 +726,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 41,
-        "kv_len_after": 7321,
+        "sampled_tokens": 41,
+        "written_kv_len": 7320,
+        "attention_kv_len_next": 7321,
+        "next_write_position": 7320,
         "events": []
       },
       {
@@ -630,8 +739,10 @@
         "refs": [
           1
         ],
-        "generated_tokens": 42,
-        "kv_len_after": 7322,
+        "sampled_tokens": 42,
+        "written_kv_len": 7321,
+        "attention_kv_len_next": 7322,
+        "next_write_position": 7321,
         "events": []
       },
       {
@@ -639,8 +750,10 @@
         "token_id": 1721,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 43,
-        "kv_len_after": 7323,
+        "sampled_tokens": 43,
+        "written_kv_len": 7322,
+        "attention_kv_len_next": 7323,
+        "next_write_position": 7322,
         "events": [
           {
             "kind": "transition",
@@ -651,7 +764,8 @@
             "closed_at_token_index": 42,
             "effect_step": 43,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -660,8 +774,10 @@
         "token_id": 9461,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 44,
-        "kv_len_after": 7324,
+        "sampled_tokens": 44,
+        "written_kv_len": 7323,
+        "attention_kv_len_next": 7324,
+        "next_write_position": 7323,
         "events": []
       },
       {
@@ -669,8 +785,10 @@
         "token_id": 15877,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 45,
-        "kv_len_after": 7325,
+        "sampled_tokens": 45,
+        "written_kv_len": 7324,
+        "attention_kv_len_next": 7325,
+        "next_write_position": 7324,
         "events": [
           {
             "kind": "noop",
@@ -681,7 +799,8 @@
             "closed_at_token_index": 44,
             "effect_step": 45,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -690,8 +809,10 @@
         "token_id": 7786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 46,
-        "kv_len_after": 7326,
+        "sampled_tokens": 46,
+        "written_kv_len": 7325,
+        "attention_kv_len_next": 7326,
+        "next_write_position": 7325,
         "events": []
       },
       {
@@ -699,8 +820,10 @@
         "token_id": 369,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 47,
-        "kv_len_after": 7327,
+        "sampled_tokens": 47,
+        "written_kv_len": 7326,
+        "attention_kv_len_next": 7327,
+        "next_write_position": 7326,
         "events": []
       },
       {
@@ -708,8 +831,10 @@
         "token_id": 1990,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 48,
-        "kv_len_after": 7328,
+        "sampled_tokens": 48,
+        "written_kv_len": 7327,
+        "attention_kv_len_next": 7328,
+        "next_write_position": 7327,
         "events": []
       },
       {
@@ -717,8 +842,10 @@
         "token_id": 7167,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 49,
-        "kv_len_after": 7329,
+        "sampled_tokens": 49,
+        "written_kv_len": 7328,
+        "attention_kv_len_next": 7329,
+        "next_write_position": 7328,
         "events": []
       },
       {
@@ -726,8 +853,10 @@
         "token_id": 26,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 50,
-        "kv_len_after": 7330,
+        "sampled_tokens": 50,
+        "written_kv_len": 7329,
+        "attention_kv_len_next": 7330,
+        "next_write_position": 7329,
         "events": []
       },
       {
@@ -735,8 +864,10 @@
         "token_id": 15030,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 51,
-        "kv_len_after": 7331,
+        "sampled_tokens": 51,
+        "written_kv_len": 7330,
+        "attention_kv_len_next": 7331,
+        "next_write_position": 7330,
         "events": []
       },
       {
@@ -744,8 +875,10 @@
         "token_id": 43996,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 52,
-        "kv_len_after": 7332,
+        "sampled_tokens": 52,
+        "written_kv_len": 7331,
+        "attention_kv_len_next": 7332,
+        "next_write_position": 7331,
         "events": []
       },
       {
@@ -753,8 +886,10 @@
         "token_id": 220,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 53,
-        "kv_len_after": 7333,
+        "sampled_tokens": 53,
+        "written_kv_len": 7332,
+        "attention_kv_len_next": 7333,
+        "next_write_position": 7332,
         "events": []
       },
       {
@@ -762,8 +897,10 @@
         "token_id": 17,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 54,
-        "kv_len_after": 7334,
+        "sampled_tokens": 54,
+        "written_kv_len": 7333,
+        "attention_kv_len_next": 7334,
+        "next_write_position": 7333,
         "events": []
       },
       {
@@ -771,8 +908,10 @@
         "token_id": 14103,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 55,
-        "kv_len_after": 7335,
+        "sampled_tokens": 55,
+        "written_kv_len": 7334,
+        "attention_kv_len_next": 7335,
+        "next_write_position": 7334,
         "events": []
       },
       {
@@ -780,8 +919,10 @@
         "token_id": 10456,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 56,
-        "kv_len_after": 7336,
+        "sampled_tokens": 56,
+        "written_kv_len": 7335,
+        "attention_kv_len_next": 7336,
+        "next_write_position": 7335,
         "events": []
       },
       {
@@ -789,8 +930,10 @@
         "token_id": 4965,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 57,
-        "kv_len_after": 7337,
+        "sampled_tokens": 57,
+        "written_kv_len": 7336,
+        "attention_kv_len_next": 7337,
+        "next_write_position": 7336,
         "events": []
       },
       {
@@ -798,8 +941,10 @@
         "token_id": 3786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 58,
-        "kv_len_after": 7338,
+        "sampled_tokens": 58,
+        "written_kv_len": 7337,
+        "attention_kv_len_next": 7338,
+        "next_write_position": 7337,
         "events": []
       },
       {
@@ -807,8 +952,10 @@
         "token_id": 9461,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 59,
-        "kv_len_after": 7339,
+        "sampled_tokens": 59,
+        "written_kv_len": 7338,
+        "attention_kv_len_next": 7339,
+        "next_write_position": 7338,
         "events": []
       },
       {
@@ -816,8 +963,10 @@
         "token_id": 1721,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 60,
-        "kv_len_after": 7340,
+        "sampled_tokens": 60,
+        "written_kv_len": 7339,
+        "attention_kv_len_next": 7340,
+        "next_write_position": 7339,
         "events": [
           {
             "kind": "noop",
@@ -828,7 +977,8 @@
             "closed_at_token_index": 59,
             "effect_step": 60,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -837,8 +987,10 @@
         "token_id": 16900,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 61,
-        "kv_len_after": 7341,
+        "sampled_tokens": 61,
+        "written_kv_len": 7340,
+        "attention_kv_len_next": 7341,
+        "next_write_position": 7340,
         "events": []
       },
       {
@@ -846,8 +998,10 @@
         "token_id": 10642,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 62,
-        "kv_len_after": 7342,
+        "sampled_tokens": 62,
+        "written_kv_len": 7341,
+        "attention_kv_len_next": 7342,
+        "next_write_position": 7341,
         "events": []
       },
       {
@@ -855,8 +1009,10 @@
         "token_id": 63261,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 63,
-        "kv_len_after": 7343,
+        "sampled_tokens": 63,
+        "written_kv_len": 7342,
+        "attention_kv_len_next": 7343,
+        "next_write_position": 7342,
         "events": []
       },
       {
@@ -864,8 +1020,10 @@
         "token_id": 420,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 64,
-        "kv_len_after": 7344,
+        "sampled_tokens": 64,
+        "written_kv_len": 7343,
+        "attention_kv_len_next": 7344,
+        "next_write_position": 7343,
         "events": []
       },
       {
@@ -873,8 +1031,10 @@
         "token_id": 17,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 65,
-        "kv_len_after": 7345,
+        "sampled_tokens": 65,
+        "written_kv_len": 7344,
+        "attention_kv_len_next": 7345,
+        "next_write_position": 7344,
         "events": []
       },
       {
@@ -882,8 +1042,10 @@
         "token_id": 11,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 66,
-        "kv_len_after": 7346,
+        "sampled_tokens": 66,
+        "written_kv_len": 7345,
+        "attention_kv_len_next": 7346,
+        "next_write_position": 7345,
         "events": []
       },
       {
@@ -891,8 +1053,10 @@
         "token_id": 18,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 67,
-        "kv_len_after": 7347,
+        "sampled_tokens": 67,
+        "written_kv_len": 7346,
+        "attention_kv_len_next": 7347,
+        "next_write_position": 7346,
         "events": []
       },
       {
@@ -903,8 +1067,10 @@
           2,
           3
         ],
-        "generated_tokens": 68,
-        "kv_len_after": 7348,
+        "sampled_tokens": 68,
+        "written_kv_len": 7347,
+        "attention_kv_len_next": 7348,
+        "next_write_position": 7347,
         "events": [
           {
             "kind": "transition",
@@ -918,7 +1084,8 @@
             "closed_at_token_index": 67,
             "effect_step": 68,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": true
           }
         ]
       },
@@ -930,8 +1097,10 @@
           2,
           3
         ],
-        "generated_tokens": 69,
-        "kv_len_after": 7349,
+        "sampled_tokens": 69,
+        "written_kv_len": 7348,
+        "attention_kv_len_next": 7349,
+        "next_write_position": 7348,
         "events": []
       },
       {
@@ -942,8 +1111,10 @@
           2,
           3
         ],
-        "generated_tokens": 70,
-        "kv_len_after": 7350,
+        "sampled_tokens": 70,
+        "written_kv_len": 7349,
+        "attention_kv_len_next": 7350,
+        "next_write_position": 7349,
         "events": []
       },
       {
@@ -954,8 +1125,10 @@
           2,
           3
         ],
-        "generated_tokens": 71,
-        "kv_len_after": 7351,
+        "sampled_tokens": 71,
+        "written_kv_len": 7350,
+        "attention_kv_len_next": 7351,
+        "next_write_position": 7350,
         "events": []
       },
       {
@@ -966,8 +1139,10 @@
           2,
           3
         ],
-        "generated_tokens": 72,
-        "kv_len_after": 7352,
+        "sampled_tokens": 72,
+        "written_kv_len": 7351,
+        "attention_kv_len_next": 7352,
+        "next_write_position": 7351,
         "events": []
       },
       {
@@ -978,8 +1153,10 @@
           2,
           3
         ],
-        "generated_tokens": 73,
-        "kv_len_after": 7353,
+        "sampled_tokens": 73,
+        "written_kv_len": 7352,
+        "attention_kv_len_next": 7353,
+        "next_write_position": 7352,
         "events": []
       },
       {
@@ -990,8 +1167,10 @@
           2,
           3
         ],
-        "generated_tokens": 74,
-        "kv_len_after": 7354,
+        "sampled_tokens": 74,
+        "written_kv_len": 7353,
+        "attention_kv_len_next": 7354,
+        "next_write_position": 7353,
         "events": []
       },
       {
@@ -1002,8 +1181,10 @@
           2,
           3
         ],
-        "generated_tokens": 75,
-        "kv_len_after": 7355,
+        "sampled_tokens": 75,
+        "written_kv_len": 7354,
+        "attention_kv_len_next": 7355,
+        "next_write_position": 7354,
         "events": []
       },
       {
@@ -1014,8 +1195,10 @@
           2,
           3
         ],
-        "generated_tokens": 76,
-        "kv_len_after": 7356,
+        "sampled_tokens": 76,
+        "written_kv_len": 7355,
+        "attention_kv_len_next": 7356,
+        "next_write_position": 7355,
         "events": []
       },
       {
@@ -1023,8 +1206,10 @@
         "token_id": 1721,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 77,
-        "kv_len_after": 7357,
+        "sampled_tokens": 77,
+        "written_kv_len": 7356,
+        "attention_kv_len_next": 7357,
+        "next_write_position": 7356,
         "events": [
           {
             "kind": "transition",
@@ -1035,7 +1220,8 @@
             "closed_at_token_index": 76,
             "effect_step": 77,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -1044,8 +1230,10 @@
         "token_id": 2359,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 78,
-        "kv_len_after": 7358,
+        "sampled_tokens": 78,
+        "written_kv_len": 7357,
+        "attention_kv_len_next": 7358,
+        "next_write_position": 7357,
         "events": []
       },
       {
@@ -1053,8 +1241,10 @@
         "token_id": 29,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 79,
-        "kv_len_after": 7359,
+        "sampled_tokens": 79,
+        "written_kv_len": 7358,
+        "attention_kv_len_next": 7359,
+        "next_write_position": 7358,
         "events": [
           {
             "kind": "transition",
@@ -1065,7 +1255,8 @@
             "closed_at_token_index": 78,
             "effect_step": 79,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -1074,8 +1265,10 @@
         "token_id": 87009,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 80,
-        "kv_len_after": 7360,
+        "sampled_tokens": 80,
+        "written_kv_len": 7359,
+        "attention_kv_len_next": 7360,
+        "next_write_position": 7359,
         "events": []
       },
       {
@@ -1083,8 +1276,10 @@
         "token_id": 220,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 81,
-        "kv_len_after": 7361,
+        "sampled_tokens": 81,
+        "written_kv_len": 7360,
+        "attention_kv_len_next": 7361,
+        "next_write_position": 7360,
         "events": []
       },
       {
@@ -1092,8 +1287,10 @@
         "token_id": 17,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 82,
-        "kv_len_after": 7362,
+        "sampled_tokens": 82,
+        "written_kv_len": 7361,
+        "attention_kv_len_next": 7362,
+        "next_write_position": 7361,
         "events": []
       },
       {
@@ -1101,8 +1298,10 @@
         "token_id": 15,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 83,
-        "kv_len_after": 7363,
+        "sampled_tokens": 83,
+        "written_kv_len": 7362,
+        "attention_kv_len_next": 7363,
+        "next_write_position": 7362,
         "events": []
       },
       {
@@ -1110,8 +1309,10 @@
         "token_id": 16,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 84,
-        "kv_len_after": 7364,
+        "sampled_tokens": 84,
+        "written_kv_len": 7363,
+        "attention_kv_len_next": 7364,
+        "next_write_position": 7363,
         "events": []
       },
       {
@@ -1119,8 +1320,10 @@
         "token_id": 24,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 85,
-        "kv_len_after": 7365,
+        "sampled_tokens": 85,
+        "written_kv_len": 7364,
+        "attention_kv_len_next": 7365,
+        "next_write_position": 7364,
         "events": []
       },
       {
@@ -1128,8 +1331,10 @@
         "token_id": 26,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 86,
-        "kv_len_after": 7366,
+        "sampled_tokens": 86,
+        "written_kv_len": 7365,
+        "attention_kv_len_next": 7366,
+        "next_write_position": 7365,
         "events": []
       },
       {
@@ -1137,8 +1342,10 @@
         "token_id": 7786,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 87,
-        "kv_len_after": 7367,
+        "sampled_tokens": 87,
+        "written_kv_len": 7366,
+        "attention_kv_len_next": 7367,
+        "next_write_position": 7366,
         "events": []
       },
       {
@@ -1146,8 +1353,10 @@
         "token_id": 220,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 88,
-        "kv_len_after": 7368,
+        "sampled_tokens": 88,
+        "written_kv_len": 7367,
+        "attention_kv_len_next": 7368,
+        "next_write_position": 7367,
         "events": []
       },
       {
@@ -1155,8 +1364,10 @@
         "token_id": 19,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 89,
-        "kv_len_after": 7369,
+        "sampled_tokens": 89,
+        "written_kv_len": 7368,
+        "attention_kv_len_next": 7369,
+        "next_write_position": 7368,
         "events": []
       },
       {
@@ -1164,8 +1375,10 @@
         "token_id": 16,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 90,
-        "kv_len_after": 7370,
+        "sampled_tokens": 90,
+        "written_kv_len": 7369,
+        "attention_kv_len_next": 7370,
+        "next_write_position": 7369,
         "events": []
       },
       {
@@ -1173,8 +1386,10 @@
         "token_id": 3410,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 91,
-        "kv_len_after": 7371,
+        "sampled_tokens": 91,
+        "written_kv_len": 7370,
+        "attention_kv_len_next": 7371,
+        "next_write_position": 7370,
         "events": []
       },
       {
@@ -1182,8 +1397,10 @@
         "token_id": 3786,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 92,
-        "kv_len_after": 7372,
+        "sampled_tokens": 92,
+        "written_kv_len": 7371,
+        "attention_kv_len_next": 7372,
+        "next_write_position": 7371,
         "events": []
       },
       {
@@ -1191,8 +1408,10 @@
         "token_id": 2359,
         "mode_after": "local",
         "refs": [],
-        "generated_tokens": 93,
-        "kv_len_after": 7373,
+        "sampled_tokens": 93,
+        "written_kv_len": 7372,
+        "attention_kv_len_next": 7373,
+        "next_write_position": 7372,
         "events": []
       },
       {
@@ -1200,8 +1419,10 @@
         "token_id": 1721,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 94,
-        "kv_len_after": 7374,
+        "sampled_tokens": 94,
+        "written_kv_len": 7373,
+        "attention_kv_len_next": 7374,
+        "next_write_position": 7373,
         "events": [
           {
             "kind": "transition",
@@ -1212,7 +1433,8 @@
             "closed_at_token_index": 93,
             "effect_step": 94,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -1221,8 +1443,10 @@
         "token_id": 8944,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 95,
-        "kv_len_after": 7375,
+        "sampled_tokens": 95,
+        "written_kv_len": 7374,
+        "attention_kv_len_next": 7375,
+        "next_write_position": 7374,
         "events": []
       },
       {
@@ -1230,8 +1454,10 @@
         "token_id": 29,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 96,
-        "kv_len_after": 7376,
+        "sampled_tokens": 96,
+        "written_kv_len": 7375,
+        "attention_kv_len_next": 7376,
+        "next_write_position": 7375,
         "events": [
           {
             "kind": "marker",
@@ -1242,7 +1468,8 @@
             "closed_at_token_index": 95,
             "effect_step": 96,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       },
@@ -1251,8 +1478,10 @@
         "token_id": 57635,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 97,
-        "kv_len_after": 7377,
+        "sampled_tokens": 97,
+        "written_kv_len": 7376,
+        "attention_kv_len_next": 7377,
+        "next_write_position": 7376,
         "events": []
       },
       {
@@ -1260,8 +1489,10 @@
         "token_id": 303,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 98,
-        "kv_len_after": 7378,
+        "sampled_tokens": 98,
+        "written_kv_len": 7377,
+        "attention_kv_len_next": 7378,
+        "next_write_position": 7377,
         "events": []
       },
       {
@@ -1269,8 +1500,10 @@
         "token_id": 220,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 99,
-        "kv_len_after": 7379,
+        "sampled_tokens": 99,
+        "written_kv_len": 7378,
+        "attention_kv_len_next": 7379,
+        "next_write_position": 7378,
         "events": []
       },
       {
@@ -1278,8 +1511,10 @@
         "token_id": 17,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 100,
-        "kv_len_after": 7380,
+        "sampled_tokens": 100,
+        "written_kv_len": 7379,
+        "attention_kv_len_next": 7380,
+        "next_write_position": 7379,
         "events": []
       },
       {
@@ -1287,8 +1522,10 @@
         "token_id": 15,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 101,
-        "kv_len_after": 7381,
+        "sampled_tokens": 101,
+        "written_kv_len": 7380,
+        "attention_kv_len_next": 7381,
+        "next_write_position": 7380,
         "events": []
       },
       {
@@ -1296,8 +1533,10 @@
         "token_id": 16,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 102,
-        "kv_len_after": 7382,
+        "sampled_tokens": 102,
+        "written_kv_len": 7381,
+        "attention_kv_len_next": 7382,
+        "next_write_position": 7381,
         "events": []
       },
       {
@@ -1305,8 +1544,10 @@
         "token_id": 24,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 103,
-        "kv_len_after": 7383,
+        "sampled_tokens": 103,
+        "written_kv_len": 7382,
+        "attention_kv_len_next": 7383,
+        "next_write_position": 7382,
         "events": []
       },
       {
@@ -1314,8 +1555,10 @@
         "token_id": 11,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 104,
-        "kv_len_after": 7384,
+        "sampled_tokens": 104,
+        "written_kv_len": 7383,
+        "attention_kv_len_next": 7384,
+        "next_write_position": 7383,
         "events": []
       },
       {
@@ -1323,8 +1566,10 @@
         "token_id": 440,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 105,
-        "kv_len_after": 7385,
+        "sampled_tokens": 105,
+        "written_kv_len": 7384,
+        "attention_kv_len_next": 7385,
+        "next_write_position": 7384,
         "events": []
       },
       {
@@ -1332,8 +1577,10 @@
         "token_id": 264,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 106,
-        "kv_len_after": 7386,
+        "sampled_tokens": 106,
+        "written_kv_len": 7385,
+        "attention_kv_len_next": 7386,
+        "next_write_position": 7385,
         "events": []
       },
       {
@@ -1341,8 +1588,10 @@
         "token_id": 7786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 107,
-        "kv_len_after": 7387,
+        "sampled_tokens": 107,
+        "written_kv_len": 7386,
+        "attention_kv_len_next": 7387,
+        "next_write_position": 7386,
         "events": []
       },
       {
@@ -1350,8 +1599,10 @@
         "token_id": 314,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 108,
-        "kv_len_after": 7388,
+        "sampled_tokens": 108,
+        "written_kv_len": 7387,
+        "attention_kv_len_next": 7388,
+        "next_write_position": 7387,
         "events": []
       },
       {
@@ -1359,8 +1610,10 @@
         "token_id": 220,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 109,
-        "kv_len_after": 7389,
+        "sampled_tokens": 109,
+        "written_kv_len": 7388,
+        "attention_kv_len_next": 7389,
+        "next_write_position": 7388,
         "events": []
       },
       {
@@ -1368,8 +1621,10 @@
         "token_id": 19,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 110,
-        "kv_len_after": 7390,
+        "sampled_tokens": 110,
+        "written_kv_len": 7389,
+        "attention_kv_len_next": 7390,
+        "next_write_position": 7389,
         "events": []
       },
       {
@@ -1377,8 +1632,10 @@
         "token_id": 16,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 111,
-        "kv_len_after": 7391,
+        "sampled_tokens": 111,
+        "written_kv_len": 7390,
+        "attention_kv_len_next": 7391,
+        "next_write_position": 7390,
         "events": []
       },
       {
@@ -1386,8 +1643,10 @@
         "token_id": 3410,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 112,
-        "kv_len_after": 7392,
+        "sampled_tokens": 112,
+        "written_kv_len": 7391,
+        "attention_kv_len_next": 7392,
+        "next_write_position": 7391,
         "events": []
       },
       {
@@ -1395,8 +1654,10 @@
         "token_id": 3786,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 113,
-        "kv_len_after": 7393,
+        "sampled_tokens": 113,
+        "written_kv_len": 7392,
+        "attention_kv_len_next": 7393,
+        "next_write_position": 7392,
         "events": []
       },
       {
@@ -1404,8 +1665,10 @@
         "token_id": 8944,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 114,
-        "kv_len_after": 7394,
+        "sampled_tokens": 114,
+        "written_kv_len": 7393,
+        "attention_kv_len_next": 7394,
+        "next_write_position": 7393,
         "events": []
       },
       {
@@ -1413,8 +1676,10 @@
         "token_id": 29,
         "mode_after": "global",
         "refs": [],
-        "generated_tokens": 115,
-        "kv_len_after": 7395,
+        "sampled_tokens": 115,
+        "written_kv_len": 7394,
+        "attention_kv_len_next": 7395,
+        "next_write_position": 7394,
         "events": [
           {
             "kind": "marker",
@@ -1425,7 +1690,8 @@
             "closed_at_token_index": 114,
             "effect_step": 115,
             "reason": "",
-            "detail": ""
+            "detail": "",
+            "is_focus_attempt": false
           }
         ]
       }
@@ -1438,7 +1704,9 @@
       "input_token_id": null,
       "input_token_text": null,
       "write_position": null,
-      "kv_len": 7280,
+      "written_before_step": 7280,
+      "attention_kv_len": 7280,
+      "next_write_position": 7280,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1452,7 +1720,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1498,7 +1766,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7280,
+        "attention_kv_len": 7280,
+        "written_before_step": 7279,
         "kernel_block_size": 784,
         "tail_block_valid_len": 224,
         "next_write_position": 7280,
@@ -1511,7 +1780,9 @@
       "input_token_id": 27,
       "input_token_text": "<",
       "write_position": 7280,
-      "kv_len": 7281,
+      "written_before_step": 7280,
+      "attention_kv_len": 7281,
+      "next_write_position": 7281,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1525,7 +1796,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1571,7 +1842,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7281,
+        "attention_kv_len": 7281,
+        "written_before_step": 7280,
         "kernel_block_size": 784,
         "tail_block_valid_len": 225,
         "next_write_position": 7281,
@@ -1584,7 +1856,9 @@
       "input_token_id": 9461,
       "input_token_text": "global",
       "write_position": 7281,
-      "kv_len": 7282,
+      "written_before_step": 7281,
+      "attention_kv_len": 7282,
+      "next_write_position": 7282,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1598,7 +1872,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1644,7 +1918,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7282,
+        "attention_kv_len": 7282,
+        "written_before_step": 7281,
         "kernel_block_size": 784,
         "tail_block_valid_len": 226,
         "next_write_position": 7282,
@@ -1657,7 +1932,9 @@
       "input_token_id": 15877,
       "input_token_text": ">The",
       "write_position": 7282,
-      "kv_len": 7283,
+      "written_before_step": 7282,
+      "attention_kv_len": 7283,
+      "next_write_position": 7283,
       "mode": "global",
       "refs": [],
       "events": [
@@ -1670,7 +1947,8 @@
           "closed_at_token_index": 2,
           "effect_step": 3,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -1683,7 +1961,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1729,7 +2007,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7283,
+        "attention_kv_len": 7283,
+        "written_before_step": 7282,
         "kernel_block_size": 784,
         "tail_block_valid_len": 227,
         "next_write_position": 7283,
@@ -1742,7 +2021,9 @@
       "input_token_id": 3296,
       "input_token_text": " question",
       "write_position": 7283,
-      "kv_len": 7284,
+      "written_before_step": 7283,
+      "attention_kv_len": 7284,
+      "next_write_position": 7284,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1756,7 +2037,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1802,7 +2083,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7284,
+        "attention_kv_len": 7284,
+        "written_before_step": 7283,
         "kernel_block_size": 784,
         "tail_block_valid_len": 228,
         "next_write_position": 7284,
@@ -1815,7 +2097,9 @@
       "input_token_id": 3749,
       "input_token_text": " needs",
       "write_position": 7284,
-      "kv_len": 7285,
+      "written_before_step": 7284,
+      "attention_kv_len": 7285,
+      "next_write_position": 7285,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1829,7 +2113,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1875,7 +2159,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7285,
+        "attention_kv_len": 7285,
+        "written_before_step": 7284,
         "kernel_block_size": 784,
         "tail_block_valid_len": 229,
         "next_write_position": 7285,
@@ -1888,7 +2173,9 @@
       "input_token_id": 1330,
       "input_token_text": " two",
       "write_position": 7285,
-      "kv_len": 7286,
+      "written_before_step": 7285,
+      "attention_kv_len": 7286,
+      "next_write_position": 7286,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1902,7 +2189,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -1948,7 +2235,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7286,
+        "attention_kv_len": 7286,
+        "written_before_step": 7285,
         "kernel_block_size": 784,
         "tail_block_valid_len": 230,
         "next_write_position": 7286,
@@ -1961,7 +2249,9 @@
       "input_token_id": 12688,
       "input_token_text": " facts",
       "write_position": 7286,
-      "kv_len": 7287,
+      "written_before_step": 7286,
+      "attention_kv_len": 7287,
+      "next_write_position": 7287,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -1975,7 +2265,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2021,7 +2311,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7287,
+        "attention_kv_len": 7287,
+        "written_before_step": 7286,
         "kernel_block_size": 784,
         "tail_block_valid_len": 231,
         "next_write_position": 7287,
@@ -2034,7 +2325,9 @@
       "input_token_id": 25,
       "input_token_text": ":",
       "write_position": 7287,
-      "kv_len": 7288,
+      "written_before_step": 7287,
+      "attention_kv_len": 7288,
+      "next_write_position": 7288,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2048,7 +2341,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2094,7 +2387,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7288,
+        "attention_kv_len": 7288,
+        "written_before_step": 7287,
         "kernel_block_size": 784,
         "tail_block_valid_len": 232,
         "next_write_position": 7288,
@@ -2107,7 +2401,9 @@
       "input_token_id": 279,
       "input_token_text": " the",
       "write_position": 7288,
-      "kv_len": 7289,
+      "written_before_step": 7288,
+      "attention_kv_len": 7289,
+      "next_write_position": 7289,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2121,7 +2417,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2167,7 +2463,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7289,
+        "attention_kv_len": 7289,
+        "written_before_step": 7288,
         "kernel_block_size": 784,
         "tail_block_valid_len": 233,
         "next_write_position": 7289,
@@ -2180,7 +2477,9 @@
       "input_token_id": 14014,
       "input_token_text": " approval",
       "write_position": 7289,
-      "kv_len": 7290,
+      "written_before_step": 7289,
+      "attention_kv_len": 7290,
+      "next_write_position": 7290,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2194,7 +2493,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2240,7 +2539,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7290,
+        "attention_kv_len": 7290,
+        "written_before_step": 7289,
         "kernel_block_size": 784,
         "tail_block_valid_len": 234,
         "next_write_position": 7290,
@@ -2253,7 +2553,9 @@
       "input_token_id": 1007,
       "input_token_text": " year",
       "write_position": 7290,
-      "kv_len": 7291,
+      "written_before_step": 7290,
+      "attention_kv_len": 7291,
+      "next_write_position": 7291,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2267,7 +2569,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2313,7 +2615,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7291,
+        "attention_kv_len": 7291,
+        "written_before_step": 7290,
         "kernel_block_size": 784,
         "tail_block_valid_len": 235,
         "next_write_position": 7291,
@@ -2326,7 +2629,9 @@
       "input_token_id": 321,
       "input_token_text": " and",
       "write_position": 7291,
-      "kv_len": 7292,
+      "written_before_step": 7291,
+      "attention_kv_len": 7292,
+      "next_write_position": 7292,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2340,7 +2645,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2386,7 +2691,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7292,
+        "attention_kv_len": 7292,
+        "written_before_step": 7291,
         "kernel_block_size": 784,
         "tail_block_valid_len": 236,
         "next_write_position": 7292,
@@ -2399,7 +2705,9 @@
       "input_token_id": 279,
       "input_token_text": " the",
       "write_position": 7292,
-      "kv_len": 7293,
+      "written_before_step": 7292,
+      "attention_kv_len": 7293,
+      "next_write_position": 7293,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2413,7 +2721,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2459,7 +2767,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7293,
+        "attention_kv_len": 7293,
+        "written_before_step": 7292,
         "kernel_block_size": 784,
         "tail_block_valid_len": 237,
         "next_write_position": 7293,
@@ -2472,7 +2781,9 @@
       "input_token_id": 7786,
       "input_token_text": " budget",
       "write_position": 7293,
-      "kv_len": 7294,
+      "written_before_step": 7293,
+      "attention_kv_len": 7294,
+      "next_write_position": 7294,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2486,7 +2797,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2532,7 +2843,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7294,
+        "attention_kv_len": 7294,
+        "written_before_step": 7293,
         "kernel_block_size": 784,
         "tail_block_valid_len": 238,
         "next_write_position": 7294,
@@ -2545,7 +2857,9 @@
       "input_token_id": 13,
       "input_token_text": ".",
       "write_position": 7294,
-      "kv_len": 7295,
+      "written_before_step": 7294,
+      "attention_kv_len": 7295,
+      "next_write_position": 7295,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2559,7 +2873,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2605,7 +2919,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7295,
+        "attention_kv_len": 7295,
+        "written_before_step": 7294,
         "kernel_block_size": 784,
         "tail_block_valid_len": 239,
         "next_write_position": 7295,
@@ -2618,7 +2933,9 @@
       "input_token_id": 15030,
       "input_token_text": " Magic",
       "write_position": 7295,
-      "kv_len": 7296,
+      "written_before_step": 7295,
+      "attention_kv_len": 7296,
+      "next_write_position": 7296,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2632,7 +2949,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2678,7 +2995,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7296,
+        "attention_kv_len": 7296,
+        "written_before_step": 7295,
         "kernel_block_size": 784,
         "tail_block_valid_len": 240,
         "next_write_position": 7296,
@@ -2691,7 +3009,9 @@
       "input_token_id": 43996,
       "input_token_text": " Chunk",
       "write_position": 7296,
-      "kv_len": 7297,
+      "written_before_step": 7296,
+      "attention_kv_len": 7297,
+      "next_write_position": 7297,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2705,7 +3025,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2751,7 +3071,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7297,
+        "attention_kv_len": 7297,
+        "written_before_step": 7296,
         "kernel_block_size": 784,
         "tail_block_valid_len": 241,
         "next_write_position": 7297,
@@ -2764,7 +3085,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7297,
-      "kv_len": 7298,
+      "written_before_step": 7297,
+      "attention_kv_len": 7298,
+      "next_write_position": 7298,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2778,7 +3101,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2824,7 +3147,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7298,
+        "attention_kv_len": 7298,
+        "written_before_step": 7297,
         "kernel_block_size": 784,
         "tail_block_valid_len": 242,
         "next_write_position": 7298,
@@ -2837,7 +3161,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7298,
-      "kv_len": 7299,
+      "written_before_step": 7298,
+      "attention_kv_len": 7299,
+      "next_write_position": 7299,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2851,7 +3177,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2897,7 +3223,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7299,
+        "attention_kv_len": 7299,
+        "written_before_step": 7298,
         "kernel_block_size": 784,
         "tail_block_valid_len": 243,
         "next_write_position": 7299,
@@ -2910,7 +3237,9 @@
       "input_token_id": 1220,
       "input_token_text": " should",
       "write_position": 7299,
-      "kv_len": 7300,
+      "written_before_step": 7299,
+      "attention_kv_len": 7300,
+      "next_write_position": 7300,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2924,7 +3253,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -2970,7 +3299,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7300,
+        "attention_kv_len": 7300,
+        "written_before_step": 7299,
         "kernel_block_size": 784,
         "tail_block_valid_len": 244,
         "next_write_position": 7300,
@@ -2983,7 +3313,9 @@
       "input_token_id": 3222,
       "input_token_text": " hold",
       "write_position": 7300,
-      "kv_len": 7301,
+      "written_before_step": 7300,
+      "attention_kv_len": 7301,
+      "next_write_position": 7301,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -2997,7 +3329,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3043,7 +3375,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7301,
+        "attention_kv_len": 7301,
+        "written_before_step": 7300,
         "kernel_block_size": 784,
         "tail_block_valid_len": 245,
         "next_write_position": 7301,
@@ -3056,7 +3389,9 @@
       "input_token_id": 279,
       "input_token_text": " the",
       "write_position": 7301,
-      "kv_len": 7302,
+      "written_before_step": 7301,
+      "attention_kv_len": 7302,
+      "next_write_position": 7302,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3070,7 +3405,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3116,7 +3451,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7302,
+        "attention_kv_len": 7302,
+        "written_before_step": 7301,
         "kernel_block_size": 784,
         "tail_block_valid_len": 246,
         "next_write_position": 7302,
@@ -3129,7 +3465,9 @@
       "input_token_id": 17597,
       "input_token_text": " programme",
       "write_position": 7302,
-      "kv_len": 7303,
+      "written_before_step": 7302,
+      "attention_kv_len": 7303,
+      "next_write_position": 7303,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3143,7 +3481,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3189,7 +3527,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7303,
+        "attention_kv_len": 7303,
+        "written_before_step": 7302,
         "kernel_block_size": 784,
         "tail_block_valid_len": 247,
         "next_write_position": 7303,
@@ -3202,7 +3541,9 @@
       "input_token_id": 3712,
       "input_token_text": " history",
       "write_position": 7303,
-      "kv_len": 7304,
+      "written_before_step": 7303,
+      "attention_kv_len": 7304,
+      "next_write_position": 7304,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3216,7 +3557,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3262,7 +3603,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7304,
+        "attention_kv_len": 7304,
+        "written_before_step": 7303,
         "kernel_block_size": 784,
         "tail_block_valid_len": 248,
         "next_write_position": 7304,
@@ -3275,7 +3617,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7304,
-      "kv_len": 7305,
+      "written_before_step": 7304,
+      "attention_kv_len": 7305,
+      "next_write_position": 7305,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3289,7 +3633,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3335,7 +3679,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7305,
+        "attention_kv_len": 7305,
+        "written_before_step": 7304,
         "kernel_block_size": 784,
         "tail_block_valid_len": 249,
         "next_write_position": 7305,
@@ -3348,7 +3693,9 @@
       "input_token_id": 9461,
       "input_token_text": "global",
       "write_position": 7305,
-      "kv_len": 7306,
+      "written_before_step": 7305,
+      "attention_kv_len": 7306,
+      "next_write_position": 7306,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3362,7 +3709,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3408,7 +3755,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7306,
+        "attention_kv_len": 7306,
+        "written_before_step": 7305,
         "kernel_block_size": 784,
         "tail_block_valid_len": 250,
         "next_write_position": 7306,
@@ -3421,7 +3769,9 @@
       "input_token_id": 1721,
       "input_token_text": "><",
       "write_position": 7306,
-      "kv_len": 7307,
+      "written_before_step": 7306,
+      "attention_kv_len": 7307,
+      "next_write_position": 7307,
       "mode": "global",
       "refs": [],
       "events": [
@@ -3434,7 +3784,8 @@
           "closed_at_token_index": 26,
           "effect_step": 27,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -3447,7 +3798,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3493,7 +3844,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7307,
+        "attention_kv_len": 7307,
+        "written_before_step": 7306,
         "kernel_block_size": 784,
         "tail_block_valid_len": 251,
         "next_write_position": 7307,
@@ -3506,7 +3858,9 @@
       "input_token_id": 16900,
       "input_token_text": "focus",
       "write_position": 7307,
-      "kv_len": 7308,
+      "written_before_step": 7307,
+      "attention_kv_len": 7308,
+      "next_write_position": 7308,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3520,7 +3874,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3566,7 +3920,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7308,
+        "attention_kv_len": 7308,
+        "written_before_step": 7307,
         "kernel_block_size": 784,
         "tail_block_valid_len": 252,
         "next_write_position": 7308,
@@ -3579,7 +3934,9 @@
       "input_token_id": 10642,
       "input_token_text": " magic",
       "write_position": 7308,
-      "kv_len": 7309,
+      "written_before_step": 7308,
+      "attention_kv_len": 7309,
+      "next_write_position": 7309,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3593,7 +3950,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3639,7 +3996,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7309,
+        "attention_kv_len": 7309,
+        "written_before_step": 7308,
         "kernel_block_size": 784,
         "tail_block_valid_len": 253,
         "next_write_position": 7309,
@@ -3652,7 +4010,9 @@
       "input_token_id": 63261,
       "input_token_text": "_chunks",
       "write_position": 7309,
-      "kv_len": 7310,
+      "written_before_step": 7309,
+      "attention_kv_len": 7310,
+      "next_write_position": 7310,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3666,7 +4026,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3712,7 +4072,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7310,
+        "attention_kv_len": 7310,
+        "written_before_step": 7309,
         "kernel_block_size": 784,
         "tail_block_valid_len": 254,
         "next_write_position": 7310,
@@ -3725,7 +4086,9 @@
       "input_token_id": 420,
       "input_token_text": "=\"",
       "write_position": 7310,
-      "kv_len": 7311,
+      "written_before_step": 7310,
+      "attention_kv_len": 7311,
+      "next_write_position": 7311,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3739,7 +4102,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3785,7 +4148,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7311,
+        "attention_kv_len": 7311,
+        "written_before_step": 7310,
         "kernel_block_size": 784,
         "tail_block_valid_len": 255,
         "next_write_position": 7311,
@@ -3798,7 +4162,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7311,
-      "kv_len": 7312,
+      "written_before_step": 7311,
+      "attention_kv_len": 7312,
+      "next_write_position": 7312,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -3812,7 +4178,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3858,7 +4224,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7312,
+        "attention_kv_len": 7312,
+        "written_before_step": 7311,
         "kernel_block_size": 784,
         "tail_block_valid_len": 256,
         "next_write_position": 7312,
@@ -3871,7 +4238,9 @@
       "input_token_id": 731,
       "input_token_text": "\">",
       "write_position": 7312,
-      "kv_len": 7313,
+      "written_before_step": 7312,
+      "attention_kv_len": 7313,
+      "next_write_position": 7313,
       "mode": "focus",
       "refs": [
         1
@@ -3888,7 +4257,8 @@
           "closed_at_token_index": 32,
           "effect_step": 33,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": true
         }
       ],
       "view": {
@@ -3901,7 +4271,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -3927,10 +4297,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7313
           ]
         ],
@@ -3966,7 +4332,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7313,
+        "attention_kv_len": 7313,
+        "written_before_step": 7312,
         "kernel_block_size": 784,
         "tail_block_valid_len": 257,
         "next_write_position": 7313,
@@ -3979,7 +4346,9 @@
       "input_token_id": 57635,
       "input_token_text": "Approved",
       "write_position": 7313,
-      "kv_len": 7314,
+      "written_before_step": 7313,
+      "attention_kv_len": 7314,
+      "next_write_position": 7314,
       "mode": "focus",
       "refs": [
         1
@@ -3995,7 +4364,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4021,10 +4390,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7314
           ]
         ],
@@ -4060,7 +4425,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7314,
+        "attention_kv_len": 7314,
+        "written_before_step": 7313,
         "kernel_block_size": 784,
         "tail_block_valid_len": 258,
         "next_write_position": 7314,
@@ -4073,7 +4439,9 @@
       "input_token_id": 303,
       "input_token_text": " in",
       "write_position": 7314,
-      "kv_len": 7315,
+      "written_before_step": 7314,
+      "attention_kv_len": 7315,
+      "next_write_position": 7315,
       "mode": "focus",
       "refs": [
         1
@@ -4089,7 +4457,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4115,10 +4483,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7315
           ]
         ],
@@ -4154,7 +4518,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7315,
+        "attention_kv_len": 7315,
+        "written_before_step": 7314,
         "kernel_block_size": 784,
         "tail_block_valid_len": 259,
         "next_write_position": 7315,
@@ -4167,7 +4532,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7315,
-      "kv_len": 7316,
+      "written_before_step": 7315,
+      "attention_kv_len": 7316,
+      "next_write_position": 7316,
       "mode": "focus",
       "refs": [
         1
@@ -4183,7 +4550,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4209,10 +4576,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7316
           ]
         ],
@@ -4248,7 +4611,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7316,
+        "attention_kv_len": 7316,
+        "written_before_step": 7315,
         "kernel_block_size": 784,
         "tail_block_valid_len": 260,
         "next_write_position": 7316,
@@ -4261,7 +4625,9 @@
       "input_token_id": 17,
       "input_token_text": "2",
       "write_position": 7316,
-      "kv_len": 7317,
+      "written_before_step": 7316,
+      "attention_kv_len": 7317,
+      "next_write_position": 7317,
       "mode": "focus",
       "refs": [
         1
@@ -4277,7 +4643,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4303,10 +4669,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7317
           ]
         ],
@@ -4342,7 +4704,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7317,
+        "attention_kv_len": 7317,
+        "written_before_step": 7316,
         "kernel_block_size": 784,
         "tail_block_valid_len": 261,
         "next_write_position": 7317,
@@ -4355,7 +4718,9 @@
       "input_token_id": 15,
       "input_token_text": "0",
       "write_position": 7317,
-      "kv_len": 7318,
+      "written_before_step": 7317,
+      "attention_kv_len": 7318,
+      "next_write_position": 7318,
       "mode": "focus",
       "refs": [
         1
@@ -4371,7 +4736,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4397,10 +4762,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7318
           ]
         ],
@@ -4436,7 +4797,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7318,
+        "attention_kv_len": 7318,
+        "written_before_step": 7317,
         "kernel_block_size": 784,
         "tail_block_valid_len": 262,
         "next_write_position": 7318,
@@ -4449,7 +4811,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7318,
-      "kv_len": 7319,
+      "written_before_step": 7318,
+      "attention_kv_len": 7319,
+      "next_write_position": 7319,
       "mode": "focus",
       "refs": [
         1
@@ -4465,7 +4829,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4491,10 +4855,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7319
           ]
         ],
@@ -4530,7 +4890,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7319,
+        "attention_kv_len": 7319,
+        "written_before_step": 7318,
         "kernel_block_size": 784,
         "tail_block_valid_len": 263,
         "next_write_position": 7319,
@@ -4543,7 +4904,9 @@
       "input_token_id": 24,
       "input_token_text": "9",
       "write_position": 7319,
-      "kv_len": 7320,
+      "written_before_step": 7319,
+      "attention_kv_len": 7320,
+      "next_write_position": 7320,
       "mode": "focus",
       "refs": [
         1
@@ -4559,7 +4922,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4585,10 +4948,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7320
           ]
         ],
@@ -4624,7 +4983,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7320,
+        "attention_kv_len": 7320,
+        "written_before_step": 7319,
         "kernel_block_size": 784,
         "tail_block_valid_len": 264,
         "next_write_position": 7320,
@@ -4637,7 +4997,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7320,
-      "kv_len": 7321,
+      "written_before_step": 7320,
+      "attention_kv_len": 7321,
+      "next_write_position": 7321,
       "mode": "focus",
       "refs": [
         1
@@ -4653,7 +5015,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4679,10 +5041,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7321
           ]
         ],
@@ -4718,7 +5076,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7321,
+        "attention_kv_len": 7321,
+        "written_before_step": 7320,
         "kernel_block_size": 784,
         "tail_block_valid_len": 265,
         "next_write_position": 7321,
@@ -4731,7 +5090,9 @@
       "input_token_id": 16900,
       "input_token_text": "focus",
       "write_position": 7321,
-      "kv_len": 7322,
+      "written_before_step": 7321,
+      "attention_kv_len": 7322,
+      "next_write_position": 7322,
       "mode": "focus",
       "refs": [
         1
@@ -4747,7 +5108,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4773,10 +5134,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7322
           ]
         ],
@@ -4812,7 +5169,8 @@
         ],
         "valid_counts": 6,
         "max_width": 10,
-        "kv_len": 7322,
+        "attention_kv_len": 7322,
+        "written_before_step": 7321,
         "kernel_block_size": 784,
         "tail_block_valid_len": 266,
         "next_write_position": 7322,
@@ -4825,7 +5183,9 @@
       "input_token_id": 1721,
       "input_token_text": "><",
       "write_position": 7322,
-      "kv_len": 7323,
+      "written_before_step": 7322,
+      "attention_kv_len": 7323,
+      "next_write_position": 7323,
       "mode": "global",
       "refs": [],
       "events": [
@@ -4838,7 +5198,8 @@
           "closed_at_token_index": 42,
           "effect_step": 43,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -4851,7 +5212,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4897,7 +5258,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7323,
+        "attention_kv_len": 7323,
+        "written_before_step": 7322,
         "kernel_block_size": 784,
         "tail_block_valid_len": 267,
         "next_write_position": 7323,
@@ -4910,7 +5272,9 @@
       "input_token_id": 9461,
       "input_token_text": "global",
       "write_position": 7323,
-      "kv_len": 7324,
+      "written_before_step": 7323,
+      "attention_kv_len": 7324,
+      "next_write_position": 7324,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -4924,7 +5288,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -4970,7 +5334,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7324,
+        "attention_kv_len": 7324,
+        "written_before_step": 7323,
         "kernel_block_size": 784,
         "tail_block_valid_len": 268,
         "next_write_position": 7324,
@@ -4983,7 +5348,9 @@
       "input_token_id": 15877,
       "input_token_text": ">The",
       "write_position": 7324,
-      "kv_len": 7325,
+      "written_before_step": 7324,
+      "attention_kv_len": 7325,
+      "next_write_position": 7325,
       "mode": "global",
       "refs": [],
       "events": [
@@ -4996,7 +5363,8 @@
           "closed_at_token_index": 44,
           "effect_step": 45,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -5009,7 +5377,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5055,7 +5423,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7325,
+        "attention_kv_len": 7325,
+        "written_before_step": 7324,
         "kernel_block_size": 784,
         "tail_block_valid_len": 269,
         "next_write_position": 7325,
@@ -5068,7 +5437,9 @@
       "input_token_id": 7786,
       "input_token_text": " budget",
       "write_position": 7325,
-      "kv_len": 7326,
+      "written_before_step": 7325,
+      "attention_kv_len": 7326,
+      "next_write_position": 7326,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5082,7 +5453,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5128,7 +5499,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7326,
+        "attention_kv_len": 7326,
+        "written_before_step": 7325,
         "kernel_block_size": 784,
         "tail_block_valid_len": 270,
         "next_write_position": 7326,
@@ -5141,7 +5513,9 @@
       "input_token_id": 369,
       "input_token_text": " is",
       "write_position": 7326,
-      "kv_len": 7327,
+      "written_before_step": 7326,
+      "attention_kv_len": 7327,
+      "next_write_position": 7327,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5155,7 +5529,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5201,7 +5575,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7327,
+        "attention_kv_len": 7327,
+        "written_before_step": 7326,
         "kernel_block_size": 784,
         "tail_block_valid_len": 271,
         "next_write_position": 7327,
@@ -5214,7 +5589,9 @@
       "input_token_id": 1990,
       "input_token_text": " still",
       "write_position": 7327,
-      "kv_len": 7328,
+      "written_before_step": 7327,
+      "attention_kv_len": 7328,
+      "next_write_position": 7328,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5228,7 +5605,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5274,7 +5651,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7328,
+        "attention_kv_len": 7328,
+        "written_before_step": 7327,
         "kernel_block_size": 784,
         "tail_block_valid_len": 272,
         "next_write_position": 7328,
@@ -5287,7 +5665,9 @@
       "input_token_id": 7167,
       "input_token_text": " missing",
       "write_position": 7328,
-      "kv_len": 7329,
+      "written_before_step": 7328,
+      "attention_kv_len": 7329,
+      "next_write_position": 7329,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5301,7 +5681,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5347,7 +5727,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7329,
+        "attention_kv_len": 7329,
+        "written_before_step": 7328,
         "kernel_block_size": 784,
         "tail_block_valid_len": 273,
         "next_write_position": 7329,
@@ -5360,7 +5741,9 @@
       "input_token_id": 26,
       "input_token_text": ";",
       "write_position": 7329,
-      "kv_len": 7330,
+      "written_before_step": 7329,
+      "attention_kv_len": 7330,
+      "next_write_position": 7330,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5374,7 +5757,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5420,7 +5803,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7330,
+        "attention_kv_len": 7330,
+        "written_before_step": 7329,
         "kernel_block_size": 784,
         "tail_block_valid_len": 274,
         "next_write_position": 7330,
@@ -5433,7 +5817,9 @@
       "input_token_id": 15030,
       "input_token_text": " Magic",
       "write_position": 7330,
-      "kv_len": 7331,
+      "written_before_step": 7330,
+      "attention_kv_len": 7331,
+      "next_write_position": 7331,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5447,7 +5833,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5493,7 +5879,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7331,
+        "attention_kv_len": 7331,
+        "written_before_step": 7330,
         "kernel_block_size": 784,
         "tail_block_valid_len": 275,
         "next_write_position": 7331,
@@ -5506,7 +5893,9 @@
       "input_token_id": 43996,
       "input_token_text": " Chunk",
       "write_position": 7331,
-      "kv_len": 7332,
+      "written_before_step": 7331,
+      "attention_kv_len": 7332,
+      "next_write_position": 7332,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5520,7 +5909,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5566,7 +5955,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7332,
+        "attention_kv_len": 7332,
+        "written_before_step": 7331,
         "kernel_block_size": 784,
         "tail_block_valid_len": 276,
         "next_write_position": 7332,
@@ -5579,7 +5969,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7332,
-      "kv_len": 7333,
+      "written_before_step": 7332,
+      "attention_kv_len": 7333,
+      "next_write_position": 7333,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5593,7 +5985,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5639,7 +6031,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7333,
+        "attention_kv_len": 7333,
+        "written_before_step": 7332,
         "kernel_block_size": 784,
         "tail_block_valid_len": 277,
         "next_write_position": 7333,
@@ -5652,7 +6045,9 @@
       "input_token_id": 17,
       "input_token_text": "2",
       "write_position": 7333,
-      "kv_len": 7334,
+      "written_before_step": 7333,
+      "attention_kv_len": 7334,
+      "next_write_position": 7334,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5666,7 +6061,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5712,7 +6107,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7334,
+        "attention_kv_len": 7334,
+        "written_before_step": 7333,
         "kernel_block_size": 784,
         "tail_block_valid_len": 278,
         "next_write_position": 7334,
@@ -5725,7 +6121,9 @@
       "input_token_id": 14103,
       "input_token_text": " covers",
       "write_position": 7334,
-      "kv_len": 7335,
+      "written_before_step": 7334,
+      "attention_kv_len": 7335,
+      "next_write_position": 7335,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5739,7 +6137,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5785,7 +6183,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7335,
+        "attention_kv_len": 7335,
+        "written_before_step": 7334,
         "kernel_block_size": 784,
         "tail_block_valid_len": 279,
         "next_write_position": 7335,
@@ -5798,7 +6197,9 @@
       "input_token_id": 10456,
       "input_token_text": " funding",
       "write_position": 7335,
-      "kv_len": 7336,
+      "written_before_step": 7335,
+      "attention_kv_len": 7336,
+      "next_write_position": 7336,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5812,7 +6213,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5858,7 +6259,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7336,
+        "attention_kv_len": 7336,
+        "written_before_step": 7335,
         "kernel_block_size": 784,
         "tail_block_valid_len": 280,
         "next_write_position": 7336,
@@ -5871,7 +6273,9 @@
       "input_token_id": 4965,
       "input_token_text": " lines",
       "write_position": 7336,
-      "kv_len": 7337,
+      "written_before_step": 7336,
+      "attention_kv_len": 7337,
+      "next_write_position": 7337,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5885,7 +6289,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -5931,7 +6335,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7337,
+        "attention_kv_len": 7337,
+        "written_before_step": 7336,
         "kernel_block_size": 784,
         "tail_block_valid_len": 281,
         "next_write_position": 7337,
@@ -5944,7 +6349,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7337,
-      "kv_len": 7338,
+      "written_before_step": 7337,
+      "attention_kv_len": 7338,
+      "next_write_position": 7338,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -5958,7 +6365,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6004,7 +6411,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7338,
+        "attention_kv_len": 7338,
+        "written_before_step": 7337,
         "kernel_block_size": 784,
         "tail_block_valid_len": 282,
         "next_write_position": 7338,
@@ -6017,7 +6425,9 @@
       "input_token_id": 9461,
       "input_token_text": "global",
       "write_position": 7338,
-      "kv_len": 7339,
+      "written_before_step": 7338,
+      "attention_kv_len": 7339,
+      "next_write_position": 7339,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6031,7 +6441,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6077,7 +6487,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7339,
+        "attention_kv_len": 7339,
+        "written_before_step": 7338,
         "kernel_block_size": 784,
         "tail_block_valid_len": 283,
         "next_write_position": 7339,
@@ -6090,7 +6501,9 @@
       "input_token_id": 1721,
       "input_token_text": "><",
       "write_position": 7339,
-      "kv_len": 7340,
+      "written_before_step": 7339,
+      "attention_kv_len": 7340,
+      "next_write_position": 7340,
       "mode": "global",
       "refs": [],
       "events": [
@@ -6103,7 +6516,8 @@
           "closed_at_token_index": 59,
           "effect_step": 60,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -6116,7 +6530,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6162,7 +6576,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7340,
+        "attention_kv_len": 7340,
+        "written_before_step": 7339,
         "kernel_block_size": 784,
         "tail_block_valid_len": 284,
         "next_write_position": 7340,
@@ -6175,7 +6590,9 @@
       "input_token_id": 16900,
       "input_token_text": "focus",
       "write_position": 7340,
-      "kv_len": 7341,
+      "written_before_step": 7340,
+      "attention_kv_len": 7341,
+      "next_write_position": 7341,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6189,7 +6606,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6235,7 +6652,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7341,
+        "attention_kv_len": 7341,
+        "written_before_step": 7340,
         "kernel_block_size": 784,
         "tail_block_valid_len": 285,
         "next_write_position": 7341,
@@ -6248,7 +6666,9 @@
       "input_token_id": 10642,
       "input_token_text": " magic",
       "write_position": 7341,
-      "kv_len": 7342,
+      "written_before_step": 7341,
+      "attention_kv_len": 7342,
+      "next_write_position": 7342,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6262,7 +6682,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6308,7 +6728,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7342,
+        "attention_kv_len": 7342,
+        "written_before_step": 7341,
         "kernel_block_size": 784,
         "tail_block_valid_len": 286,
         "next_write_position": 7342,
@@ -6321,7 +6742,9 @@
       "input_token_id": 63261,
       "input_token_text": "_chunks",
       "write_position": 7342,
-      "kv_len": 7343,
+      "written_before_step": 7342,
+      "attention_kv_len": 7343,
+      "next_write_position": 7343,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6335,7 +6758,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6381,7 +6804,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7343,
+        "attention_kv_len": 7343,
+        "written_before_step": 7342,
         "kernel_block_size": 784,
         "tail_block_valid_len": 287,
         "next_write_position": 7343,
@@ -6394,7 +6818,9 @@
       "input_token_id": 420,
       "input_token_text": "=\"",
       "write_position": 7343,
-      "kv_len": 7344,
+      "written_before_step": 7343,
+      "attention_kv_len": 7344,
+      "next_write_position": 7344,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6408,7 +6834,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6454,7 +6880,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7344,
+        "attention_kv_len": 7344,
+        "written_before_step": 7343,
         "kernel_block_size": 784,
         "tail_block_valid_len": 288,
         "next_write_position": 7344,
@@ -6467,7 +6894,9 @@
       "input_token_id": 17,
       "input_token_text": "2",
       "write_position": 7344,
-      "kv_len": 7345,
+      "written_before_step": 7344,
+      "attention_kv_len": 7345,
+      "next_write_position": 7345,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6481,7 +6910,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6527,7 +6956,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7345,
+        "attention_kv_len": 7345,
+        "written_before_step": 7344,
         "kernel_block_size": 784,
         "tail_block_valid_len": 289,
         "next_write_position": 7345,
@@ -6540,7 +6970,9 @@
       "input_token_id": 11,
       "input_token_text": ",",
       "write_position": 7345,
-      "kv_len": 7346,
+      "written_before_step": 7345,
+      "attention_kv_len": 7346,
+      "next_write_position": 7346,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6554,7 +6986,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6600,7 +7032,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7346,
+        "attention_kv_len": 7346,
+        "written_before_step": 7345,
         "kernel_block_size": 784,
         "tail_block_valid_len": 290,
         "next_write_position": 7346,
@@ -6613,7 +7046,9 @@
       "input_token_id": 18,
       "input_token_text": "3",
       "write_position": 7346,
-      "kv_len": 7347,
+      "written_before_step": 7346,
+      "attention_kv_len": 7347,
+      "next_write_position": 7347,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -6627,7 +7062,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6673,7 +7108,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7347,
+        "attention_kv_len": 7347,
+        "written_before_step": 7346,
         "kernel_block_size": 784,
         "tail_block_valid_len": 291,
         "next_write_position": 7347,
@@ -6686,7 +7122,9 @@
       "input_token_id": 731,
       "input_token_text": "\">",
       "write_position": 7347,
-      "kv_len": 7348,
+      "written_before_step": 7347,
+      "attention_kv_len": 7348,
+      "next_write_position": 7348,
       "mode": "focus",
       "refs": [
         2,
@@ -6705,7 +7143,8 @@
           "closed_at_token_index": 67,
           "effect_step": 68,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": true
         }
       ],
       "view": {
@@ -6718,7 +7157,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6753,10 +7192,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7348
           ]
         ],
@@ -6794,7 +7229,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7348,
+        "attention_kv_len": 7348,
+        "written_before_step": 7347,
         "kernel_block_size": 784,
         "tail_block_valid_len": 292,
         "next_write_position": 7348,
@@ -6807,7 +7243,9 @@
       "input_token_id": 60782,
       "input_token_text": "Budget",
       "write_position": 7348,
-      "kv_len": 7349,
+      "written_before_step": 7348,
+      "attention_kv_len": 7349,
+      "next_write_position": 7349,
       "mode": "focus",
       "refs": [
         2,
@@ -6824,7 +7262,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6859,10 +7297,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7349
           ]
         ],
@@ -6900,7 +7334,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7349,
+        "attention_kv_len": 7349,
+        "written_before_step": 7348,
         "kernel_block_size": 784,
         "tail_block_valid_len": 293,
         "next_write_position": 7349,
@@ -6913,7 +7348,9 @@
       "input_token_id": 314,
       "input_token_text": " of",
       "write_position": 7349,
-      "kv_len": 7350,
+      "written_before_step": 7349,
+      "attention_kv_len": 7350,
+      "next_write_position": 7350,
       "mode": "focus",
       "refs": [
         2,
@@ -6930,7 +7367,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -6965,10 +7402,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7350
           ]
         ],
@@ -7006,7 +7439,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7350,
+        "attention_kv_len": 7350,
+        "written_before_step": 7349,
         "kernel_block_size": 784,
         "tail_block_valid_len": 294,
         "next_write_position": 7350,
@@ -7019,7 +7453,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7350,
-      "kv_len": 7351,
+      "written_before_step": 7350,
+      "attention_kv_len": 7351,
+      "next_write_position": 7351,
       "mode": "focus",
       "refs": [
         2,
@@ -7036,7 +7472,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7071,10 +7507,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7351
           ]
         ],
@@ -7112,7 +7544,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7351,
+        "attention_kv_len": 7351,
+        "written_before_step": 7350,
         "kernel_block_size": 784,
         "tail_block_valid_len": 295,
         "next_write_position": 7351,
@@ -7125,7 +7558,9 @@
       "input_token_id": 19,
       "input_token_text": "4",
       "write_position": 7351,
-      "kv_len": 7352,
+      "written_before_step": 7351,
+      "attention_kv_len": 7352,
+      "next_write_position": 7352,
       "mode": "focus",
       "refs": [
         2,
@@ -7142,7 +7577,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7177,10 +7612,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7352
           ]
         ],
@@ -7218,7 +7649,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7352,
+        "attention_kv_len": 7352,
+        "written_before_step": 7351,
         "kernel_block_size": 784,
         "tail_block_valid_len": 296,
         "next_write_position": 7352,
@@ -7231,7 +7663,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7352,
-      "kv_len": 7353,
+      "written_before_step": 7352,
+      "attention_kv_len": 7353,
+      "next_write_position": 7353,
       "mode": "focus",
       "refs": [
         2,
@@ -7248,7 +7682,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7283,10 +7717,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7353
           ]
         ],
@@ -7324,7 +7754,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7353,
+        "attention_kv_len": 7353,
+        "written_before_step": 7352,
         "kernel_block_size": 784,
         "tail_block_valid_len": 297,
         "next_write_position": 7353,
@@ -7337,7 +7768,9 @@
       "input_token_id": 3410,
       "input_token_text": " million",
       "write_position": 7353,
-      "kv_len": 7354,
+      "written_before_step": 7353,
+      "attention_kv_len": 7354,
+      "next_write_position": 7354,
       "mode": "focus",
       "refs": [
         2,
@@ -7354,7 +7787,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7389,10 +7822,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7354
           ]
         ],
@@ -7430,7 +7859,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7354,
+        "attention_kv_len": 7354,
+        "written_before_step": 7353,
         "kernel_block_size": 784,
         "tail_block_valid_len": 298,
         "next_write_position": 7354,
@@ -7443,7 +7873,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7354,
-      "kv_len": 7355,
+      "written_before_step": 7354,
+      "attention_kv_len": 7355,
+      "next_write_position": 7355,
       "mode": "focus",
       "refs": [
         2,
@@ -7460,7 +7892,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7495,10 +7927,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7355
           ]
         ],
@@ -7536,7 +7964,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7355,
+        "attention_kv_len": 7355,
+        "written_before_step": 7354,
         "kernel_block_size": 784,
         "tail_block_valid_len": 299,
         "next_write_position": 7355,
@@ -7549,7 +7978,9 @@
       "input_token_id": 16900,
       "input_token_text": "focus",
       "write_position": 7355,
-      "kv_len": 7356,
+      "written_before_step": 7355,
+      "attention_kv_len": 7356,
+      "next_write_position": 7356,
       "mode": "focus",
       "refs": [
         2,
@@ -7566,7 +7997,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7601,10 +8032,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7356
           ]
         ],
@@ -7642,7 +8069,8 @@
         ],
         "valid_counts": 8,
         "max_width": 10,
-        "kv_len": 7356,
+        "attention_kv_len": 7356,
+        "written_before_step": 7355,
         "kernel_block_size": 784,
         "tail_block_valid_len": 300,
         "next_write_position": 7356,
@@ -7655,7 +8083,9 @@
       "input_token_id": 1721,
       "input_token_text": "><",
       "write_position": 7356,
-      "kv_len": 7357,
+      "written_before_step": 7356,
+      "attention_kv_len": 7357,
+      "next_write_position": 7357,
       "mode": "global",
       "refs": [],
       "events": [
@@ -7668,7 +8098,8 @@
           "closed_at_token_index": 76,
           "effect_step": 77,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -7681,7 +8112,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7727,7 +8158,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7357,
+        "attention_kv_len": 7357,
+        "written_before_step": 7356,
         "kernel_block_size": 784,
         "tail_block_valid_len": 301,
         "next_write_position": 7357,
@@ -7740,7 +8172,9 @@
       "input_token_id": 2359,
       "input_token_text": "local",
       "write_position": 7357,
-      "kv_len": 7358,
+      "written_before_step": 7357,
+      "attention_kv_len": 7358,
+      "next_write_position": 7358,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -7754,7 +8188,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7800,7 +8234,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7358,
+        "attention_kv_len": 7358,
+        "written_before_step": 7357,
         "kernel_block_size": 784,
         "tail_block_valid_len": 302,
         "next_write_position": 7358,
@@ -7813,7 +8248,9 @@
       "input_token_id": 29,
       "input_token_text": ">",
       "write_position": 7358,
-      "kv_len": 7359,
+      "written_before_step": 7358,
+      "attention_kv_len": 7359,
+      "next_write_position": 7359,
       "mode": "local",
       "refs": [],
       "events": [
@@ -7826,7 +8263,8 @@
           "closed_at_token_index": 78,
           "effect_step": 79,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -7839,7 +8277,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7854,10 +8292,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7359
           ]
         ],
@@ -7891,7 +8325,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7359,
+        "attention_kv_len": 7359,
+        "written_before_step": 7358,
         "kernel_block_size": 784,
         "tail_block_valid_len": 303,
         "next_write_position": 7359,
@@ -7904,7 +8339,9 @@
       "input_token_id": 87009,
       "input_token_text": "Approval",
       "write_position": 7359,
-      "kv_len": 7360,
+      "written_before_step": 7359,
+      "attention_kv_len": 7360,
+      "next_write_position": 7360,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -7918,7 +8355,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -7933,10 +8370,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7360
           ]
         ],
@@ -7970,7 +8403,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7360,
+        "attention_kv_len": 7360,
+        "written_before_step": 7359,
         "kernel_block_size": 784,
         "tail_block_valid_len": 304,
         "next_write_position": 7360,
@@ -7983,7 +8417,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7360,
-      "kv_len": 7361,
+      "written_before_step": 7360,
+      "attention_kv_len": 7361,
+      "next_write_position": 7361,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -7997,7 +8433,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8012,10 +8448,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7361
           ]
         ],
@@ -8049,7 +8481,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7361,
+        "attention_kv_len": 7361,
+        "written_before_step": 7360,
         "kernel_block_size": 784,
         "tail_block_valid_len": 305,
         "next_write_position": 7361,
@@ -8062,7 +8495,9 @@
       "input_token_id": 17,
       "input_token_text": "2",
       "write_position": 7361,
-      "kv_len": 7362,
+      "written_before_step": 7361,
+      "attention_kv_len": 7362,
+      "next_write_position": 7362,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8076,7 +8511,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8091,10 +8526,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7362
           ]
         ],
@@ -8128,7 +8559,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7362,
+        "attention_kv_len": 7362,
+        "written_before_step": 7361,
         "kernel_block_size": 784,
         "tail_block_valid_len": 306,
         "next_write_position": 7362,
@@ -8141,7 +8573,9 @@
       "input_token_id": 15,
       "input_token_text": "0",
       "write_position": 7362,
-      "kv_len": 7363,
+      "written_before_step": 7362,
+      "attention_kv_len": 7363,
+      "next_write_position": 7363,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8155,7 +8589,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8170,10 +8604,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7363
           ]
         ],
@@ -8207,7 +8637,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7363,
+        "attention_kv_len": 7363,
+        "written_before_step": 7362,
         "kernel_block_size": 784,
         "tail_block_valid_len": 307,
         "next_write_position": 7363,
@@ -8220,7 +8651,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7363,
-      "kv_len": 7364,
+      "written_before_step": 7363,
+      "attention_kv_len": 7364,
+      "next_write_position": 7364,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8234,7 +8667,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8249,10 +8682,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7364
           ]
         ],
@@ -8286,7 +8715,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7364,
+        "attention_kv_len": 7364,
+        "written_before_step": 7363,
         "kernel_block_size": 784,
         "tail_block_valid_len": 308,
         "next_write_position": 7364,
@@ -8299,7 +8729,9 @@
       "input_token_id": 24,
       "input_token_text": "9",
       "write_position": 7364,
-      "kv_len": 7365,
+      "written_before_step": 7364,
+      "attention_kv_len": 7365,
+      "next_write_position": 7365,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8313,7 +8745,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8328,10 +8760,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7365
           ]
         ],
@@ -8365,7 +8793,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7365,
+        "attention_kv_len": 7365,
+        "written_before_step": 7364,
         "kernel_block_size": 784,
         "tail_block_valid_len": 309,
         "next_write_position": 7365,
@@ -8378,7 +8807,9 @@
       "input_token_id": 26,
       "input_token_text": ";",
       "write_position": 7365,
-      "kv_len": 7366,
+      "written_before_step": 7365,
+      "attention_kv_len": 7366,
+      "next_write_position": 7366,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8392,7 +8823,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8407,10 +8838,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7366
           ]
         ],
@@ -8444,7 +8871,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7366,
+        "attention_kv_len": 7366,
+        "written_before_step": 7365,
         "kernel_block_size": 784,
         "tail_block_valid_len": 310,
         "next_write_position": 7366,
@@ -8457,7 +8885,9 @@
       "input_token_id": 7786,
       "input_token_text": " budget",
       "write_position": 7366,
-      "kv_len": 7367,
+      "written_before_step": 7366,
+      "attention_kv_len": 7367,
+      "next_write_position": 7367,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8471,7 +8901,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8486,10 +8916,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7367
           ]
         ],
@@ -8523,7 +8949,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7367,
+        "attention_kv_len": 7367,
+        "written_before_step": 7366,
         "kernel_block_size": 784,
         "tail_block_valid_len": 311,
         "next_write_position": 7367,
@@ -8536,7 +8963,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7367,
-      "kv_len": 7368,
+      "written_before_step": 7367,
+      "attention_kv_len": 7368,
+      "next_write_position": 7368,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8550,7 +8979,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8565,10 +8994,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7368
           ]
         ],
@@ -8602,7 +9027,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7368,
+        "attention_kv_len": 7368,
+        "written_before_step": 7367,
         "kernel_block_size": 784,
         "tail_block_valid_len": 312,
         "next_write_position": 7368,
@@ -8615,7 +9041,9 @@
       "input_token_id": 19,
       "input_token_text": "4",
       "write_position": 7368,
-      "kv_len": 7369,
+      "written_before_step": 7368,
+      "attention_kv_len": 7369,
+      "next_write_position": 7369,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8629,7 +9057,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8644,10 +9072,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7369
           ]
         ],
@@ -8681,7 +9105,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7369,
+        "attention_kv_len": 7369,
+        "written_before_step": 7368,
         "kernel_block_size": 784,
         "tail_block_valid_len": 313,
         "next_write_position": 7369,
@@ -8694,7 +9119,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7369,
-      "kv_len": 7370,
+      "written_before_step": 7369,
+      "attention_kv_len": 7370,
+      "next_write_position": 7370,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8708,7 +9135,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8723,10 +9150,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7370
           ]
         ],
@@ -8760,7 +9183,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7370,
+        "attention_kv_len": 7370,
+        "written_before_step": 7369,
         "kernel_block_size": 784,
         "tail_block_valid_len": 314,
         "next_write_position": 7370,
@@ -8773,7 +9197,9 @@
       "input_token_id": 3410,
       "input_token_text": " million",
       "write_position": 7370,
-      "kv_len": 7371,
+      "written_before_step": 7370,
+      "attention_kv_len": 7371,
+      "next_write_position": 7371,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8787,7 +9213,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8802,10 +9228,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7371
           ]
         ],
@@ -8839,7 +9261,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7371,
+        "attention_kv_len": 7371,
+        "written_before_step": 7370,
         "kernel_block_size": 784,
         "tail_block_valid_len": 315,
         "next_write_position": 7371,
@@ -8852,7 +9275,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7371,
-      "kv_len": 7372,
+      "written_before_step": 7371,
+      "attention_kv_len": 7372,
+      "next_write_position": 7372,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8866,7 +9291,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8881,10 +9306,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7372
           ]
         ],
@@ -8918,7 +9339,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7372,
+        "attention_kv_len": 7372,
+        "written_before_step": 7371,
         "kernel_block_size": 784,
         "tail_block_valid_len": 316,
         "next_write_position": 7372,
@@ -8931,7 +9353,9 @@
       "input_token_id": 2359,
       "input_token_text": "local",
       "write_position": 7372,
-      "kv_len": 7373,
+      "written_before_step": 7372,
+      "attention_kv_len": 7373,
+      "next_write_position": 7373,
       "mode": "local",
       "refs": [],
       "events": [],
@@ -8945,7 +9369,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -8960,10 +9384,6 @@
           ],
           [
             6211,
-            7273
-          ],
-          [
-            7280,
             7373
           ]
         ],
@@ -8997,7 +9417,8 @@
         ],
         "valid_counts": 4,
         "max_width": 10,
-        "kv_len": 7373,
+        "attention_kv_len": 7373,
+        "written_before_step": 7372,
         "kernel_block_size": 784,
         "tail_block_valid_len": 317,
         "next_write_position": 7373,
@@ -9010,7 +9431,9 @@
       "input_token_id": 1721,
       "input_token_text": "><",
       "write_position": 7373,
-      "kv_len": 7374,
+      "written_before_step": 7373,
+      "attention_kv_len": 7374,
+      "next_write_position": 7374,
       "mode": "global",
       "refs": [],
       "events": [
@@ -9023,7 +9446,8 @@
           "closed_at_token_index": 93,
           "effect_step": 94,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -9036,7 +9460,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9082,7 +9506,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7374,
+        "attention_kv_len": 7374,
+        "written_before_step": 7373,
         "kernel_block_size": 784,
         "tail_block_valid_len": 318,
         "next_write_position": 7374,
@@ -9095,7 +9520,9 @@
       "input_token_id": 8944,
       "input_token_text": "answer",
       "write_position": 7374,
-      "kv_len": 7375,
+      "written_before_step": 7374,
+      "attention_kv_len": 7375,
+      "next_write_position": 7375,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9109,7 +9536,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9155,7 +9582,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7375,
+        "attention_kv_len": 7375,
+        "written_before_step": 7374,
         "kernel_block_size": 784,
         "tail_block_valid_len": 319,
         "next_write_position": 7375,
@@ -9168,7 +9596,9 @@
       "input_token_id": 29,
       "input_token_text": ">",
       "write_position": 7375,
-      "kv_len": 7376,
+      "written_before_step": 7375,
+      "attention_kv_len": 7376,
+      "next_write_position": 7376,
       "mode": "global",
       "refs": [],
       "events": [
@@ -9181,7 +9611,8 @@
           "closed_at_token_index": 95,
           "effect_step": 96,
           "reason": "",
-          "detail": ""
+          "detail": "",
+          "is_focus_attempt": false
         }
       ],
       "view": {
@@ -9194,7 +9625,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9240,7 +9671,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7376,
+        "attention_kv_len": 7376,
+        "written_before_step": 7375,
         "kernel_block_size": 784,
         "tail_block_valid_len": 320,
         "next_write_position": 7376,
@@ -9253,7 +9685,9 @@
       "input_token_id": 57635,
       "input_token_text": "Approved",
       "write_position": 7376,
-      "kv_len": 7377,
+      "written_before_step": 7376,
+      "attention_kv_len": 7377,
+      "next_write_position": 7377,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9267,7 +9701,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9313,7 +9747,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7377,
+        "attention_kv_len": 7377,
+        "written_before_step": 7376,
         "kernel_block_size": 784,
         "tail_block_valid_len": 321,
         "next_write_position": 7377,
@@ -9326,7 +9761,9 @@
       "input_token_id": 303,
       "input_token_text": " in",
       "write_position": 7377,
-      "kv_len": 7378,
+      "written_before_step": 7377,
+      "attention_kv_len": 7378,
+      "next_write_position": 7378,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9340,7 +9777,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9386,7 +9823,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7378,
+        "attention_kv_len": 7378,
+        "written_before_step": 7377,
         "kernel_block_size": 784,
         "tail_block_valid_len": 322,
         "next_write_position": 7378,
@@ -9399,7 +9837,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7378,
-      "kv_len": 7379,
+      "written_before_step": 7378,
+      "attention_kv_len": 7379,
+      "next_write_position": 7379,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9413,7 +9853,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9459,7 +9899,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7379,
+        "attention_kv_len": 7379,
+        "written_before_step": 7378,
         "kernel_block_size": 784,
         "tail_block_valid_len": 323,
         "next_write_position": 7379,
@@ -9472,7 +9913,9 @@
       "input_token_id": 17,
       "input_token_text": "2",
       "write_position": 7379,
-      "kv_len": 7380,
+      "written_before_step": 7379,
+      "attention_kv_len": 7380,
+      "next_write_position": 7380,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9486,7 +9929,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9532,7 +9975,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7380,
+        "attention_kv_len": 7380,
+        "written_before_step": 7379,
         "kernel_block_size": 784,
         "tail_block_valid_len": 324,
         "next_write_position": 7380,
@@ -9545,7 +9989,9 @@
       "input_token_id": 15,
       "input_token_text": "0",
       "write_position": 7380,
-      "kv_len": 7381,
+      "written_before_step": 7380,
+      "attention_kv_len": 7381,
+      "next_write_position": 7381,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9559,7 +10005,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9605,7 +10051,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7381,
+        "attention_kv_len": 7381,
+        "written_before_step": 7380,
         "kernel_block_size": 784,
         "tail_block_valid_len": 325,
         "next_write_position": 7381,
@@ -9618,7 +10065,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7381,
-      "kv_len": 7382,
+      "written_before_step": 7381,
+      "attention_kv_len": 7382,
+      "next_write_position": 7382,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9632,7 +10081,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9678,7 +10127,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7382,
+        "attention_kv_len": 7382,
+        "written_before_step": 7381,
         "kernel_block_size": 784,
         "tail_block_valid_len": 326,
         "next_write_position": 7382,
@@ -9691,7 +10141,9 @@
       "input_token_id": 24,
       "input_token_text": "9",
       "write_position": 7382,
-      "kv_len": 7383,
+      "written_before_step": 7382,
+      "attention_kv_len": 7383,
+      "next_write_position": 7383,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9705,7 +10157,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9751,7 +10203,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7383,
+        "attention_kv_len": 7383,
+        "written_before_step": 7382,
         "kernel_block_size": 784,
         "tail_block_valid_len": 327,
         "next_write_position": 7383,
@@ -9764,7 +10217,9 @@
       "input_token_id": 11,
       "input_token_text": ",",
       "write_position": 7383,
-      "kv_len": 7384,
+      "written_before_step": 7383,
+      "attention_kv_len": 7384,
+      "next_write_position": 7384,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9778,7 +10233,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9824,7 +10279,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7384,
+        "attention_kv_len": 7384,
+        "written_before_step": 7383,
         "kernel_block_size": 784,
         "tail_block_valid_len": 328,
         "next_write_position": 7384,
@@ -9837,7 +10293,9 @@
       "input_token_id": 440,
       "input_token_text": " with",
       "write_position": 7384,
-      "kv_len": 7385,
+      "written_before_step": 7384,
+      "attention_kv_len": 7385,
+      "next_write_position": 7385,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9851,7 +10309,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9897,7 +10355,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7385,
+        "attention_kv_len": 7385,
+        "written_before_step": 7384,
         "kernel_block_size": 784,
         "tail_block_valid_len": 329,
         "next_write_position": 7385,
@@ -9910,7 +10369,9 @@
       "input_token_id": 264,
       "input_token_text": " a",
       "write_position": 7385,
-      "kv_len": 7386,
+      "written_before_step": 7385,
+      "attention_kv_len": 7386,
+      "next_write_position": 7386,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9924,7 +10385,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -9970,7 +10431,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7386,
+        "attention_kv_len": 7386,
+        "written_before_step": 7385,
         "kernel_block_size": 784,
         "tail_block_valid_len": 330,
         "next_write_position": 7386,
@@ -9983,7 +10445,9 @@
       "input_token_id": 7786,
       "input_token_text": " budget",
       "write_position": 7386,
-      "kv_len": 7387,
+      "written_before_step": 7386,
+      "attention_kv_len": 7387,
+      "next_write_position": 7387,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -9997,7 +10461,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10043,7 +10507,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7387,
+        "attention_kv_len": 7387,
+        "written_before_step": 7386,
         "kernel_block_size": 784,
         "tail_block_valid_len": 331,
         "next_write_position": 7387,
@@ -10056,7 +10521,9 @@
       "input_token_id": 314,
       "input_token_text": " of",
       "write_position": 7387,
-      "kv_len": 7388,
+      "written_before_step": 7387,
+      "attention_kv_len": 7388,
+      "next_write_position": 7388,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10070,7 +10537,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10116,7 +10583,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7388,
+        "attention_kv_len": 7388,
+        "written_before_step": 7387,
         "kernel_block_size": 784,
         "tail_block_valid_len": 332,
         "next_write_position": 7388,
@@ -10129,7 +10597,9 @@
       "input_token_id": 220,
       "input_token_text": " ",
       "write_position": 7388,
-      "kv_len": 7389,
+      "written_before_step": 7388,
+      "attention_kv_len": 7389,
+      "next_write_position": 7389,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10143,7 +10613,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10189,7 +10659,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7389,
+        "attention_kv_len": 7389,
+        "written_before_step": 7388,
         "kernel_block_size": 784,
         "tail_block_valid_len": 333,
         "next_write_position": 7389,
@@ -10202,7 +10673,9 @@
       "input_token_id": 19,
       "input_token_text": "4",
       "write_position": 7389,
-      "kv_len": 7390,
+      "written_before_step": 7389,
+      "attention_kv_len": 7390,
+      "next_write_position": 7390,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10216,7 +10689,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10262,7 +10735,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7390,
+        "attention_kv_len": 7390,
+        "written_before_step": 7389,
         "kernel_block_size": 784,
         "tail_block_valid_len": 334,
         "next_write_position": 7390,
@@ -10275,7 +10749,9 @@
       "input_token_id": 16,
       "input_token_text": "1",
       "write_position": 7390,
-      "kv_len": 7391,
+      "written_before_step": 7390,
+      "attention_kv_len": 7391,
+      "next_write_position": 7391,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10289,7 +10765,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10335,7 +10811,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7391,
+        "attention_kv_len": 7391,
+        "written_before_step": 7390,
         "kernel_block_size": 784,
         "tail_block_valid_len": 335,
         "next_write_position": 7391,
@@ -10348,7 +10825,9 @@
       "input_token_id": 3410,
       "input_token_text": " million",
       "write_position": 7391,
-      "kv_len": 7392,
+      "written_before_step": 7391,
+      "attention_kv_len": 7392,
+      "next_write_position": 7392,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10362,7 +10841,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10408,7 +10887,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7392,
+        "attention_kv_len": 7392,
+        "written_before_step": 7391,
         "kernel_block_size": 784,
         "tail_block_valid_len": 336,
         "next_write_position": 7392,
@@ -10421,7 +10901,9 @@
       "input_token_id": 3786,
       "input_token_text": ".</",
       "write_position": 7392,
-      "kv_len": 7393,
+      "written_before_step": 7392,
+      "attention_kv_len": 7393,
+      "next_write_position": 7393,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10435,7 +10917,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10481,7 +10963,8 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7393,
+        "attention_kv_len": 7393,
+        "written_before_step": 7392,
         "kernel_block_size": 784,
         "tail_block_valid_len": 337,
         "next_write_position": 7393,
@@ -10494,7 +10977,9 @@
       "input_token_id": 8944,
       "input_token_text": "answer",
       "write_position": 7393,
-      "kv_len": 7394,
+      "written_before_step": 7393,
+      "attention_kv_len": 7394,
+      "next_write_position": 7394,
       "mode": "global",
       "refs": [],
       "events": [],
@@ -10508,7 +10993,7 @@
         ],
         "local_window_span": [
           6211,
-          7273
+          7280
         ],
         "response_span": [
           7280,
@@ -10554,97 +11039,26 @@
         ],
         "valid_counts": 10,
         "max_width": 10,
-        "kv_len": 7394,
+        "attention_kv_len": 7394,
+        "written_before_step": 7393,
         "kernel_block_size": 784,
         "tail_block_valid_len": 338,
         "next_write_position": 7394,
         "visible_tokens": 7394
       }
-    },
-    {
-      "decode_step": 115,
-      "input_token_index": 114,
-      "input_token_id": 29,
-      "input_token_text": ">",
-      "write_position": 7394,
-      "kv_len": 7395,
-      "mode": "global",
-      "refs": [],
-      "events": [
-        {
-          "kind": "marker",
-          "name": "answer",
-          "mode_before": "global",
-          "mode_after": "global",
-          "refs": [],
-          "closed_at_token_index": 114,
-          "effect_step": 115,
-          "reason": "",
-          "detail": ""
-        }
-      ],
-      "view": {
-        "mode": "global",
-        "effect_step": 115,
-        "fallback_reason": null,
-        "sink_span": [
-          0,
-          16
-        ],
-        "local_window_span": [
-          6211,
-          7273
-        ],
-        "response_span": [
-          7280,
-          7395
-        ],
-        "declared_refs": [],
-        "declared_spans": [],
-        "raw_spans": [
-          [
-            0,
-            7395
-          ]
-        ],
-        "visible_spans": [
-          [
-            0,
-            7395
-          ]
-        ],
-        "visible_blocks": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9
-        ],
-        "physical_block_ids": [
-          109,
-          104,
-          102,
-          105,
-          108,
-          101,
-          110,
-          107,
-          103,
-          106
-        ],
-        "valid_counts": 10,
-        "max_width": 10,
-        "kv_len": 7395,
-        "kernel_block_size": 784,
-        "tail_block_valid_len": 339,
-        "next_write_position": 7395,
-        "visible_tokens": 7395
-      }
     }
-  ]
+  ],
+  "focus_stats": {
+    "focus_attempts": 2,
+    "focus_successes": 2,
+    "legal_rate": 1.0,
+    "requests_without_attempt": 0,
+    "requests_total": 1
+  },
+  "stop_token": {
+    "index": 114,
+    "would_be_forward_step": 115,
+    "forwarded": false,
+    "note": "该 token 触发停止条件：被采样但无 forward 消费，故轨迹里没有对应行"
+  }
 }

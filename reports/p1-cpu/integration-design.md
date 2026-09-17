@@ -25,39 +25,47 @@
 
 ## 2. token 回到 host 的时机与 t/t+1 生效（本阶段最关键结论）
 
-事实链（**【自读】**）：
+> **撤回**（2026-09-18 R1 复核后）：本文件初版写过"把 parser 放在 worker 的 `postprocess_sampled` 之后即可，
+> 不必关闭异步调度、无额外等待"。**该结论不成立，已撤回**：`AsyncOutput` 只**发起** D2H，
+> 在显式同步事件之前，host 侧没有任何可读的 token 值；建"token→文本查表"也不能让 CPU 提前安全读取 GPU 值。
 
-1. `EngineCore.step`（`v1/engine/core.py:597-630`）：`schedule()` → `execute_model(non_block=True)` → `future.result()`
-   → 若为 `None` 则 `sample_tokens(grammar_output)` → `_process_aborts_queue()` → `update_from_output()`。
-2. `UniProcExecutor.AsyncOutputFuture.result`（`uniproc_executor.py:26-45`）才真正触发
-   `AsyncModelRunnerOutput.get_output()`；host 侧 token ids 的唯一出处是
-   `v1/worker/gpu/async_utils.py:166-177`（`copy_event.synchronize()` + `tolist()`）**【侦察核对】**。
-3. V2 runner 在自己的 `sample_tokens` 里完成 forward→sample→**`AsyncOutput` 构造（发起异步 D2H）**→
-   `postprocess_sampled(...)`（`v1/worker/gpu/model_runner.py:1894` 与 `:1921`，**自读**）。也就是说：
-   **采样结果在 worker 内先可用（GPU/np），host 侧字符串/ids 要等 D2H 同步**。
-4. 异步调度默认开启（`v1/config/vllm.py:1231-1311`）；`max_concurrent_batches:558-568`；
-   `AsyncScheduler._update_after_schedule`（`v1/core/sched/async_scheduler.py:19-49`）会**乐观推进** `num_computed_tokens`
-   并用占位 token 调度下一步。**【侦察核对】**
+**依赖链（全部【自读】，`vllm/v1/worker/gpu/async_utils.py`）**
 
-推论（**结论**）：
+```text
+worker: sample → AsyncOutput.__init__ (async_utils.py:115)
+         └─ 在侧流发起非阻塞 D2H，record copy_event  … 此时 host 侧**无值**
+                                      │
+                                      ▼ 必须等这个事件
+host:   AsyncOutput.get_output (async_utils.py:166)
+         └─ copy_event.synchronize() → tolist()  … 到这里 host 才有 token ids
+                                      │
+                                      ▼
+CPU:    parser（增量解析）→ 更新请求读取视图
+                                      │
+                                      ▼ 必须在这一次 metadata 构造**之前**完成
+worker: build_attn_metadata / FlashAttentionMetadataBuilder.build（下一步 forward）
+```
 
-- 若把增量解析放在 **API server 或 `update_from_output`**（host 侧），则第 t 步采样出的 token 要到**第 t+1 步的
-  读回点**才在 host 可用；而第 t+1 步的 metadata 在 worker 内构建。若二者顺序恰好错开，声明只能影响第 t+2 步 forward
-  ——**那就是"延迟一拍"，合同 C3.5 不允许**（不能靠延迟生效冒充满足）。
-- 正确做法是把"解析 + 视图更新"放在 **worker 内、采样之后、下一次 `build_attn_metadata` 之前**：
-  即 V2 runner 的 `postprocess_sampled`（`model_runner.py:1921`）处或其后的新增钩子。此时第 t 步的 token 已在 worker
-  可用，第 t+1 步 forward 消费该 token 时用的正是新视图 → **恰好满足"第 t 步解析、第 t+1 步生效"，且不需要改动
-  调度器、不需要关闭异步调度**。
-- 代价与要求：worker 侧需要"token id → 文本片段"的能力。V2 worker 未必持有 tokenizer，建议**在初始化时从 tokenizer
-  词表构建一份只含 ASCII 控制字符（`< > / = " ,` 与字母数字）的 `{token_id: bytes}` 小表**（一次性，避免每步同步）；
-  CPU 侧已验证：逐 token `decode([id])` 拼接与整段文本完全一致（**实测** `tools/p1cpu-demo.py` 断言
-  `"".join(fed) == GENERATION_SCRIPT`），因此 token 级喂入是可行的。
-- **不得**用"每步额外 host 同步"来换取正确性而不计量：那会在 decode 热路径加同步点（R10 要测）。
+**因此"第 t 步解析、第 t+1 步生效"要求**：第 t 步的采样结果先在 host 可见（等 `copy_event`），解析完成，
+才能影响消费该 token 的那次 forward。**存在一个不可避免的同步点**；问题只是它落在哪里、代价多少。
 
-若最终选择 host 侧解析（例如为了与 API 层共用代码），则必须列出并**测**其一：
-(a) 对带 DA 的请求关闭异步调度（`Scheduler` 而非 `AsyncScheduler`）——损失 overlap；
-(b) 把 D2H 读回提前到本步末尾并同步等待——损失等于每步一次同步。
-两种都属"显式代价"，不得默认静默采用。
+**三条实现路线与各自代价**（本阶段不实施；R10 负责测量）
+
+| 路线 | 做法 | 正确性 | 代价 / 风险 |
+| --- | --- | --- | --- |
+| **A. CPU 解析 + 额外显式同步** | 在采样后、下一次 metadata 构造前，对 DA 请求显式等待该步的 D2H 事件后解析 | 按构造成立 | 每 decode 步一次同步等待，压缩流水重叠；代价必须实测（R10） |
+| **B. CPU 解析 + 复用既有读回点** | 复用引擎本来就要做的读回（`AsyncOutputFuture.result` → `get_output`）后再解析 | **取决于顺序**：若第 t+1 步的 metadata 构造发生在第 t 步读回之后，则成立；否则声明退到 t+2，违反 C3.5 | 顺序**尚未证实**【待核对】；若成立则≈零额外同步。**不得在未测前当作成立** |
+| **C. 设备侧 parser** | 用 token id 在 GPU 上跑标签自动机，直接产出模式/视图行，避免 host 往返 | 可绕开该同步点 | 属**另一实现范围**（不是本阶段的 CPU parser）；需要设备端状态与测试，属 P4/R10 讨论 |
+| （对照）关闭 DA 请求的异步调度 | 让 `AsyncScheduler` 退回 `Scheduler` | 使 B 的顺序问题消失 | 损失 overlap；同样要测 |
+
+**CPU 路线的额外前置条件（本阶段实测）**：host 侧把 token id 还原成文本**不能**用"逐 token `decode([id])` 再拼接"——
+Qwen3.8-27B 词表里 **953/248,077** 个 token 单独解码含 U+FFFD（UTF-8 字节跨 token 断开），
+且 `decode([id])` 对同一 token 在不同上下文中结果不同。需要**字节级增量解码缓冲**（`src/attnview/decode.py`
+已实现并测试：固定反例 `(64253, 121)` → naive `��` / 增量 `딽`）。该缓冲同时满足"控制标签是 ASCII、
+但正文可能是任意字节"的要求——不能假设 token 只含控制 ASCII。
+
+**证据位置**：`evidence/p1-cpu/prompt-facts.json:mixed_text_incremental_decode`（词表扫描 953 条 + 固定反例）、
+`tests/test_decode.py`。
 
 ## 3. 写入侧：块表、slot、位置（读视图绝不碰这些）
 
@@ -121,30 +129,27 @@ vLLM 自身的填充约定是 `NULL_BLOCK_ID=0`（`v1/attention/backends/utils.p
 - 但**共享块池记账**：DA 不释放/跳过任何块（`skip→null block`、`remove_skipped_blocks` 路径**不得**被 DA 触发），
   所以第一阶段**不声称显存下降**（与方案 §6.3 一致）。
 
-## 6. 推荐连接点（按改动面从小到大）
+## 6. 接入点：视图落位已明确，解析时序**未**明确
 
-**A. worker 内 per-step 钩子（推荐）**
+**6.1 视图落位（改动面小、与 §2 的时序问题无关）**
 
-1. 新增 `DARequestState`（解析器 + 模式 + 声明片段 + trace），与 `RequestState` 同生命周期：
-   在 `add_requests:1049` 建、`finish_requests`/`free_states`（`model_runner.py:1525-1533`）释放；
-   键一律用 `req_id`（**不**用行号）。
-2. 在 `postprocess_sampled`（`model_runner.py:1921`）之后：逐请求喂入本步采样 token（token→片段用一次性构建的
-   小表），更新模式与"下一步视图输入"。
-3. 在 `build_attn_metadata`（`attn_utils.py:247`，或紧随 `FlashAttentionMetadataBuilder.build`
-   `flash_attn.py:545` 之后）**只对全注意力组**：把带 DA 请求的那几行改成"本步可见块表"。
-   写入目标应是**每步复用的一块 read-only 块表缓冲**（形状一次生成内不变，满足 I5 与图捕获前提），
-   而不是 canonical `block_tables`（否则违反 I3）。
-4. 需要的新增数据：每请求 `visible_blocks → physical ids` 的行构造（CPU 侧已有纯函数，可直接搬运）；
-   一次小规模 H2D 拷贝（每 DA 请求一行），或等价的设备端 scatter。
+1. 新增 `DARequestState`（模式 + 声明引用 + 解析缓冲 + trace），生命周期挂在 worker 的 `RequestState` 同级：
+   `add_requests:1049` 建、`finish_requests`/`free_states`（`model_runner.py:1525-1533`）释放；键一律 `req_id`。
+2. 读取视图按请求构造（CPU 侧 `readview.py` 的纯函数可直接搬运），**只对全注意力 KV 组**把对应行写进
+   "每步复用的 read-only 块表缓冲"（形状一次生成内不变，I5/图捕获前提），**不动 canonical `block_tables`**（I3）。
+3. 落位点：`build_attn_metadata`（`attn_utils.py:247`）之后，或紧随 `FlashAttentionMetadataBuilder.build`
+   （`flash_attn.py:545`）；FA2 消费 `block_table_tensor`（`:561`）与 `seqused_k`（`:1040`）。
+   目标后端用 `NULL_BLOCK_ID=0` 之类的合法填充，**不得**把内部 `-1` 直接交给 kernel（§8.3）。
+4. 每个 DA 请求每步新增一次行改写（CPU 计算 + 小规模 H2D 或设备端 scatter），成本计入 R10。
 
-所需改动文件（预估）：`v1/worker/gpu/model_runner.py`、`v1/worker/gpu/attn_utils.py`（或 `flash_attn.py` 的 builder）、
-新增 `v1/worker/gpu/da/*`（协议层，纯 CPU）。**不触碰 kernel**。
+**6.2 解析时序（必须先定路线，见 §2 的表）**
 
-**B. host 侧解析 + 关闭 DA 请求的异步调度**：改动更像"服务层"，但损失 overlap 且要单独测；作为 A 的退路。
-
-**C. 通过 `CommonAttentionMetadata` 的 per-request 扩展字段传递（如 `rswa_prefix_lens:435` / `mm_req_doc_ranges:428`
-   这类既有先例）**：**【侦察核对】** 表明该版本已有 per-request 数组字段的先例，可作为"不经块表改写"的备选；
-   但 FA2 是否接受"按请求的前缀长度"语义**未被本阶段证实**（`rswa_prefix_lens` 属 SWA 路径）→ 列为待核对。
+- **不允许**把"放 worker 就免同步"当作结论；必须以实测确定：第 t 步的 D2H 事件何时可等、
+  第 t+1 步的 metadata 构造发生在何时、两者之间的顺序是否天然满足合同。
+- 建议的验证方式（CPU 侧无法替代）：在 worker 内对"采样完成/`copy_event` 完成/metadata 构造开始"
+  三个点打时间戳（或用 `torch.cuda.Event` + 日志），跑一条**强制声明轨迹**，逐 step 断言
+  "声明在第 t+1 步生效"。若顺序不满足，必须选 A 或 C 并记录代价。
+- 本阶段**不实施**任何路线，也不冻结 adapter/kernel 方案。
 
 ## 7. 后续 GPU 验证项（本阶段不做）
 
@@ -158,10 +163,10 @@ vLLM 自身的填充约定是 `NULL_BLOCK_ID=0`（`v1/attention/backends/utils.p
 ## 8. 本设计的限制与待决（交给本地复核）
 
 - 上述行号来自 pin `98dff2a81`；升级版本需重新核对（**版本规则**同协议合同 §7）。
-- **【待核对】**：`sample_tokens` 与 `execute_model` 在同一 step 内的先后（我自读了 `model_runner.py:1855-1935`
-  与 `core.py:597-630`，但"batch queue 深度 2 时 future 对应哪一步"未逐行确认）→ 直接决定 A 是否天然满足 t+1；
-  建议接 GPU 后在 worker 内打时间戳验证（**不靠推断**）。
-- **【待核对】**：worker 是否已有可用的 detokenize 能力（若有，可省掉自建小表）。
+- **【待核对/已被 R1 指出】**：`sample_tokens` 与 `execute_model` 在同一 step 内的先后，以及 batch queue 深度 2 时
+  `future` 对应哪一步（自读了 `model_runner.py:1855-1935` 与 `core.py:597-630`，但顺序未逐行确认）→
+  直接决定 §2 路线 B 是否成立；必须接 GPU 后用时间戳验证，**不靠推断**。
+- **【待核对】**：worker 是否已有可用的增量 detokenize 能力（若有，可直接复用而不用 `decode.py` 的缓冲）。
 - `-1` 的最终填充约定（建议 `NULL_BLOCK_ID=0`）需在真实 backend 上确认不被解引用。
 
 ## 9. M1 Chat Completions 子集建议（E4 要求的接口边界草案）
@@ -172,6 +177,7 @@ vLLM 自身的填充约定是 `NULL_BLOCK_ID=0`（`v1/attention/backends/utils.p
 | 面 | 建议（M1 非流式） | 依据/备注 |
 | --- | --- | --- |
 | 端点 | `POST /v1/chat/completions`，非流式（`stream=false`） | 方案 §4.1 已确认 M1 仅非流式 |
+| 上下文与问题 | **必须接收调用者任务**：文档/上下文与问题都由请求携带（或由服务端按既有数据合同装载），服务端不得把某份文档硬编码、也不得只读用户最后一句 | R1 明确指出"伪 API"风险；上下文的具体封装字段仍**待决**，但"只读最后一句"不可接受 |
 | 必要请求字段 | `model`、`messages`（取最后一条 user 内容作为 question）、`max_tokens`、`temperature`/`top_p` | 其余选项**不支持即报错**，不做静默忽略 |
 | 上下文注入 | 素材由服务端按方案组织（DA 臂把文档切成 magic chunk），**不从 `messages` 里读长文档** | 避免把协议机制暴露给客户端 |
 | 不支持选项 | `tools`、`tool_choice`、`response_format`、`logprobs`、`n>1`、`stop` 之外的自定义、`stream=true` | 首版明确返回 400 + 错误码，**不静默降级** |

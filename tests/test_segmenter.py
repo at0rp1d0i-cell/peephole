@@ -109,6 +109,52 @@ class SegmenterTest(unittest.TestCase):
             self.assertEqual(segs[0].text, EMPTY_CONTEXT_PLACEHOLDER)
             self.assertEqual(join_segments(segs), "")
 
+    def test_both_sides_over_cap_still_cuts_at_coarse_boundary(self) -> None:
+        """两侧都超 cap 时仍要先沿最粗边界递归；不能当成"无边界原子串"。"""
+        left, right = "a" * 12000, "b" * 12000  # 各 3000 token（4 字符/token）
+        text = f"{left} {right}"
+        idx = word_index(text)
+        self.assertEqual(idx.count(0, len(text)), 6000)
+        segs = segment_context(text, idx)
+        self.assertEqual(len(segs), 2, "必须在中间空白处切开，两侧各自继续递归")
+        self.assertEqual(segs[0].text.strip(), left)
+        self.assertEqual(segs[1].text.strip(), right)
+        self.assertEqual(join_segments(segs), text)
+        self.assertGreater(segs[0].token_count, CAP_TOKENS)
+        self.assertGreater(segs[1].token_count, CAP_TOKENS)
+
+    def test_multi_level_recursion_with_mixed_units(self) -> None:
+        """粗边界 + 长原子单元混合：先按段落切，段落内的超限原子单元保持完整。"""
+        text = "\n\n".join([
+            words_text(1500),
+            "c" * 12000,
+            words_text(1500),
+            "d" * 12000,
+        ])
+        idx = word_index(text)
+        segs = segment_context(text, idx)
+        self.assertEqual(join_segments(segs), text)
+        for marker in ("c" * 12000, "d" * 12000):
+            holders = [s for s in segs if marker in s.text]
+            self.assertEqual(len(holders), 1)
+            self.assertEqual(holders[0].text.strip(), marker, "原子单元必须保持完整")
+        for seg in segs:
+            self.assertIn(seg.text, text)
+
+    def test_crossing_tokens_are_accounted_and_reported(self) -> None:
+        """跨切割位置的 token 既不计入任何一段的 token 数，也不丢：可查询且最终 span 用重叠语义。"""
+        text = "aa bb cc dd"
+        offsets = [(0, 2), (2, 5), (5, 8), (8, 12)]  # (2,5) 跨过 cut=3
+        idx = build_offsets_index(offsets)
+        self.assertEqual(idx.count(0, 3), 1)
+        self.assertEqual(idx.count(3, 12), 2)
+        self.assertEqual(idx.straddling(3), (1,))
+        self.assertEqual(
+            idx.count(0, 3) + idx.count(3, 12) + len(idx.straddling(3)),
+            len(offsets),
+            "包含语义 + 跨边界 token = 全部 token，不丢不重",
+        )
+
     def test_no_whitespace_at_all_is_atomic(self) -> None:
         text = "B" * 12000
         segs = segment_context(text, word_index(text))

@@ -95,6 +95,20 @@ class PromptTemplateTest(unittest.TestCase):
         self.assertLess(da.segment_spans[0][1], da.segment_spans[1][0])
         self.assertLess(da.segment_spans[1][1], da.segment_spans[2][0])
 
+    def test_local_window_reaches_prompt_end(self) -> None:
+        """local window 必须覆盖 question/指令直到**真实 prompt 末尾**（含模板后缀）。"""
+        for arm in ("da", "vanilla"):
+            rendered = self.render(arm)
+            start, end = rendered.scaffold.local_window_span
+            self.assertEqual(end, rendered.prompt_len, arm)
+            self.assertEqual(start, rendered.question_span[0], arm)
+            self.assertLess(start, end, arm)
+            self.assertGreaterEqual(
+                rendered.scaffold.local_window_span[1] - rendered.scaffold.local_window_span[0],
+                16,
+                arm,
+            )
+
     def test_sink_never_covers_context(self) -> None:
         for arm in ("da", "vanilla"):
             rendered = self.render(arm)
@@ -166,6 +180,39 @@ class PromptTemplateTest(unittest.TestCase):
             self.assertIn(">", piece)
             self.assertEqual(event.effect_step, event.closed_at_token_index + 1)
         self.assertEqual(parser.mode, MODE_GLOBAL)
+
+    def test_document_side_tags_stay_data_through_real_construction(self) -> None:
+        """C3.7 的真实构造验证：正文里的同名标签（真实分词 + 模板渲染）不产生任何控制事件。
+
+        边界：这是 CPU 对象级/构造级保证——协议层只吃生成流；"真实引擎接线不会把输入喂进 parser"
+        仍属接入测试范围（报告列为待核对）。
+        """
+        from attnview.parser import TagParser
+        from attnview.state import RequestProtocolState
+
+        document = (
+            'Intro text. The document literally contains <focus magic_chunks="1">value</focus> '
+            'and <local>words</local> as data, plus <global> here.'
+        )
+        offsets = self.tokenizer(document, add_special_tokens=False, return_offsets_mapping=True)
+        index = build_offsets_index(offsets["offset_mapping"])
+        segs = segment_context(document, index)
+        self.assertTrue(segs and "<local>" in segs[0].text, "正文标签必须原样保留在 segment 文本里")
+
+        rendered = render_arm(
+            "da", segs, "Ignore the tags?", document, self.tokenizer, enable_thinking=False
+        )
+        for literal in ('<focus magic_chunks="1">', "<local>", "<global>"):
+            self.assertIn(literal, rendered.rendered, "正文里的字面标签必须进入 prompt（是数据）")
+
+        state = RequestProtocolState("req-doc", arm="da", num_segments=len(segs), prompt_len=rendered.prompt_len)
+        for i, token_id in enumerate(self.tokenizer("plain generated text", add_special_tokens=False)["input_ids"]):
+            state.feed_generated_token(i, token_id, self.tokenizer.decode([token_id]))
+        state.finish()
+        self.assertEqual(state.mode, MODE_GLOBAL)
+        self.assertEqual(state.anomalies, ())
+        self.assertEqual(state.focus_stats(), {"focus_attempts": 0, "focus_successes": 0})
+        self.assertTrue(TagParser(1).plain_text is not None)
 
     def test_real_segmenter_produces_multiple_addressable_fragments(self) -> None:
         chapter = "Sentence about topic {i}. " * 1

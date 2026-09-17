@@ -22,39 +22,39 @@ def reference_visible_mask(
     mode: str,
     refs: Sequence[int],
     layout: TokenLayout,
-    kv_len: int,
+    attention_kv_len: int,
     kernel_block_size: int,
 ) -> list[bool]:
-    """逐位置布尔 mask（长度 `kv_len`），True = 本步可见。"""
+    """逐位置布尔 mask（长度 `attention_kv_len`），True = 本步可见。"""
     if kernel_block_size <= 0:
         raise ValueError(f"kernel_block_size 必须为正：{kernel_block_size}")
     if mode not in (MODE_GLOBAL, MODE_FOCUS, MODE_LOCAL):
         raise ValueError(f"未知模式：{mode}")
 
-    selected = [False] * kv_len
+    selected = [False] * attention_kv_len
 
     def mark(start: int, end: int) -> None:
-        for pos in range(max(0, start), min(end, kv_len)):
+        for pos in range(max(0, start), min(end, attention_kv_len)):
             selected[pos] = True
 
     # 三区域恒可见（附录 B）：sink、question+instruction 本地窗口、已生成 response
     mark(*layout.sink_span)
     mark(*layout.local_window_span)
-    mark(layout.prompt_len, kv_len)
+    mark(layout.prompt_len, attention_kv_len)
 
     if mode == MODE_GLOBAL:
-        mark(0, kv_len)
+        mark(0, attention_kv_len)
     elif mode == MODE_FOCUS:
         for ref in refs:
             mark(*layout.segment_span(ref))
 
     # 向外对齐：位置可见 ⇒ 其所在块整体可见（这正是 I1 的逐位置表述）
-    visible = [False] * kv_len
+    visible = [False] * attention_kv_len
     for pos, is_selected in enumerate(selected):
         if not is_selected:
             continue
         block_start = (pos // kernel_block_size) * kernel_block_size
-        for p in range(block_start, min(block_start + kernel_block_size, kv_len)):
+        for p in range(block_start, min(block_start + kernel_block_size, attention_kv_len)):
             visible[p] = True
     return visible
 
@@ -64,10 +64,12 @@ def reference_visible_positions(**kwargs) -> tuple[int, ...]:
     return tuple(i for i, v in enumerate(mask) if v)
 
 
-def declared_positions(layout: TokenLayout, refs: Sequence[int], kv_len: int) -> tuple[int, ...]:
+def declared_positions(
+    layout: TokenLayout, refs: Sequence[int], attention_kv_len: int
+) -> tuple[int, ...]:
     """被声明点名的原始位置（未对齐），用于 I1「一个都不丢」的断言。"""
     out: list[int] = []
     for ref in refs:
         start, end = layout.segment_span(ref)
-        out.extend(range(max(0, start), min(end, kv_len)))
+        out.extend(range(max(0, start), min(end, attention_kv_len)))
     return tuple(out)

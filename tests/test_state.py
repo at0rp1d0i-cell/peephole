@@ -57,27 +57,14 @@ class StateIsolationTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             reg.create("req-1", arm="da", num_segments=3, prompt_len=10)
 
-    def test_prompt_side_tags_never_reach_the_parser(self) -> None:
-        """C3.7：文档正文里的伪标签是数据。状态只能接收生成流 token，因此正文标签不产生事件。"""
+    def test_generation_stream_without_tags_keeps_default_state(self) -> None:
+        """对象级局部保证：控制状态只由生成流驱动；正文字符串不经此接口（真实接线属接入测试）。"""
         reg = ProtocolRegistry()
         state = make_state(reg, "req-x")
         feed(state, "The document mentions ")
-
-        class FakeDocState:
-            def __init__(self) -> None:
-                self.mode = MODE_GLOBAL
-                self.events = 0
-
-            def feed(self, text: str) -> None:
-                if "<focus" in text:
-                    self.events += 1
-
-        doc = FakeDocState()
-        doc.feed('<focus magic_chunks="1">literal text in the document</focus>')
         self.assertEqual(state.mode, MODE_GLOBAL)
         self.assertEqual(state.anomalies, ())
         self.assertEqual(state.focus_stats()["focus_attempts"], 0)
-        self.assertEqual(doc.events, 1, "对照：正文里确实存在同名标签字面串")
 
     def test_finish_flushes_incomplete_tag(self) -> None:
         reg = ProtocolRegistry()
@@ -93,16 +80,44 @@ class StateIsolationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             state.feed_generated_token(3, 0, "x")
 
-    def test_step_record_tracks_write_position_and_kv_len(self) -> None:
+    def test_step_record_follows_the_timing_table(self) -> None:
+        """采样出第 t 个 token 后：已写仍是 prompt_len+t；消费它的那步 forward 才有上界 prompt_len+t+1。"""
         reg = ProtocolRegistry()
-        state = make_state(reg, "req-w")
-        state.feed_generated_token(0, 0, "<")
+        state = make_state(reg, "req-w")  # prompt_len = 100
+        first = state.feed_generated_token(0, 0, "<")
+        self.assertEqual(first.written_kv_len, 100, "prefill 采出 g0 时 KV 仍长 P")
+        self.assertEqual(first.next_write_position, 100)
+        self.assertEqual(first.attention_kv_len_next, 101)
         record = state.feed_generated_token(1, 0, "local>")
         self.assertEqual(record.effect_step, 2)
-        self.assertEqual(record.generated_tokens, 2)
-        self.assertEqual(record.kv_len_after, 102)
-        self.assertEqual(record.next_write_position, 102)
+        self.assertEqual(record.sampled_tokens, 2)
+        self.assertEqual(record.written_kv_len, 101)
+        self.assertEqual(record.next_write_position, 101)
+        self.assertEqual(record.attention_kv_len_next, 102)
+        self.assertEqual(state.written_kv_len, 101)
+        self.assertEqual(state.attention_kv_len_next, 102)
         self.assertEqual(state.mode, MODE_LOCAL)
+
+    def test_incomplete_focus_buffer_counts_as_attempt(self) -> None:
+        """结束时的未闭合 `<focus magic_chunks="` 必须进分母（此前被 flush 漏统计）。"""
+        reg = ProtocolRegistry()
+        state = make_state(reg, "req-i")
+        feed(state, '<focus magic_chunks="')
+        state.finish()
+        stats = state.focus_stats()
+        self.assertEqual(stats["focus_attempts"], 1)
+        self.assertEqual(stats["focus_successes"], 0)
+        self.assertEqual([e.reason for e in state.flush_events], ["incomplete_tag"])
+        self.assertEqual([e.name for e in state.flush_events], ["focus"])
+
+    def test_mismatched_close_keeps_mode_and_is_not_an_attempt(self) -> None:
+        reg = ProtocolRegistry()
+        state = make_state(reg, "req-m")
+        feed(state, "<local>x</focus>")
+        self.assertEqual(state.mode, MODE_LOCAL, "不匹配的闭标签不得改写模式")
+        self.assertEqual([e.reason for e in state.anomalies], ["mismatched_close"])
+        self.assertFalse(state.anomalies[0].is_focus_attempt, "闭标签不计入 focus 分母")
+        self.assertEqual(state.focus_stats()["focus_attempts"], 0)
 
     def test_focus_stats_count_attempts_and_successes(self) -> None:
         reg = ProtocolRegistry()
@@ -112,9 +127,43 @@ class StateIsolationTest(unittest.TestCase):
         feed(state, "<focus>missing</focus>")
         feed(state, '<focus magic_chunks="2,3">ok</focus>')
         stats = state.focus_stats()
-        self.assertEqual(stats["focus_attempts"], 4)
+        self.assertEqual(stats["focus_attempts"], 4, "两次合法 + 越界 + 缺属性")
         self.assertEqual(stats["focus_successes"], 2)
-        self.assertEqual(len(state.anomalies), 2)
+        reasons = sorted(e.reason for e in state.anomalies)
+        self.assertEqual(
+            reasons,
+            ["invalid_reference", "mismatched_close", "mismatched_close", "missing_attribute"],
+            "声明作废后模式停在 global，随后的 </focus> 属不匹配闭标签",
+        )
+
+    def test_stop_token_is_sampled_but_not_forwarded(self) -> None:
+        """末 token 触发停止：它被采样，但没有 forward 消费它 → 轨迹里不出现那一行。"""
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "src"))
+        from attnview.readview import TokenLayout
+        from attnview.trace import build_step_trace, independence_summary
+
+        reg = ProtocolRegistry()
+        state = make_state(reg, "req-stop", num_segments=2)  # prompt_len = 100
+        for token_index, ch in enumerate("<local>x</local>"):
+            state.feed_generated_token(token_index, 0, ch)
+        state.mark_stop_token(len(state.steps) - 1)
+        layout = TokenLayout(prompt_len=100, segment_spans=((10, 40), (50, 80)), local_window_span=(90, 100))
+        table = tuple(range(200, 220))
+        rows_all = build_step_trace(
+            state, layout, canonical_blocks=table, kernel_block_size=16, max_width=len(table)
+        )
+        rows_stopped = build_step_trace(
+            state, layout, canonical_blocks=table, kernel_block_size=16, max_width=len(table),
+            final_token_forwarded=False,
+        )
+        self.assertEqual(len(rows_all) - len(rows_stopped), 1, "少一行 = 消费 stop token 的那次 forward")
+        self.assertEqual(rows_stopped[-1].input_token_index, state.stop_token_index - 1)
+        summary = independence_summary(rows_stopped)
+        self.assertEqual(summary["forwards"], len(rows_stopped) - 1)
+        self.assertEqual(state.trace()["stop_token_index"], state.stop_token_index)
 
     def test_trace_contains_protocol_fields(self) -> None:
         reg = ProtocolRegistry()

@@ -216,6 +216,120 @@ def main() -> int:
         and arms["da"].tools == arms["da_no_mask"].tools
     )
 
+    # --- sink 复核：完整 16 token 区间与 context / question 的相交，以及多输入下的固定前缀一致性 ---
+    sink_report = {}
+    for arm in ("da", "vanilla"):
+        r = arms[arm]
+        sink = set(range(*r.scaffold.sink_span))
+        seg_hits = [
+            list(idx)
+            for idx in (
+                (i + 1,) + tuple(sorted(sink & set(range(a, b))))
+                for i, (a, b) in enumerate(r.segment_spans or ())
+                if sink & set(range(a, b))
+            )
+        ]
+        question = set(range(*r.scaffold.question_span))
+        sink_report[arm] = {
+            "sink_span": list(r.scaffold.sink_span),
+            "sink_decoded": list(r.scaffold.sink_decoded),
+            "sink_message_role": r.scaffold.sink_message_role,
+            "sink_inside_system_content": r.scaffold.sink_inside_system_content,
+            "sink_intersects_context": bool(seg_hits),
+            "sink_context_hits": seg_hits,
+            "sink_intersects_question": bool(sink & question),
+            "sink_intersects_local_window": bool(sink & set(range(*r.scaffold.local_window_span))),
+        }
+
+    variants = [
+        ("ascii-small", "Note 0001: the platform review was recorded as complete.",
+         "What was recorded for the platform review?"),
+        ("cjk-small", "记录：平台评审已在第二季度完成，费用为 41 万元。",
+         "平台评审在哪个季度完成？"),
+        ("emoji-small", "Log 🙂: the field trial was finished in week 12; budget 41 million.",
+         "When did the field trial finish?"),
+    ]
+    variant_prefixes = {}
+    for name, doc, q in variants:
+        vsegs, _ = make_segments(tokenizer, doc)
+        rendered = render_arm(
+            "da", vsegs, q, doc, tokenizer,
+            tokenizer_hash=tokenizer_hash, template_hash=template_hash, enable_thinking=False,
+        )
+        variant_prefixes[name] = {
+            "prompt_len": rendered.prompt_len,
+            "sink_decoded": list(rendered.scaffold.sink_decoded),
+            "first32_ids": list(rendered.token_ids[:32]),
+        }
+    reference_prefix = variant_prefixes[variants[0][0]]["first32_ids"]
+    fixed_prefix_consistent = all(
+        v["first32_ids"] == reference_prefix for v in variant_prefixes.values()
+    )
+    sink_report["fixed_prefix_consistency"] = {
+        "variants": list(variant_prefixes),
+        "first32_ids_identical": fixed_prefix_consistent,
+        "first32_ids": reference_prefix,
+        "first32_decoded": variant_prefixes[variants[0][0]]["sink_decoded"],
+        "all_sink_decoded_identical": len({tuple(v["sink_decoded"]) for v in variant_prefixes.values()}) == 1,
+    }
+
+    # 逐 token 增量解码探针：中英混排/emoji/协议标签
+    mixed = (
+        "第一段：平台评审 2026 年完成 🙂 <global>look</global> "
+        '<focus magic_chunks="1">费用 41 万元</focus><local>确认</local><answer>41 万元</answer>'
+    )
+    mixed_ids = tokenizer(mixed, add_special_tokens=False)["input_ids"]
+    per_token = [tokenizer.decode([i]) for i in mixed_ids]
+    joined = "".join(per_token)
+    incremental = {"equal_to_full_decode": joined == mixed, "tokens": len(mixed_ids),
+                   "replacement_chars": sum(p.count("\ufffd") for p in per_token)}
+    if not incremental["equal_to_full_decode"]:
+        first_diff = next(
+            (i for i, (a, b) in enumerate(zip(joined, mixed)) if a != b), min(len(joined), len(mixed))
+        )
+        incremental["first_diff_index"] = first_diff
+        incremental["context"] = {"joined": repr(joined[max(0, first_diff - 10): first_diff + 10]),
+                                  "original": repr(mixed[max(0, first_diff - 10): first_diff + 10])}
+        # 用 (前一个 token, 当前 token) 双 token 解码做增量修复，看是否恢复
+        repaired = []
+        for k, i in enumerate(mixed_ids):
+            prev = mixed_ids[k - 1] if k else None
+            piece = tokenizer.decode([i]) if prev is None else tokenizer.decode([prev, i])[len(tokenizer.decode([prev])) :]
+            repaired.append(piece)
+        incremental["incremental_repair_equal"] = "".join(repaired) == mixed
+    # 词表风险扫描 + 确定性反例（naive 逐 token decode 在一般情形不安全）
+    from attnview.decode import IncrementalDetokenizer, token_bytes
+
+    vocab_ids = sorted(tokenizer.get_vocab().values())
+    isolated_bad = [i for i in vocab_ids if "\ufffd" in tokenizer.decode([i])]
+    continuation_ids = [
+        i for i in vocab_ids
+        if token_bytes(tokenizer.convert_ids_to_tokens(i))[:1]
+        and 0x80 <= token_bytes(tokenizer.convert_ids_to_tokens(i))[0] <= 0xBF
+    ]
+    # pin 的固定反例（避免每次扫全词表找对）
+    PINNED = (64253, 121)
+    lead, follow = PINNED
+    split_pair = {
+        "lead_id": lead,
+        "follow_id": follow,
+        "lead_bytes": list(token_bytes(tokenizer.convert_ids_to_tokens(lead))),
+        "follow_bytes": list(token_bytes(tokenizer.convert_ids_to_tokens(follow))),
+        "naive": tokenizer.decode([lead]) + tokenizer.decode([follow]),
+        "incremental": IncrementalDetokenizer(tokenizer.convert_ids_to_tokens).feed_all(iter(PINNED)),
+        "joint_decode": tokenizer.decode([lead, follow]),
+    }
+    incremental.update(
+        {
+            "vocab_size": len(vocab_ids),
+            "tokens_with_isolated_fffd": len(isolated_bad),
+            "continuation_starting_tokens": len(continuation_ids),
+            "deterministic_split_pair": split_pair,
+        }
+    )
+    facts["sink_report"] = sink_report
+    facts["mixed_text_incremental_decode"] = incremental
+
     # 模板传参方式核对（C2.5 thinking 关闭）：直接 kwargs vs chat_template_kwargs vs 默认
     probe_msgs = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -266,6 +380,8 @@ def main() -> int:
         text = tokenizer.decode([token_id])
         fed.append(text)
         state.feed_generated_token(token_index, token_id, text)
+    if script_ids:
+        state.mark_stop_token(len(script_ids) - 1)  # 闭合 </answer> 的 token 触发停止
     state.finish()
 
     if "".join(fed) != GENERATION_SCRIPT:
@@ -273,6 +389,7 @@ def main() -> int:
 
     kernel_block_size = args.kernel_block_size
     kv_len_max = da.prompt_len + len(script_ids)
+    prompt_len_last = kv_len_max
     total_blocks = (kv_len_max + kernel_block_size - 1) // kernel_block_size
     physical = list(range(101, 101 + total_blocks))
     random.Random(7).shuffle(physical)
@@ -285,6 +402,7 @@ def main() -> int:
         canonical_blocks=canonical_blocks,
         kernel_block_size=kernel_block_size,
         max_width=max_width,
+        final_token_forwarded=False,
     )
 
     # 参考对照：每个 generation step 的视图与独立参考逐位置一致
@@ -296,7 +414,7 @@ def main() -> int:
             mode=row.mode,
             refs=row.refs,
             layout=layout,
-            kv_len=row.kv_len,
+            attention_kv_len=row.attention_kv_len,
             kernel_block_size=kernel_block_size,
         )
         if expected != row.view.positions():
@@ -305,7 +423,7 @@ def main() -> int:
     # 至少一步：784 对齐外扩之后仍有**已写入**的全注意力块被排除
     excluded_evidence = []
     for row in rows:
-        written_blocks = set(range((row.kv_len + kernel_block_size - 1) // kernel_block_size))
+        written_blocks = set(range((row.attention_kv_len + kernel_block_size - 1) // kernel_block_size))
         excluded = sorted(written_blocks - set(row.view.visible_blocks))
         if row.decode_step >= 1 and excluded:
             excluded_evidence.append(
@@ -317,10 +435,12 @@ def main() -> int:
                     "excluded_blocks": excluded,
                     "visible_blocks": list(row.view.visible_blocks),
                     "visible_tokens": len(row.view.positions()),
-                    "kv_len": row.kv_len,
+                    "attention_kv_len": row.attention_kv_len,
+                    "write_position": row.write_position,
+                    "next_write_position": row.next_write_position,
                     "declared_positions_all_visible": all(
                         pos in row.view.positions()
-                        for pos in declared_positions(layout, row.refs, row.kv_len)
+                        for pos in declared_positions(layout, row.refs, row.attention_kv_len)
                     ),
                 }
             )
@@ -334,6 +454,15 @@ def main() -> int:
         "generation_tokens": len(script_ids),
         "kv_len_max": kv_len_max,
         "max_width": max_width,
+        "timing_table": {
+            "decode_step_s": "输入=生成流第 s-1 个 token；写入位置=prompt_len+s-1；"
+            "写入前已写=prompt_len+s-1；本步 attention KV 上界=prompt_len+s；"
+            "下一步写入位置=prompt_len+s",
+            "prompt_len": da.prompt_len,
+            "generation_tokens": len(script_ids),
+            "attention_kv_len_last": prompt_len_last,
+            "written_kv_len_last": prompt_len_last - 1 if prompt_len_last else None,
+        },
         "canonical_blocks": list(canonical_blocks),
         "total_sequence_budget": 8192,
         "budget_ok": kv_len_max <= 8192,
@@ -347,12 +476,36 @@ def main() -> int:
         "rows": [row.as_dict() for row in rows],
     }
 
+    stats = state.focus_stats()
+    stats["legal_rate"] = (
+        stats["focus_successes"] / stats["focus_attempts"] if stats["focus_attempts"] else None
+    )
+    stats["requests_without_attempt"] = 1 if stats["focus_attempts"] == 0 else 0
+    stats["requests_total"] = 1
+    trace["focus_stats"] = stats
+    trace["stop_token"] = {
+        "index": state.stop_token_index,
+        "would_be_forward_step": (state.stop_token_index or 0) + 1,
+        "forwarded": False,
+        "note": "该 token 触发停止条件：被采样但无 forward 消费，故轨迹里没有对应行",
+    }
+
     extraction = extract_public_output(GENERATION_SCRIPT)
     (out_dir / "demo-input.json").write_text(
         json.dumps(facts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     (out_dir / "prompt-facts.json").write_text(
-        json.dumps(facts["arms"], ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(
+            {
+                "arms": facts["arms"],
+                "sink_report": facts["sink_report"],
+                "mixed_text_incremental_decode": facts["mixed_text_incremental_decode"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
     (out_dir / "fixed-trace.json").write_text(
         json.dumps(trace, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -384,10 +537,18 @@ def main() -> int:
             "reference_mismatch_steps": mismatches,
             "excluded_block_steps": len(excluded_evidence),
             "read_list_changes": trace["independence"]["read_list_changes"],
+            "forwards": trace["independence"]["forwards"],
+            "focus_stats": stats,
             "extraction_ok": extraction.ok,
             "answer": extraction.answer,
             "sink_role_da": da.scaffold.sink_message_role,
             "sink_overlaps_context": any(a["sink_overlaps_context"] for a in facts["arms"].values()),
+            "sink_full_interval_clean": all(
+                not v["sink_intersects_context"] and not v["sink_intersects_question"]
+                for k, v in facts["sink_report"].items() if k != "fixed_prefix_consistency"
+            ),
+            "fixed_prefix_consistent": facts["sink_report"]["fixed_prefix_consistency"]["first32_ids_identical"],
+            "mixed_incremental_decode_equal": facts["mixed_text_incremental_decode"]["equal_to_full_decode"],
             "template_kwargs_check": facts["template_kwargs_check"],
             "segment_token_range": [min(x["tokens"] for x in facts["segments"]), max(x["tokens"] for x in facts["segments"])],
             "sink_role_vanilla": arms["vanilla"].scaffold.sink_message_role,
@@ -413,8 +574,8 @@ def _render_trace_markdown(trace: dict) -> str:
         f"末步 = {trace['independence']['write_position_last']}、"
         f"严格 +1 = {trace['independence']['write_monotonic_plus_one']}",
         "",
-        "| step | 输入 token (idx/text) | 本步闭合事件 → effect_step | 下步模式 | 写位置 | kv_len | 可见原始区间 | 外扩区间 | 逻辑块 | 物理块 | 尾块有效 | 可见 token |",
-        "| ---: | --- | --- | --- | ---: | ---: | --- | --- | --- | --- | ---: | ---: |",
+        "| step | 输入 token (idx/text) | 本步闭合事件 → effect_step | 下步模式 | 写位置 | 写入前已写 | attention KV 上界 | 下一步写位置 | 可见原始区间 | 外扩区间 | 逻辑块 | 物理块 | 尾块有效 | 可见 token |",
+        "| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- | --- | ---: | ---: |",
     ]
     for row in trace["rows"]:
         view = row["view"]
@@ -433,7 +594,9 @@ def _render_trace_markdown(trace: dict) -> str:
                 events=events,
                 mode=row["mode"] + (f"[{','.join(map(str, row['refs']))}]" if row["refs"] else ""),
                 wpos=row["write_position"] if row["write_position"] is not None else "—",
-                kv=row["kv_len"],
+                wbefore=row["written_before_step"],
+                kv=row["attention_kv_len"],
+                nwpos=row["next_write_position"],
                 raw=" ".join(f"[{a},{b})" for a, b in view["raw_spans"]) or "—",
                 vis=" ".join(f"[{a},{b})" for a, b in view["visible_spans"]) or "—",
                 lb=",".join(map(str, view["visible_blocks"])) or "—",

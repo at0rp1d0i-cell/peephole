@@ -64,13 +64,25 @@ class OffsetsIndex:
         return len(self._starts)
 
     def count(self, start: int, end: int) -> int:
-        """完全落在 [start, end) 内的 token 数。"""
+        """**完全落在** [start, end) 内的 token 数（含边界 token 的判定见 `straddling`）。"""
         if end <= start:
             return 0
         first = bisect_left(self._starts, start)
         last = bisect_right(self._ends, end)
-        # token 的 end 必须 ≤ end 且 start ≥ start
         return max(0, last - first)
+
+    def straddling(self, cut: int) -> tuple[int, ...]:
+        """跨越切割字符位置 `cut` 的 token 下标（start < cut < end）。
+
+        这些 token 的 token 数记在**任一段之外**（`count` 是包含语义），但最终 prompt span 用
+        重叠语义（`prompt.py` 的字符区间→token 区间）会把它们纳入相邻段，属于"只多不少"的安全方向。
+        """
+        out: list[int] = []
+        first = bisect_left(self._starts, cut)
+        for i in range(max(0, first - 2), min(len(self._starts), first + 2)):
+            if self._starts[i] < cut < self._ends[i]:
+                out.append(i)
+        return tuple(out)
 
     @property
     def starts(self) -> tuple[int, ...]:
@@ -141,29 +153,35 @@ def _split_span(
     for _, pattern in DELIMITER_LEVELS:
         left_best: tuple[int, int] | None = None  # (distance, cut)，左侧可独立成段（≤ cap）
         right_best: tuple[int, int] | None = None  # (distance, cut)，右侧可独立成段
+        any_best: tuple[int, int] | None = None  # (distance, cut)，两侧都超 cap 时仍要切
         for cut in _candidate_cuts(text, start, end, pattern):
             left = offsets.count(start, cut)
             right = size - left
             if left <= 0 or right <= 0:
                 continue
+            distance = abs(left - target)
             if left <= cap:
-                distance = abs(left - target)
                 if left_best is None or (distance, cut) < left_best:
                     left_best = (distance, cut)
             elif right <= cap:
                 # 左侧仍超限（例如无空白长串）：允许先切出右侧，左侧继续递归；
                 # 这样原子超限串会成为**它自己**的 segment，而不是与后续内容合并
-                distance = abs(right - target)
-                if right_best is None or (distance, cut) < right_best:
-                    right_best = (distance, cut)
-        best = left_best or right_best
+                right_distance = abs(right - target)
+                if right_best is None or (right_distance, cut) < right_best:
+                    right_best = (right_distance, cut)
+            else:
+                # 两侧都超 cap：**仍然要切**（该单元超过上限且此处存在边界），
+                # 两侧各自继续递归——不得把"暂时没有任何一侧 ≤ cap"当成"无边界原子串"
+                if any_best is None or (distance, cut) < any_best:
+                    any_best = (distance, cut)
+        best = left_best or right_best or any_best
         if best is not None:
             cut = best[1]
             _split_span(text, start, cut, offsets, target, cap, out)
             _split_span(text, cut, end, offsets, target, cap, out)
             return
 
-    # 每层都没有可用边界：原子超限 segment，绝不切开（C1.3）
+    # 每层都没有任何边界：原子超限 segment，绝不切开（C1.3）
     out.append((start, end))
 
 

@@ -40,14 +40,14 @@ def layout() -> TokenLayout:
     )
 
 
-def view(mode: str, refs=(), kv_len: int = PROMPT_LEN, block: int = 16) -> object:
-    table = canonical(kv_len // block + 2)
+def view(mode: str, refs=(), attention_kv_len: int = PROMPT_LEN, block: int = 16) -> object:
+    table = canonical(attention_kv_len // block + 2)
     return build_read_view(
         ViewInputs(
             mode=mode,
             refs=tuple(refs),
             layout=layout(),
-            kv_len=kv_len,
+            attention_kv_len=attention_kv_len,
             canonical_blocks=table,
             kernel_block_size=block,
             max_width=len(table),
@@ -72,16 +72,19 @@ class ReadViewTest(unittest.TestCase):
                 (MODE_FOCUS, (2, 3)),
                 (MODE_FOCUS, (1, 2, 3)),
             ):
-                for kv_len in (PROMPT_LEN, PROMPT_LEN + 1, PROMPT_LEN + 37, 2200):
-                    v = view(mode, refs, kv_len=kv_len, block=block)
+                for attention_kv_len in (PROMPT_LEN, PROMPT_LEN + 1, PROMPT_LEN + 37, 2200):
+                    v = view(mode, refs, attention_kv_len=attention_kv_len, block=block)
                     expected = reference_visible_positions(
                         mode=mode,
                         refs=refs,
                         layout=layout(),
-                        kv_len=kv_len,
+                        attention_kv_len=attention_kv_len,
                         kernel_block_size=block,
                     )
-                    self.assertEqual(v.positions(), expected, f"{mode}{refs} kv={kv_len} b={block}")
+                    self.assertEqual(
+                        v.positions(), expected,
+                        f"{mode}{refs} kv={attention_kv_len} b={block}",
+                    )
 
     def test_outward_alignment_keeps_every_declared_position(self) -> None:
         for block in (16, 32, 784):
@@ -89,7 +92,11 @@ class ReadViewTest(unittest.TestCase):
             declared = declared_positions(layout(), (1, 3), PROMPT_LEN)
             positions = set(v.positions())
             self.assertTrue(set(declared) <= positions, "声明过的位置一个都不能丢（I1）")
-            semantic = set(range(0, 16)) | set(range(*LOCAL_WINDOW)) | set(range(PROMPT_LEN, v.kv_len))
+            semantic = (
+                set(range(0, 16))
+                | set(range(*LOCAL_WINDOW))
+                | set(range(PROMPT_LEN, v.attention_kv_len))
+            )
             for ref in (1, 3):
                 semantic |= set(range(*SEGMENTS[ref - 1]))
             extra = positions - semantic
@@ -117,13 +124,23 @@ class ReadViewTest(unittest.TestCase):
         for (s1, e1), (s2, e2) in zip(spans, spans[1:]):
             self.assertLess(e1, s2, "相邻/重叠区间必须已合并")
 
+    def test_timing_table_fields(self) -> None:
+        """读/写时序字段：写入前已写 = attention 上界 - 1；下一步写位置 = attention 上界。"""
+        v = view(MODE_GLOBAL, attention_kv_len=PROMPT_LEN)
+        self.assertEqual(v.written_before_step, PROMPT_LEN - 1)
+        self.assertEqual(v.next_write_position, PROMPT_LEN)
+        self.assertEqual(v.response_span, (PROMPT_LEN, PROMPT_LEN))
+
     def test_partial_tail_block_and_valid_len(self) -> None:
         block = 16
-        kv_len = PROMPT_LEN + 5  # 尾块只写了 5 个 token
-        v = view(MODE_LOCAL, kv_len=kv_len, block=block)
-        self.assertEqual(v.tail_block_valid_len, (kv_len - 1) % block + 1)
-        self.assertEqual(v.next_write_position, kv_len)
-        self.assertLessEqual(max(v.positions()), kv_len - 1, "不得读到未写满的块外（I6）")
+        attention_kv_len = PROMPT_LEN + 5  # 尾块只写了 5 个 token
+        v = view(MODE_LOCAL, attention_kv_len=attention_kv_len, block=block)
+        self.assertEqual(v.tail_block_valid_len, (attention_kv_len - 1) % block + 1)
+        self.assertEqual(v.next_write_position, attention_kv_len)
+        self.assertEqual(v.written_before_step, attention_kv_len - 1)
+        self.assertLessEqual(
+            max(v.positions()), attention_kv_len - 1, "不得读到未写满的块外（I6）"
+        )
 
     def test_shape_stability_and_no_invalid_slot_in_prefix(self) -> None:
         widths = set()
@@ -134,7 +151,7 @@ class ReadViewTest(unittest.TestCase):
                     mode=MODE_FOCUS,
                     refs=(2,),
                     layout=layout(),
-                    kv_len=PROMPT_LEN + extra,
+                    attention_kv_len=PROMPT_LEN + extra,
                     canonical_blocks=table,
                     kernel_block_size=16,
                     max_width=len(table),
@@ -160,12 +177,38 @@ class ReadViewTest(unittest.TestCase):
                     mode=MODE_FOCUS,
                     refs=(3,),
                     layout=layout(),
-                    kv_len=PROMPT_LEN,
+                    attention_kv_len=PROMPT_LEN,
                     canonical_blocks=(5, 6, 7),  # 不足以覆盖逻辑块 6+
                     kernel_block_size=16,
                     max_width=3,
                 )
             )
+
+    def test_negative_physical_id_in_mapping_is_rejected(self) -> None:
+        table = canonical(20)
+        bad = (-2,) + table[1:]
+        with self.assertRaises(ReadViewError):
+            build_read_view(
+                ViewInputs(MODE_GLOBAL, (), layout(), PROMPT_LEN, bad, 16, len(bad))
+            )
+
+    def test_valid_counts_and_width_ranges_are_checked(self) -> None:
+        v = view(MODE_LOCAL)
+        to_kernel_args(v, req_idx=0, block_table_rows=1, block_table_stride=v.max_width)  # 合法
+        with self.assertRaises(ReadViewError):
+            to_kernel_args(v, req_idx=0, block_table_rows=1, block_table_stride=v.max_width - 1)
+        with self.assertRaises(ReadViewError):
+            to_kernel_args(v, req_idx=1, block_table_rows=1, block_table_stride=v.max_width)
+
+        class Tampered:
+            max_width = 5
+            valid_counts = 6
+            physical_block_ids = (1, 2, 3, 4, 5)
+            attention_kv_len = 100
+            tail_block_valid_len = 4
+
+        with self.assertRaises(ReadViewError):
+            to_kernel_args(Tampered, req_idx=0, block_table_rows=1, block_table_stride=5)
 
     def test_to_kernel_args_bounds_checks(self) -> None:
         v = view(MODE_LOCAL)
@@ -193,12 +236,12 @@ class ReadViewTest(unittest.TestCase):
         )
 
     def test_pure_function_same_input_same_output(self) -> None:
-        a = view(MODE_FOCUS, (1, 3), kv_len=PROMPT_LEN + 11)
-        b = view(MODE_FOCUS, (1, 3), kv_len=PROMPT_LEN + 11)
+        a = view(MODE_FOCUS, (1, 3), attention_kv_len=PROMPT_LEN + 11)
+        b = view(MODE_FOCUS, (1, 3), attention_kv_len=PROMPT_LEN + 11)
         self.assertEqual(a.as_dict(), b.as_dict())
 
     def test_local_mode_hides_every_segment(self) -> None:
-        v = view(MODE_LOCAL, kv_len=PROMPT_LEN + 3)
+        v = view(MODE_LOCAL, attention_kv_len=PROMPT_LEN + 3)
         positions = set(v.positions())
         for seg_start, seg_end in SEGMENTS:
             self.assertEqual(

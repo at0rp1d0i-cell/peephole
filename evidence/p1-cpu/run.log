@@ -1,11 +1,25 @@
-=== 测试 ===
-.............................................................
+### 测试 ###
 ----------------------------------------------------------------------
-Ran 61 tests in 3.829s
+Ran 79 tests in 4.408s
 
 OK
 
-=== 演示 ===
+### prompt 保真 ###
+摘录件：/root/autodl-tmp/attnview/material/attnview/docs/references/da-paper-extract.md
+剔除：页眉 / 纯页码 / `… Instruction Prompt (continued)` 整行
+列归位：以表头行碎片起始偏移为列锚点；列 0 上小写字母开头的碎片判为续行
+
+[DA Instruction Prompt] ① 有序正文逐字：16 段通过
+[DA Instruction Prompt] ② 表格单元格逐格一致：2 张表 / 9 行 / 27 格
+[DA Instruction Prompt] ③ 词多重集合：一致（de-hyphenation 1 处）
+
+[Vanilla Instruction Prompt] ① 有序正文逐字：5 段通过
+[Vanilla Instruction Prompt] ② 表格单元格逐格一致：1 张表 / 5 行 / 15 格
+[Vanilla Instruction Prompt] ③ 词多重集合：一致（de-hyphenation 0 处）
+
+结论：①②③ 全部通过
+
+### 演示 ###
 {
   "segments": 3,
   "segment_tokens": [
@@ -21,10 +35,21 @@ OK
   "reference_mismatch_steps": [],
   "excluded_block_steps": 34,
   "read_list_changes": 6,
+  "forwards": 114,
+  "focus_stats": {
+    "focus_attempts": 2,
+    "focus_successes": 2,
+    "legal_rate": 1.0,
+    "requests_without_attempt": 0,
+    "requests_total": 1
+  },
   "extraction_ok": true,
   "answer": "Approved in 2019, with a budget of 41 million.",
   "sink_role_da": "system",
   "sink_overlaps_context": false,
+  "sink_full_interval_clean": true,
+  "fixed_prefix_consistent": true,
+  "mixed_incremental_decode_equal": true,
   "template_kwargs_check": {
     "direct_kwarg_disables_thinking": true,
     "chat_template_kwargs_disables_thinking": false,

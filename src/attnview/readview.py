@@ -47,8 +47,9 @@ class TokenLayout:
             raise ReadViewError(f"segment 编号越界：{index}（共 {len(self.segment_spans)}）")
         return self.segment_spans[index - 1]
 
-    def response_span(self, kv_len: int) -> tuple[int, int]:
-        return (self.prompt_len, kv_len)
+    def response_span(self, attention_kv_len: int) -> tuple[int, int]:
+        """已生成 response 的可见区间（含本步刚写入的那个位置）。"""
+        return (self.prompt_len, attention_kv_len)
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,8 @@ class ViewInputs:
     mode: str
     refs: tuple[int, ...]
     layout: TokenLayout
-    kv_len: int
+    attention_kv_len: int
+    """本步 attention 的 KV 上界：已写长度 + 1（含本步自身写入的位置）。"""
     canonical_blocks: tuple[int | None, ...]
     """逻辑块 → 物理块（canonical 映射；`None` = 未分配）。索引即逻辑块号。"""
     kernel_block_size: int
@@ -83,11 +85,16 @@ class ReadView:
     physical_block_ids: tuple[int, ...]
     valid_counts: int
     max_width: int
-    kv_len: int
+    attention_kv_len: int
     kernel_block_size: int
     tail_block_valid_len: int
     next_write_position: int
     extras: dict = field(default_factory=dict)
+
+    @property
+    def written_before_step(self) -> int:
+        """本步写入**之前**已写的 KV 长度（最后一个已采样 token 尚未写入）。"""
+        return self.attention_kv_len - 1
 
     def positions(self) -> tuple[int, ...]:
         """视图覆盖的全部 token 位置（升序）。"""
@@ -112,7 +119,8 @@ class ReadView:
             "physical_block_ids": list(self.physical_block_ids),
             "valid_counts": self.valid_counts,
             "max_width": self.max_width,
-            "kv_len": self.kv_len,
+            "attention_kv_len": self.attention_kv_len,
+            "written_before_step": self.written_before_step,
             "kernel_block_size": self.kernel_block_size,
             "tail_block_valid_len": self.tail_block_valid_len,
             "next_write_position": self.next_write_position,
@@ -125,8 +133,8 @@ def build_read_view(inputs: ViewInputs) -> ReadView:
     b = int(inputs.kernel_block_size)
     if b <= 0:
         raise ReadViewError(f"kernel_block_size 必须为正：{b}")
-    if inputs.kv_len < 0:
-        raise ReadViewError(f"kv_len 非法：{inputs.kv_len}")
+    if inputs.attention_kv_len < 0:
+        raise ReadViewError(f"attention_kv_len 非法：{inputs.attention_kv_len}")
     if inputs.mode not in (MODE_GLOBAL, MODE_FOCUS, MODE_LOCAL):
         raise ReadViewError(f"未知模式：{inputs.mode}")
 
@@ -138,15 +146,15 @@ def build_read_view(inputs: ViewInputs) -> ReadView:
     semantic: list[tuple[int, int]] = [
         inputs.layout.sink_span,
         inputs.layout.local_window_span,
-        inputs.layout.response_span(inputs.kv_len),
+        inputs.layout.response_span(inputs.attention_kv_len),
         *declared_spans,
     ]
     if inputs.mode == MODE_GLOBAL:
-        semantic.append((0, inputs.kv_len))
+        semantic.append((0, inputs.attention_kv_len))
 
-    raw_spans = _merge(_clip(semantic, inputs.kv_len))
+    raw_spans = _merge(_clip(semantic, inputs.attention_kv_len))
     # I1 先向外对齐到 kernel 块边界，再按有效 KV 长度裁回（I6：不读未写满的块外）
-    visible_spans = _merge(_clip(_align_outward(raw_spans, b), inputs.kv_len))
+    visible_spans = _merge(_clip(_align_outward(raw_spans, b), inputs.attention_kv_len))
 
     blocks: set[int] = set()
     for start, end in visible_spans:
@@ -170,17 +178,23 @@ def build_read_view(inputs: ViewInputs) -> ReadView:
         pid = inputs.canonical_blocks[blk]
         if pid is None:
             raise ReadViewError(f"逻辑块 {blk} 尚未分配物理块（I3）")
-        physical.append(int(pid))
+        pid = int(pid)
+        if pid < 0:
+            raise ReadViewError(
+                f"逻辑块 {blk} 的 canonical 物理块 ID 为负（{pid}）：负值是无效槽约定，"
+                "只能出现在尾部填充，不得出现在映射表里"
+            )
+        physical.append(pid)
     physical.extend([INVALID_SLOT] * (inputs.max_width - len(physical)))
 
-    tail_len = _tail_block_valid_len(inputs.kv_len, b)
+    tail_len = _tail_block_valid_len(inputs.attention_kv_len, b)
     return ReadView(
         mode=inputs.mode,
         effect_step=inputs.effect_step,
         fallback_reason=inputs.fallback_reason,
         sink_span=inputs.layout.sink_span,
         local_window_span=inputs.layout.local_window_span,
-        response_span=inputs.layout.response_span(inputs.kv_len),
+        response_span=inputs.layout.response_span(inputs.attention_kv_len),
         declared_refs=tuple(inputs.refs),
         declared_spans=tuple(declared_spans),
         raw_spans=tuple(raw_spans),
@@ -189,10 +203,10 @@ def build_read_view(inputs: ViewInputs) -> ReadView:
         physical_block_ids=tuple(physical),
         valid_counts=len(visible_blocks),
         max_width=int(inputs.max_width),
-        kv_len=int(inputs.kv_len),
+        attention_kv_len=int(inputs.attention_kv_len),
         kernel_block_size=b,
         tail_block_valid_len=tail_len,
-        next_write_position=int(inputs.kv_len),
+        next_write_position=int(inputs.attention_kv_len),
     )
 
 
@@ -200,12 +214,21 @@ def to_kernel_args(view: ReadView, *, req_idx: int, block_table_rows: int, block
     """适配层边界校验（I8）：行/列双向越界直接抛错，不静默通过。"""
     if not 0 <= req_idx < block_table_rows:
         raise ReadViewError(f"req_idx={req_idx} 越界（0..{block_table_rows - 1}）")
+    if block_table_rows < 0 or block_table_stride < 0:
+        raise ReadViewError("block_table 的行数/宽度不得为负")
     if view.max_width > block_table_stride:
         raise ReadViewError(
             f"max_width={view.max_width} 超过 block_table stride={block_table_stride}"
         )
     if len(view.physical_block_ids) != view.max_width:
         raise ReadViewError("physical_block_ids 宽度与 max_width 不一致（I5）")
+    if not 0 <= view.valid_counts <= view.max_width:
+        raise ReadViewError(
+            f"valid_counts={view.valid_counts} 超出 [0, max_width={view.max_width}]"
+        )
+    negative = [pid for pid in view.physical_block_ids if pid < 0 and pid != INVALID_SLOT]
+    if negative:
+        raise ReadViewError(f"物理块表出现非法负值 {negative}（只允许尾部 {INVALID_SLOT} 填充）")
     valid_prefix = view.physical_block_ids[: view.valid_counts]
     if any(pid == INVALID_SLOT for pid in valid_prefix):
         raise ReadViewError("有效前缀里出现无效槽 -1（I4）")
@@ -217,7 +240,7 @@ def to_kernel_args(view: ReadView, *, req_idx: int, block_table_rows: int, block
         "physical_block_ids": list(view.physical_block_ids),
         "valid_counts": view.valid_counts,
         "max_width": view.max_width,
-        "kv_len": view.kv_len,
+        "attention_kv_len": view.attention_kv_len,
         "tail_block_valid_len": view.tail_block_valid_len,
     }
 
@@ -225,18 +248,18 @@ def to_kernel_args(view: ReadView, *, req_idx: int, block_table_rows: int, block
 # --- 内部工具 ---------------------------------------------------------------
 
 
-def _clip(spans: Sequence[tuple[int, int]], kv_len: int) -> list[tuple[int, int]]:
+def _clip(spans: Sequence[tuple[int, int]], attention_kv_len: int) -> list[tuple[int, int]]:
     out: list[tuple[int, int]] = []
     for start, end in spans:
-        start = max(0, min(start, kv_len))
-        end = max(0, min(end, kv_len))
+        start = max(0, min(start, attention_kv_len))
+        end = max(0, min(end, attention_kv_len))
         if end > start:
             out.append((start, end))
     return out
 
 
 def _align_outward(spans: Sequence[tuple[int, int]], block: int) -> list[tuple[int, int]]:
-    """I1：只向外扩到 kernel 块边界；右端可越过 kv_len（尾块由有效长度界定，I6）。"""
+    """I1：只向外扩到 kernel 块边界；右端可越过已写长度（尾块由有效长度界定，I6）。"""
     return [((s // block) * block, ((e + block - 1) // block) * block) for s, e in spans]
 
 
@@ -255,8 +278,8 @@ def _merge(spans: Sequence[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def _tail_block_valid_len(kv_len: int, block: int) -> int:
-    """I6：最后一个已写块里的有效 token 数（1..block）；kv_len=0 时为 0。"""
-    if kv_len <= 0:
+def _tail_block_valid_len(attention_kv_len: int, block: int) -> int:
+    """I6：最后一个已写块里的有效 token 数（1..block）；未写时为 0。"""
+    if attention_kv_len <= 0:
         return 0
-    return (kv_len - 1) % block + 1
+    return (attention_kv_len - 1) % block + 1

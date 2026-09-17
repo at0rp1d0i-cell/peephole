@@ -89,6 +89,9 @@ class ParserTest(unittest.TestCase):
             "<focus magic_chunks=1>": "malformed_attribute",
             '<focus magic_chunks="">': "malformed_attribute",
             '<focus magic_chunks="a,b">': "malformed_attribute",
+            '<focus magic_chunks="1" foo="bar">': "unexpected_attribute",
+            '<focus magic_chunks="1" magic_chunks="2">': "duplicate_attribute",
+            '<local x="1">': "unexpected_attribute",
             '<focus magic_chunks="1">': None,
         }
         for tag, expected in cases.items():
@@ -107,6 +110,17 @@ class ParserTest(unittest.TestCase):
         flushed = parser.flush(2)
         self.assertEqual([e.reason for e in flushed], ["incomplete_tag"])
         self.assertEqual(parser.mode, MODE_GLOBAL)
+
+    def test_focus_attempt_flag_marks_openings_only(self) -> None:
+        parser = TagParser(num_segments=3)
+        events = parser.feed('<focus magic_chunks="1">', 0)
+        self.assertTrue(events[-1].is_focus_attempt)
+        events = parser.feed("</focus>", 1)
+        self.assertFalse(events[-1].is_focus_attempt, "闭标签不是一次 focus 调用")
+        events = parser.feed("<focus>", 2)
+        self.assertTrue(events[-1].is_focus_attempt, "缺属性的开标签仍计为尝试")
+        parser.feed('<focus magic_chunks="9">', 3)
+        self.assertTrue(parser.anomalies[-1].is_focus_attempt, "越界引用仍计为尝试")
 
     def test_buffer_overflow_is_text_then_recovers(self) -> None:
         parser = TagParser(num_segments=3, max_tag_buffer=32)
@@ -137,7 +151,7 @@ class ParserTest(unittest.TestCase):
         events2 = parser.feed("</answer>", 2)
         self.assertEqual([(e.kind, e.name) for e in events2], [("marker", "answer")])
 
-    def test_closing_tags_return_to_global(self) -> None:
+    def test_matching_closing_tags_return_to_global(self) -> None:
         parser = TagParser(num_segments=3)
         parser.feed("<local>", 0)
         parser.feed("</local>", 1)
@@ -147,6 +161,26 @@ class ParserTest(unittest.TestCase):
         parser.feed("</focus>", 3)
         self.assertEqual(parser.mode, MODE_GLOBAL)
         self.assertEqual(parser.refs, ())
+
+    def test_mismatched_closing_tag_is_an_anomaly_and_keeps_mode(self) -> None:
+        cases = [
+            ('<focus magic_chunks="1">', "</local>"),
+            ("<local>", "</focus>"),
+            ('<focus magic_chunks="1">', "</global>"),
+            ("<local>", "<local></focus>"),
+        ]
+        for opening, closing in cases:
+            parser = TagParser(num_segments=3)
+            parser.feed(opening, 0)
+            before = parser.mode
+            events = parser.feed(closing, 1)
+            anomalies = [e for e in events if e.kind == "anomaly"]
+            self.assertTrue(anomalies, f"{opening} {closing}")
+            self.assertEqual(anomalies[-1].reason, "mismatched_close")
+            self.assertEqual(parser.mode, before, f"{opening} {closing} 必须保持模式")
+            self.assertFalse(
+                any(e.is_focus_attempt for e in events), "闭标签不得计入 focus 分母"
+            )
 
     def test_whitespace_inside_tags_tolerated(self) -> None:
         parser = TagParser(num_segments=3)

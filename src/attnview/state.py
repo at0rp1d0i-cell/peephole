@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 from .parser import (
-    MODE_GLOBAL,
+    MODE_FOCUS,
     ParseEvent,
     TagParser,
 )
@@ -25,7 +25,16 @@ from .parser import (
 
 @dataclass(frozen=True)
 class StepRecord:
-    """生成流第 `token_index` 个 token 处理后的状态快照。"""
+    """生成流第 `token_index` 个 token **被采样出来后**的状态快照。
+
+    时序表（本项目的固定约定，见 `readview.py` 顶部）：
+
+    - prefill 写完 prompt 的 `prompt_len` 个位置，并采样出第 0 个生成 token；
+    - 采样出生成流第 `t` 个 token 之后，**已写 KV 长度仍是 `prompt_len + t`**
+      （该 token 自己还没被写进去）；
+    - 消费该 token 的那次 forward（decode step `t+1`）才把它写到位置 `prompt_len + t`，
+      因此那一步 attention 的 KV 上界 = `prompt_len + t + 1`。
+    """
 
     token_index: int
     token_id: int
@@ -33,12 +42,18 @@ class StepRecord:
     mode_after: str
     refs: tuple[int, ...]
     events: tuple[ParseEvent, ...]
-    generated_tokens: int
-    kv_len_after: int  # prompt_len + generated_tokens
-    next_write_position: int  # == kv_len_after
+    sampled_tokens: int  # 含本 token
+    written_kv_len: int  # prompt_len + token_index（本 token 尚未写入）
+    attention_kv_len_next: int  # 消费本 token 的那次 forward 的 KV 上界 = written_kv_len + 1
+
+    @property
+    def next_write_position(self) -> int:
+        """下一个 forward 将写入的位置 = 已写长度（顺序追加）。"""
+        return self.written_kv_len
 
     @property
     def effect_step(self) -> int:
+        """本 token 内闭合的声明的生效步 = 消费本 token 的那次 forward。"""
         return self.token_index + 1
 
 
@@ -60,6 +75,9 @@ class RequestProtocolState:
         self.prompt_len = int(prompt_len)
         self.parser = TagParser(num_segments, max_tag_buffer=max_tag_buffer)
         self.steps: list[StepRecord] = []
+        self.flush_events: tuple[ParseEvent, ...] = ()
+        self.stop_token_index: int | None = None
+        """触发停止条件的 token 下标：它被采样出来，但**不会有 forward 再消费它**。"""
         self.closed = False
 
     # --- 生成流输入 ---------------------------------------------------------
@@ -72,7 +90,7 @@ class RequestProtocolState:
                 f"token_index 必须连续递增：期望 {len(self.steps)}，得到 {token_index}"
             )
         events = tuple(self.parser.feed(text, token_index))
-        generated = len(self.steps) + 1
+        written = self.prompt_len + token_index
         record = StepRecord(
             token_index=token_index,
             token_id=token_id,
@@ -80,16 +98,30 @@ class RequestProtocolState:
             mode_after=self.parser.mode,
             refs=self.parser.refs,
             events=events,
-            generated_tokens=generated,
-            kv_len_after=self.prompt_len + generated,
-            next_write_position=self.prompt_len + generated,
+            sampled_tokens=len(self.steps) + 1,
+            written_kv_len=written,
+            attention_kv_len_next=written + 1,
         )
         self.steps.append(record)
         return record
 
+    def mark_stop_token(self, token_index: int) -> None:
+        """标记触发停止的 token（例如 `</answer>` 闭合、EOS、长度上限）。
+
+        时序含义：该 token 被采样 → 生成停止 → 消费它的那次 forward **不会发生**，
+        因此它对应的"下一步视图"从不被使用。`trace` 里据此外推出少一行。
+        """
+        if not 0 <= token_index < len(self.steps):
+            raise ValueError(f"stop token 下标越界：{token_index}（已采样 {len(self.steps)} 个）")
+        self.stop_token_index = int(token_index)
+
     def finish(self) -> tuple[ParseEvent, ...]:
-        """生成结束：处理未闭合标签缓冲，冻结状态。"""
+        """生成结束：处理未闭合标签缓冲，冻结状态。
+
+        结束阶段的异常（如未闭合的 `<focus`）同样进入统计与 trace，不得只留在 parser 里。
+        """
         events = tuple(self.parser.flush(len(self.steps)))
+        self.flush_events = events
         self.closed = True
         return events
 
@@ -107,8 +139,18 @@ class RequestProtocolState:
         return len(self.steps)
 
     @property
-    def kv_len(self) -> int:
-        return self.prompt_len + len(self.steps)
+    def written_kv_len(self) -> int:
+        """当前**已写**的 KV 长度。
+
+        prefill 写完 `prompt_len` 个位置；此后每采样一个 token，它在**下一次 forward** 才被写入，
+        所以采样了 k 个 token 时已写长度是 `prompt_len + (k-1)`（k ≥ 1）。
+        """
+        return self.prompt_len + max(0, len(self.steps) - 1)
+
+    @property
+    def attention_kv_len_next(self) -> int:
+        """下一次 forward 的 attention KV 上界 = 已写长度 + 1（含该步自身写入）。"""
+        return self.written_kv_len + 1
 
     @property
     def anomalies(self) -> tuple[ParseEvent, ...]:
@@ -122,26 +164,28 @@ class RequestProtocolState:
         return (mode or self.mode, refs if refs is not None else self.refs)
 
     # --- trace（C6.3 的协议侧字段） ----------------------------------------
-    _FOCUS_FAILURES = frozenset(
-        {"missing_attribute", "malformed_attribute", "invalid_reference", "unexpected_attribute"}
-    )
+    def _all_events(self) -> tuple[ParseEvent, ...]:
+        out: list[ParseEvent] = []
+        for step in self.steps:
+            out.extend(step.events)
+        out.extend(self.flush_events)
+        return tuple(out)
 
     def focus_stats(self) -> dict:
-        """focus 尝试/成功（论文 §6.2 口径）：只统计**调用** `<focus ...>` 的事件。
+        """focus 尝试/成功（论文 §6.2 口径）。
 
-        闭合标签 `</focus>`（回到 global）不是一次调用，不计入分母；属性非法/越界引用计为尝试失败。
+        分母 = 所有 `is_focus_attempt` 的事件（开标签转移 + 属性/引用异常 + 结束时的未闭合 focus 缓冲）；
+        闭标签与不匹配闭标签**不计入**。分子 = 合法 chunk 引用并进入 focus 的转移数。
         """
+        attempts = 0
         successes = 0
-        failures = 0
-        for step in self.steps:
-            for event in step.events:
-                if event.name != "focus":
-                    continue
-                if event.kind == "transition" and event.mode_after == "focus":
-                    successes += 1
-                elif event.kind == "anomaly" and event.reason in self._FOCUS_FAILURES:
-                    failures += 1
-        return {"focus_attempts": successes + failures, "focus_successes": successes}
+        for event in self._all_events():
+            if not event.is_focus_attempt:
+                continue
+            attempts += 1
+            if event.kind == "transition" and event.mode_after == MODE_FOCUS:
+                successes += 1
+        return {"focus_attempts": attempts, "focus_successes": successes}
 
     def trace(self) -> dict:
         stats = self.focus_stats()
@@ -151,19 +195,24 @@ class RequestProtocolState:
             "num_segments": self.num_segments,
             "prompt_len": self.prompt_len,
             "generated_tokens": self.generated_tokens,
-            "kv_len": self.kv_len,
+            "written_kv_len": self.written_kv_len,
+            "attention_kv_len_next": self.attention_kv_len_next,
+            "stop_token_index": self.stop_token_index,
             "final_mode": self.mode,
             "focus_attempts": stats["focus_attempts"],
             "focus_successes": stats["focus_successes"],
             "anomalies": [e.as_dict() for e in self.anomalies],
+            "flush_events": [e.as_dict() for e in self.flush_events],
             "steps": [
                 {
                     "token_index": s.token_index,
                     "token_id": s.token_id,
                     "mode_after": s.mode_after,
                     "refs": list(s.refs),
-                    "generated_tokens": s.generated_tokens,
-                    "kv_len_after": s.kv_len_after,
+                    "sampled_tokens": s.sampled_tokens,
+                    "written_kv_len": s.written_kv_len,
+                    "attention_kv_len_next": s.attention_kv_len_next,
+                    "next_write_position": s.next_write_position,
                     "events": [e.as_dict() for e in s.events],
                 }
                 for s in self.steps

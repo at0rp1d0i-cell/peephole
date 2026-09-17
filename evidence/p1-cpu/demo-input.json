@@ -64,7 +64,7 @@
       ],
       "local_window_span": [
         6211,
-        7273
+        7280
       ],
       "system_content_span": [
         288,
@@ -126,7 +126,7 @@
       ],
       "local_window_span": [
         6211,
-        7273
+        7280
       ],
       "system_content_span": [
         288,
@@ -175,7 +175,7 @@
       ],
       "local_window_span": [
         5763,
-        5779
+        5960
       ],
       "system_content_span": [
         3,
@@ -213,6 +213,151 @@
     }
   },
   "da_no_mask_same_prompt_as_da": true,
+  "sink_report": {
+    "da": {
+      "sink_span": [
+        0,
+        16
+      ],
+      "sink_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "#",
+        " Tools",
+        "\n\n",
+        "You",
+        " have",
+        " access",
+        " to",
+        " the",
+        " following",
+        " functions",
+        ":",
+        "\n\n",
+        "<"
+      ],
+      "sink_message_role": "system",
+      "sink_inside_system_content": false,
+      "sink_intersects_context": false,
+      "sink_context_hits": [],
+      "sink_intersects_question": false,
+      "sink_intersects_local_window": false
+    },
+    "vanilla": {
+      "sink_span": [
+        0,
+        16
+      ],
+      "sink_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "You",
+        " are",
+        " a",
+        " helpful",
+        " assistant",
+        ".",
+        "<|im_end|>",
+        "\n",
+        "<|im_start|>",
+        "user",
+        "\n",
+        "Context",
+        "\n"
+      ],
+      "sink_message_role": "system",
+      "sink_inside_system_content": false,
+      "sink_intersects_context": false,
+      "sink_context_hits": [],
+      "sink_intersects_question": false,
+      "sink_intersects_local_window": false
+    },
+    "fixed_prefix_consistency": {
+      "variants": [
+        "ascii-small",
+        "cjk-small",
+        "emoji-small"
+      ],
+      "first32_ids_identical": true,
+      "first32_ids": [
+        248045,
+        8678,
+        198,
+        2,
+        13455,
+        271,
+        2523,
+        599,
+        2528,
+        310,
+        279,
+        2614,
+        5568,
+        25,
+        271,
+        27,
+        15449,
+        29,
+        198,
+        4754,
+        1267,
+        763,
+        328,
+        1628,
+        487,
+        328,
+        1628,
+        763,
+        5046,
+        591,
+        763,
+        328
+      ],
+      "first32_decoded": [
+        "<|im_start|>",
+        "system",
+        "\n",
+        "#",
+        " Tools",
+        "\n\n",
+        "You",
+        " have",
+        " access",
+        " to",
+        " the",
+        " following",
+        " functions",
+        ":",
+        "\n\n",
+        "<"
+      ],
+      "all_sink_decoded_identical": true
+    }
+  },
+  "mixed_text_incremental_decode": {
+    "equal_to_full_decode": true,
+    "tokens": 51,
+    "replacement_chars": 0,
+    "vocab_size": 248077,
+    "tokens_with_isolated_fffd": 953,
+    "continuation_starting_tokens": 163,
+    "deterministic_split_pair": {
+      "lead_id": 64253,
+      "follow_id": 121,
+      "lead_bytes": [
+        235,
+        148
+      ],
+      "follow_bytes": [
+        189
+      ],
+      "naive": "��",
+      "incremental": "딽",
+      "joint_decode": "딽"
+    }
+  },
   "template_kwargs_check": {
     "direct_kwarg_disables_thinking": true,
     "chat_template_kwargs_disables_thinking": false,
