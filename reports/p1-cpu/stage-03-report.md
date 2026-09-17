@@ -31,6 +31,9 @@
 - **UTF-8 增量解码**：`tokenizer.decode([id])` 逐 token 拼接在一般情形不安全（953/248077 个 token 单独解码含 U+FFFD）；
   已实现字节级增量解码器 `src/attnview/decode.py`，用 **pin 的固定反例** `(64253, 121)` 做测试：
   naive `��` vs 增量 `딽`（`test_pinned_split_pair_naive_vs_incremental`，不扫全词表）。
+  **第二轮修复**：初版手写 `split_complete_utf8` 不校验续字节，反例字节 `e2 41 e2 82 ac` 会给出 `"�A���"`
+  （错误前缀提前吃掉后面的合法尾段）；已改用标准库 `codecs.getincrementaldecoder("utf-8")(errors="replace")`，
+  现为 `"�A€"`，并补两支测试：非法前缀不吃后续合法序列、结尾未完成序列在 flush 时按 replace 吐出。
 - **素材与交付口径**：本轮**不再写**旧 `material/attnview` 快照（我早前写入的 `results/p1-cpu/` 已删除并在此说明）；
   代码、报告与证据都在实现仓内，原始素材保持可追溯。
   素材仓静态门禁**如实状态**：`bash material/attnview/scripts/verify.sh` 在远端 **FAIL**，
@@ -45,14 +48,14 @@
 | 产物 | 路径 |
 | --- | --- |
 | 实现（CPU 协议层） | `src/attnview/{segmenter,prompts,prompt,parser,state,readview,reference,extract,trace,decode}.py` |
-| 单测（**79 项**） | `tests/test_{segmenter,parser,readview,extract,state,prompt_template,decode}.py` |
+| 单测（**81 项**） | `tests/test_{segmenter,parser,readview,extract,state,prompt_template,decode}.py` |
 | 测试入口 | `bash tools/p1cpu-run-tests.sh`（内部 `CUDA_VISIBLE_DEVICES=''`，不联网、不加载权重） |
 | 演示与固定轨迹 | `python3 tools/p1cpu-demo.py`（真实 tokenizer，本地快照 `local_files_only=True`） |
 | prompt 逐字保真 | `python3 tools/p1cpu-check-prompt-fidelity.py` |
 | 证据索引 | `evidence/p1-cpu/evidence-index.md`（逐个文件 sha256） |
 | 接入设计 | `reports/p1-cpu/integration-design.md`（含 M1 API 子集建议表） |
 
-退出码：测试 `Ran 79 tests ... OK`（exit 0）；保真核对 `①②③ 全部通过`（exit 0）；演示 exit 0。原始输出 `evidence/p1-cpu/run.log`。
+退出码：测试 `Ran 81 tests ... OK`（exit 0）；保真核对 `①②③ 全部通过`（exit 0）；演示 exit 0。原始输出 `evidence/p1-cpu/run.log`。
 
 ## 2. 结论要点（返工后）
 
