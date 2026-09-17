@@ -28,16 +28,17 @@ bash /root/attnview/setup-local-cuda.sh
 
 ## 3. CUDA 组件版本对齐（阶段 02 的已授权变更，见 `dependency-delta.md`）
 
+现在**由第 2 步自动完成**：`setup-local-cuda.sh` 的第 4a 步会比较 nvcc 与 `cuda.h` 的 minor，不一致时按用户授权
+自动执行（版本取自 venv 内 `nvidia-cuda-nvcc` 的 pip 版本，本机为 13.4.92）：
+
 ```bash
-source /root/attnview/env.sh
 "$ATTNVIEW_PYTHON" -m pip install --upgrade \
   "nvidia-cuda-runtime==13.4.92" "nvidia-cuda-nvrtc==13.4.92" "nvidia-cuda-cupti==13.4.92"
 "$ATTNVIEW_PYTHON" -m pip check          # 期望：No broken requirements found.
-bash /root/attnview/setup-local-cuda.sh  # 再跑一次，让第 4 步校验/补齐
 ```
 
-> 顺序说明：`install-runtime.sh` 装出来的 `nvidia-cuda-runtime` 可能是与 nvcc 不同的 minor
-> （本机曾是 13.0.96 对 13.4.92）；第 3 步把它对齐。若上游依赖集将来已自带对齐版本，此步为幂等空操作。
+手动执行等价命令亦可；无论哪条路径，最终都要满足第 4 步的版本一致性校验与链接自检。
+`nvidia-cuda-cccl` **不参与对齐**（上游 redist 无 13.4.x，最高 13.3.4.3）。
 
 ## 4. 环境层验证
 

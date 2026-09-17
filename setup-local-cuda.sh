@@ -81,20 +81,41 @@ fi
 say "4/4 补齐 JIT 的 dev 链接与驱动 stub，并做版本一致性检查"
 
 # --- 4a 版本一致性：nvcc 的 major.minor 必须与 cuda.h 的 CUDA_VERSION major.minor 相同 ---
-nvcc_rel=$("$cuda/bin/nvcc" --version | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
-hdr_ver=$(sed -n 's/^#define CUDA_VERSION \([0-9]\+\).*/\1/p' "$cuda/include/cuda.h" | head -1)
-hdr_rel="$((hdr_ver / 1000)).$(( (hdr_ver % 1000) / 10 ))"
-printf 'nvcc 版本   : %s\ncuda.h 版本 : %s (CUDA_VERSION=%s)\n' "$nvcc_rel" "$hdr_rel" "$hdr_ver"
-if [ "$nvcc_rel" != "$hdr_rel" ]; then
-  cat >&2 <<EOF
+nvcc_pkg_ver=$("$py" -c 'import importlib.metadata as m;print(m.version("nvidia-cuda-nvcc"))')
+check_cuda_versions() {
+  nvcc_rel=$("$cuda/bin/nvcc" --version | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
+  hdr_ver=$(sed -n 's/^#define CUDA_VERSION \([0-9]\+\).*/\1/p' "$cuda/include/cuda.h" | head -1)
+  hdr_rel="$((hdr_ver / 1000)).$(( (hdr_ver % 1000) / 10 ))"
+}
 
-错误：CUDA 编译器与头文件 minor 版本不一致，JIT 编译会被 CCCL 的兼容性检查直接拒绝
-      （flashinfer/cccl 的 cuda/std/__cccl/cuda_toolkit.h:41 会 #error）。
-      修法：把 nvidia-cuda-runtime 升到与 nvidia-cuda-nvcc 同版本，例如
-        "$py" -m pip install --upgrade "nvidia-cuda-runtime==$("$py" -c 'import importlib.metadata as m;print(m.version("nvidia-cuda-nvcc"))')"
-      然后重跑本脚本。
+check_cuda_versions
+printf 'nvcc 版本   : %s (pip nvidia-cuda-nvcc %s)\ncuda.h 版本 : %s (CUDA_VERSION=%s)\n' \
+  "$nvcc_rel" "$nvcc_pkg_ver" "$hdr_rel" "$hdr_ver"
+
+if [ "$nvcc_rel" != "$hdr_rel" ]; then
+  cat <<EOF
+
+检测到 CUDA 编译器与头文件 minor 版本不一致（nvcc $nvcc_rel vs cuda.h $hdr_rel）。
+pip 允许这种组合（nvidia-cuda-nvcc 对 nvidia-cuda-runtime 未锁版本），但 flashinfer 内置 CCCL 的
+编译期兼容性检查（cuda/std/__cccl/cuda_toolkit.h:41）会直接 #error，导致 JIT 路径不可用。
+按用户 2026-09-18 的授权，自动把项目 venv 内的 CUDA 组件对齐到 nvcc 的版本：
+  nvidia-cuda-runtime / nvidia-cuda-nvrtc / nvidia-cuda-cupti == $nvcc_pkg_ver
+（只动项目 venv，不碰系统 CUDA/驱动；不升级任何无关包。）
 EOF
-  exit 1
+  "$py" -m pip install --upgrade \
+    "nvidia-cuda-runtime==$nvcc_pkg_ver" \
+    "nvidia-cuda-nvrtc==$nvcc_pkg_ver" \
+    "nvidia-cuda-cupti==$nvcc_pkg_ver" || {
+    echo "错误：对齐安装失败，请检查索引与网络后重跑本脚本。" >&2
+    exit 1
+  }
+  "$py" -m pip check || { echo "错误：对齐后 pip check 失败。" >&2; exit 1; }
+  check_cuda_versions
+  printf '对齐后：nvcc %s / cuda.h %s\n' "$nvcc_rel" "$hdr_rel"
+  if [ "$nvcc_rel" != "$hdr_rel" ]; then
+    echo "错误：对齐后版本仍不一致（nvcc $nvcc_rel vs cuda.h $hdr_rel），停止。" >&2
+    exit 1
+  fi
 fi
 
 # --- 4b 开发用链接：轮子只给 libcudart.so.<major>，JIT 用 -lcudart ---

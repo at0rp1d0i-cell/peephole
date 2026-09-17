@@ -34,6 +34,20 @@ source /root/attnview/env.sh
 bash /root/attnview/setup-local-cuda.sh    # 第 4 步会做版本一致性校验 + 补 dev 链接/stub + 链接自检
 ```
 
+## 根目录 `requirements.freeze.txt` 的新旧处理
+
+| 路径 | 版本含义 |
+| --- | --- |
+| `/root/attnview/requirements.freeze.stage-01.txt` | **历史**：阶段 01 结束时（含 `nvidia-cuda-runtime 13.0.96`），原样保留 |
+| `/root/attnview/requirements.freeze.txt` | **当前权威**：等于上表"最终态" |
+| `results/p0-env/requirements.freeze.txt`（素材仓） | 阶段 01 交付时冻结的历史副本，**不覆盖** |
+| `results/p0-model/requirements.freeze.txt`（素材仓，本阶段交付） | 当前权威副本 |
+
+对齐动作已并入重建入口：`setup-local-cuda.sh` 第 4a 步在发现 nvcc 与 `cuda.h` minor 不一致时，
+自动把 `nvidia-cuda-runtime` / `nvidia-cuda-nvrtc` / `nvidia-cuda-cupti` 升到与 `nvidia-cuda-nvcc` 相同的 pip 版本，
+再复核一次；不一致则以非零码退出。**不升级任何无关包**。
+
+
 ## 为什么必须成组对齐
 
 `nvidia-cuda-nvcc` 的 `Requires-Dist: nvidia-cuda-runtime` **未锁版本**，所以 pip 允许出现

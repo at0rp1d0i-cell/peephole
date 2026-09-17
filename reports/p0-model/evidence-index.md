@@ -184,11 +184,13 @@
 | `tools/kbs-probe/__pycache__/sitecustomize.cpython-312.pyc` | 5,139 | `5988a562c1ddef6393969a9cdc4c78fec7c76444aed4b2bedd55be353aa334e3` |
 | `tools/kbs-probe/sitecustomize.py` | 4,384 | `2e2307faccc833047cd60e19073569bff8c5c7ade63fea6dddb60ab7245b3c5d` |
 | `tools/serve-vanilla.sh` | 3,291 | `ff8c798d438144fc14becacf8a78d0de8abddd59f0cdbc18a06fda57e2a9d1b1` |
-| `reports/p0-model/model-report.md` | 28,634 | `275cfc8951fa61ebd7b3ff97bea7044198466158fd9ed52242c8667204310dd6` |
+| `reports/p0-model/model-report.md` | 30,353 | `2b949b3f7d40644900b38d99c14f903a66308d0404ca00cd8a277977b176b377` |
 | `reports/p0-model/model-identity.md` | 8,530 | `2ebe5f7df1a5faa575408ff4a89f4aaed31f34ded072345119914f2c63e29a94` |
 | `reports/p0-model/serve-command.sh` | 2,836 | `adb3d2415a676aec132a8fd23ff9496c1e2144841b0e5e0ea4f91336f662d979` |
 | `reports/p0-model/requirements.freeze.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` |
-| `reports/p0-model/dependency-delta.md` | 2,513 | `d60b7c2c6df0607991b499e76d46fc727bf952139cc19ceab3ad1318472abb16` |
-| `reports/p0-model/environment-rebuild.md` | 3,877 | `11dc2774cf52c4d9bcd4c6ba66e643dbbfc4ae70051edea837071ea5c9f6d43a` |
-| `setup-local-cuda.sh` | 7,497 | `0ca255e719387d9c37edf7f62f9866ef02a309ba9f783e8ac8f8b17a46da5b94` |
+| `reports/p0-model/dependency-delta.md` | 3,395 | `2ec29e76ffdaa2f8f147b05ea793d55d3e3189587163ee01a8f2aa1612c2e1a3` |
+| `reports/p0-model/environment-rebuild.md` | 3,966 | `3ad31f752e13aace2c0ae060c22f890bdc5c06d4d8582137a7484079d50b6778` |
+| `setup-local-cuda.sh` | 8,420 | `802f6cda5e5c57a14094d1ff417444a49f73c16c32464ec7d33d5ea8d38bf6d5` |
 | `env.sh` | 4,808 | `796f638fb247f194a5cd931473d79b7d27e476c6e483182d9ebfc8b8863572e0` |
+| `requirements.freeze.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` |
+| `requirements.freeze.stage-01.txt` | 4,118 | `a21cb93333fa99960425b2d2ef9a66b4f9677cd59001ea500e3ea6f97eb6e302` |

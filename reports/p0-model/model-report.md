@@ -144,6 +144,12 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
      钩子只读地包装 `GPUModelRunner.initialize_kv_cache`，调用后抄出 `kernel_block_sizes` 等字段；
      必须用 sitecustomize 是因为 **EngineCore 跑在子进程**，父进程的 monkeypatch 不生效。
      **未修改 vLLM 源码**，钩子不改变任何返回值。
+   - **进程内探针配置 ≠ 服务配置（明确区分）**：本项取证早期有两次**离线 `LLM(...)`** 尝试，均**未取得该值**且
+     其配置与服务不同（离线路径的 `usage_context=LLM_CLASS`，`max_num_batched_tokens` 默认 16384），
+     因此**不作为证据**，只保留为"方法失败"的记录（`e4-kernel-block-probe-attempt1-nofinding.json`）。
+     **最终采用的是服务配置**（`serve-vanilla.sh` 的全部 flag：`--max-model-len 8192`、`--max-num-seqs 256`、
+     `--max-num-batched-tokens=8192`、`gpu-memory-utilization 0.90`），其 KV 池/块数与 E4/E6b 逐项一致
+     （31.24 GiB / 652 / 314,187），故该 `kernel_block_sizes` 值直接适用于正式基线配置。
 4. **head_size=256 是否被接受**：**接受**（走 FA2 路径；未触发 backend 校验失败，无 `invalid_reasons`）。
 5. **CUDA Graph / 编译模式**：`cudagraph_mode = FULL_AND_PIECEWISE`、`mode = VLLM_COMPILE`（`backend=inductor`）；
    实捕获 **PIECEWISE 51 个 + FULL 35 个**，`Graph capturing finished in 14 s (0.62 GiB)` 与 `16 s (0.30 GiB)`；
@@ -301,6 +307,16 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
 吞吐/延迟与任何性能或净收益结论；任务质量；DA 机制的任何行为；`kernel_block_size` 已冻结；
 CUDA Graph 下读取视图可用性；prefix caching 与 DA 的交互；第二候选模型（3.6-27B）的任何实机行为；
 本阶段**未触及**工作单 §6 禁止的 C（容量与并发曲线）、D（耗时组成）、E（协议筛查）。
+
+**三条语义边界（显式声明，防止过度解读）**
+
+1. **原版观察到 FULL 图捕获与 prefix caching 生效，不代表 DA 机制受支持**：本阶段跑的是**未做任何 DA 改动**的
+   原版服务；FULL/PIECEWISE 图只是在原版路径下成功捕获，读取视图（读侧视角变化）与图捕获是否兼容仍完全未知（R08）。
+2. **`max_num_seqs=256` 不是实际 batch，也不是并发能力结论**：它只是本阶段为不越过 mamba 块池（652）而设的
+   **上限**；实际批大小、吞吐与延迟曲线未测，`--max-num-seqs` 与真实活跃 batch 不能等同。
+3. **一次短请求与一次采样冒烟通过，不代表所有 JIT 算子都兼容**：本次只覆盖到 sampling 算子（以及启动期的
+   FlashInfer autotune、GDN 的 Triton/FLA 内核）；其他 JIT 路径（例如尚未触发的算子变体）未逐一验证，
+   "FlashInfer JIT 恢复可用"是就**已实测路径**而言。
 
 ## 9. 检查结论标签
 
