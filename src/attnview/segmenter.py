@@ -56,12 +56,11 @@ class Segment:
     contained_token_count: int = 0
     is_placeholder: bool = False
     cut_mid_token: bool = False
-    """本段的切点是否落在 token 内部（没有任何层级存在 token 边界切点时的退让，见 `_split_span`）。"""
+    """本段的切点是否落在 token 内部。**不是豁免理由**，只作为可复核的元信息（上限判定只看覆盖口径）。"""
     cap_exceeded_by_covering: bool = False
     """重叠口径下超过硬上限。只有在 `cut_mid_token` 为真时允许出现，并必须在证据里计数。"""
     uncuttable_over_cap: bool = False
-    """该单元内**没有任何可用边界**（按层级且左/右可各自成段）却仍超限——与 C1.3 的无空白长串同类处理：
-    只能保留为超限段。区别于"本可以在 token 边界切却切在 token 内部"（后者见 `cut_mid_token`）。"""
+    """唯一的超限豁免：该单元在**任何层级**都没有边界（C1.3 的无空白连续串一类），不可能再切。"""
 
 
 class OffsetsIndex:
@@ -125,8 +124,21 @@ def build_offsets_index(offsets: Iterable[tuple[int, int]]) -> OffsetsIndex:
     return OffsetsIndex(list(offsets))
 
 
-def _candidate_cuts(text: str, start: int, end: int, pattern: re.Pattern[str]) -> list[int]:
-    return [m.end() for m in pattern.finditer(text, start, end) if start < m.end() < end]
+def _candidate_cuts(
+    text: str, start: int, end: int, pattern: re.Pattern[str], *, both_edges: bool = False
+) -> list[tuple[int, int]]:
+    """候选切点 → [(cut, preference)]，preference 0 = 优先（分隔符**之后**，与其它层级语义一致），1 = 之前。
+
+    只对词间空白层同时评估"空白之前/之后"两个切点：BPE 可能把空格并进相邻 token，
+    只看"空白之后"会错过唯一可用的切点（见 `test_cap_check_uses_covering_token_count` 的反例）。
+    """
+    out: list[tuple[int, int]] = []
+    for m in pattern.finditer(text, start, end):
+        if start < m.end() < end:
+            out.append((m.end(), 0))
+        if both_edges and start < m.start() < end:
+            out.append((m.start(), 1))
+    return out
 
 
 def segment_context(
@@ -180,17 +192,15 @@ def _cut_mid_token(offsets: OffsetsIndex, edges: Sequence[int], text_len: int) -
 
 
 def _assert_cap_respected(segments: Sequence[Segment], cap: int) -> None:
-    """硬上限用**重叠口径**判定；只有在"该单元没有任何 token 边界切点"时才允许超限。"""
+    """硬上限用**重叠口径**判定；**唯一**豁免是 C1.3 的"单元内没有任何层级边界"（如无空白长串）。"""
     for seg in segments:
         if seg.token_count <= cap:
             continue
         if seg.uncuttable_over_cap:
-            continue  # 该单元内没有任何可用边界：只能保留为超限段（C1.3 同类）
-        if seg.cut_mid_token:
-            continue  # 切点没有 token 边界可选（退让路径）：计数已按覆盖口径给出并记账
+            continue  # C1.3：该单元在任何层级都没有边界，不可能再切
         raise AssertionError(
-            f"segment {seg.index} 重叠口径 {seg.token_count} token 超过上限 {cap}，"
-            "且切点本可落在 token 边界上——这是可实现的上限破例，必须修算法而不是改名"
+            f"segment {seg.index} 重叠口径 {seg.token_count} token 超过上限 {cap}，但该单元存在层级边界"
+            "——必须修切点选择，不接受任何豁免（含'切点在 token 内部'的说法）"
         )
 
 
@@ -208,44 +218,47 @@ def _split_span(
         out.append((start, end, False))
         return
 
-    # 两级候选：①切点落在 token 边界上；②否则退让到任意边界（会被标记 cut_mid_token）
-    for require_token_boundary in (True, False):
-        for _, pattern in DELIMITER_LEVELS:
-            left_best: tuple[int, int] | None = None
-            right_best: tuple[int, int] | None = None
-            any_best: tuple[int, int] | None = None
-            for cut in _candidate_cuts(text, start, end, pattern):
-                if require_token_boundary and not offsets.is_token_boundary(cut):
-                    continue
-                # 尺寸一律用**重叠口径**（与最终 span 映射、上限判定同一口径）
-                left = offsets.count_overlapping(start, cut)
-                right = offsets.count_overlapping(cut, end)
-                if left <= 0 or right <= 0:
-                    continue
-                distance = abs(left - target)
-                if left <= cap:
-                    if left_best is None or (distance, cut) < left_best:
-                        left_best = (distance, cut)
-                elif right <= cap:
-                    # 左侧仍超限（例如无空白长串）：先切出右侧，左侧继续递归，
-                    # 使原子超限串成为**它自己**的 segment，而不是与后续内容合并
-                    right_distance = abs(right - target)
-                    if right_best is None or (right_distance, cut) < right_best:
-                        right_best = (right_distance, cut)
-                else:
-                    # 两侧都超 cap：仍然要切（单元超限且此处有边界），两侧各自继续递归
-                    if any_best is None or (distance, cut) < any_best:
-                        any_best = (distance, cut)
-            best = left_best or right_best or any_best
-            if best is not None:
-                cut = best[1]
-                _split_span(text, start, cut, offsets, target, cap, out)
-                _split_span(text, cut, end, offsets, target, cap, out)
-                return
-        if not require_token_boundary:
-            break
+    # 严格按 C1.2 的层级顺序（由粗到细）；不在层级之间插入"token 边界优先"的额外轮次。
+    # 每层内部：优先"左侧可独立成段（≤ cap）"，其次"右侧可独立成段"，再退到"两侧都超也要切"，
+    # 同一档内按 (与目标距离, 分隔符前后偏好, 切点位置) 取最优。
+    for level, pattern in DELIMITER_LEVELS:
+        candidates = _candidate_cuts(
+            text, start, end, pattern, both_edges=(level == "whitespace")
+        )
+        if not candidates:
+            continue
+        left_best: tuple[int, int, int] | None = None
+        right_best: tuple[int, int, int] | None = None
+        any_best: tuple[int, int, int] | None = None
+        for cut, preference in candidates:
+            # 尺寸一律用**重叠口径**（与最终 span 映射、上限判定同一口径）
+            left = offsets.count_overlapping(start, cut)
+            right = offsets.count_overlapping(cut, end)
+            if left <= 0 or right <= 0:
+                continue
+            score = (abs(left - target), preference, cut)
+            if left <= cap:
+                if left_best is None or score < left_best:
+                    left_best = score
+            elif right <= cap:
+                # 左侧仍超限（例如无空白长串）：先切出右侧，左侧继续递归，
+                # 使原子超限串成为**它自己**的 segment，而不是与后续内容合并
+                right_score = (abs(right - target), preference, cut)
+                if right_best is None or right_score < right_best:
+                    right_best = right_score
+            else:
+                # 两侧都超 cap：仍然要切（单元超限且此处有边界），两侧各自继续递归
+                if any_best is None or score < any_best:
+                    any_best = score
+        best = left_best or right_best or any_best
+        if best is not None:
+            cut = best[2]
+            _split_span(text, start, cut, offsets, target, cap, out)
+            _split_span(text, cut, end, offsets, target, cap, out)
+            return
 
-    # 每一层都没有任何可用边界：保留为超限段，绝不切开（C1.3 同类）
+    # 走完所有层级都没有"能切出两个非空段"的切点：保留为超限段（C1.3：无空白连续串一类）。
+    # 三档策略下只要存在可用切点就一定会切，因此能到这里就说明该单元确实不可再切。
     out.append((start, end, True))
 
 
