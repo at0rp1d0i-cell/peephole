@@ -25,6 +25,10 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--tag", default="e5")
+    ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--top-p", type=float, default=1.0)
+    ap.add_argument("--top-k", type=int, default=-1)
+    ap.add_argument("--max-tokens", type=int, default=64)
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -32,12 +36,14 @@ def main() -> int:
     body = {
         "model": "qwen3.8-27b",
         "messages": [{"role": "user", "content": PROMPT}],
-        "temperature": 0.0,
+        "temperature": args.temperature,
         "seed": 0,
-        "max_tokens": 64,
-        "top_p": 1.0,
+        "max_tokens": args.max_tokens,
+        "top_p": args.top_p,
         "chat_template_kwargs": {"enable_thinking": False},
     }
+    if args.top_k >= 0:
+        body["top_k"] = args.top_k
     url = f"http://127.0.0.1:{args.port}/v1/chat/completions"
     data = json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})

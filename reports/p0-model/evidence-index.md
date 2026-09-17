@@ -61,6 +61,20 @@
 | `"$ATTNVIEW_PYTHON" tools/e5-request.py --out evidence/p0-model --tag e6` | 0 | `e6-request.json`、`e6-response-raw.json`、`e6-record.json` | 与 E5 同输入同输出（usage 25/8/33、`stop`、0.404 s） |
 | `bash material/attnview/scripts/env-probe.sh --out /root/attnview/evidence/after-model` | 0 | `evidence/after-model/env-report-20260917-1910.md` | 模型运行后的机器/GPU/磁盘快照；结束后 GPU 回到 0 MiB |
 
+## 环境修复与修复后复验（2026-09-18，经用户授权）
+
+| 命令 | 退出码 | 产物 | 摘要 |
+| --- | --- | --- | --- |
+| `pip freeze`（修复前基线） | 0 | `cuda-upgrade-freeze-before.txt` | `nvidia-cuda-runtime==13.0.96` |
+| `"$ATTNVIEW_PYTHON" -m pip install --upgrade "nvidia-cuda-runtime==13.4.92"` | 0 | `cuda-upgrade-freeze-after.txt` | 与 `nvidia-cuda-nvcc/crt 13.4.92` 对齐；`pip check` 干净；freeze 仅此一行变化 |
+| `ninja -C /root/.cache/flashinfer/0.6.18/120f/cached_ops/sampling -f build.ninja` | 0 | 会话输出（`.o` 三个 + `sampling.so` 2.3 MB） | 修复前同一命令两次失败：先 CCCL 编译期 `#error`，后 `ld: cannot find -lcudart` |
+| 下载官方 stub：`curl -o cudart.tar.xz https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-13.4.92-archive.tar.xz` | 0 | sha256 `0ac5dbc538d04e9983bc493b410cce4b459e1ee9f5f6654b6464ef7b3e14a8b5` | 提取 `lib/stubs/libcuda.so` 装入项目前缀 |
+| `bash /root/attnview/setup-local-cuda.sh`（两次） | 0 / 0 | 会话输出 | 第 4 步：版本一致性校验通过（13.4 = 13.4）、补 dev 链接、stub 就位、链接自检 ok（26672 B）；幂等 |
+| `bash /root/attnview/verify-runtime.sh` | 0 | `evidence/after/*.txt` | 修复后全项通过 |
+| `bash tools/serve-vanilla.sh --tag e4b`（无任何规避 flag） | 0（停止 143） | `logs/serve-e4b.log`、`e4b-metrics.txt` | 日志出现 `Using FlashInfer for top-p & top-k sampling.`；KV 31.24 GiB / 652 blocks / 314,187 tokens 与修复前逐项相同；`init engine` 44.87 s |
+| `tools/e5-request.py --tag e5b`（贪心，与 E5 同参） | 0 | `e5b-{request,response-raw,record}.json` | 200 / `stop` / usage 25-8-33 / 0.394 s；输出与 E5 相同 |
+| `tools/e5-request.py --tag e5b-sampling --temperature 0.7 --top-p 0.95 --top-k 20` | 0 | `e5b-sampling-{request,response-raw,record}.json` | 200 / `stop` / 0.422 s；证明 FlashInfer 采样路径运行时确实被走到（仅冒烟，不作质量结论） |
+
 ## 本阶段交付文档
 
 | 文件 | 内容 |
@@ -71,9 +85,10 @@
 | `evidence-index.md` | 本文件 |
 
 ## 文件清单（路径 / 字节 / sha256，机器生成）
-
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
+| `evidence/p0-model/cuda-upgrade-freeze-after.txt` | 4,118 | `33585d37b124ca2dc86518d8c6606a03795ce3f21bd8e7e18139871a5d34a07f` |
+| `evidence/p0-model/cuda-upgrade-freeze-before.txt` | 4,118 | `a21cb93333fa99960425b2d2ef9a66b4f9677cd59001ea500e3ea6f97eb6e302` |
 | `evidence/p0-model/e0-baseline.txt` | 1,153 | `8bd30dba9e4ec8a6bf0b4e4c63589e953aca17cb3104f1c88a7c8e3896e79f77` |
 | `evidence/p0-model/e1-console.txt` | 447 | `8c84bc1341eaac32349c9a212e7003d210003ebb3a7de564031dd364adbdce0c` |
 | `evidence/p0-model/e1-model-identity.json` | 15,698 | `9efa1bfda57e5e8a3df1afddaaed1df136cd6765c814aaf0b6ce82fdee362575` |
@@ -93,23 +108,42 @@
 | `evidence/p0-model/e4-extract-console.txt` | 20,504 | `47be0b6e42a74bafe0a6e454c64f704918622d1deb710b9c71820f0a2877add2` |
 | `evidence/p0-model/e4-extract.json` | 43,509 | `f61ca30baa1a2316a1084f91801c848f65355c803e4ae0e250cedf6920197b88` |
 | `evidence/p0-model/e4-metrics.txt` | 53,262 | `3a9ea6568ecb8bc217c4c911b5186c535f65cfdf5e29332b075388afcca25a31` |
+| `evidence/p0-model/e4b-metrics.txt` | 49,786 | `20cf6708e2598cbca1a35cb9ab841dffb516d772d9e8827058d8fe44ba0cf05c` |
 | `evidence/p0-model/e5-prompt-check.json` | 5,262 | `5dc760e66390b4024be79cbf4d140eda6b2cde87feae9ece7e78c9ba846e672e` |
 | `evidence/p0-model/e5-prompt-server-thinking_disabled.txt` | 191 | `7733165a3e19f7b199fce722c4e5f822dbb798057212d17e2e2a2b2fe78c8519` |
 | `evidence/p0-model/e5-prompt-server-thinking_enabled.txt` | 389 | `1cb7f1ed8bb2efc808ca0426512e0642a672f9b877faeb6e57b6ec417682655c` |
 | `evidence/p0-model/e5-record.json` | 1,968 | `0188d79f400243f0659614ac1410e847c5805f7ec6c78d27724908e1b2eaba33` |
 | `evidence/p0-model/e5-request.json` | 300 | `c9c61047a823e819136049591ab086109fe46667edef3931dd05bf752b8daadf` |
 | `evidence/p0-model/e5-response-raw.json` | 713 | `c4707698bbbfe4dad0507ae9c042731e675ec8fc6ce7ab55b2800152d39401a1` |
+| `evidence/p0-model/e5b-record.json` | 1,968 | `6227e28d42d3c9c08da60a051956dddd061ecfc01473c03f3537cb09873edfb0` |
+| `evidence/p0-model/e5b-request.json` | 300 | `c9c61047a823e819136049591ab086109fe46667edef3931dd05bf752b8daadf` |
+| `evidence/p0-model/e5b-response-raw.json` | 713 | `e254f5089661b7d0e9df15afca75ded3ad8a7e3ee4ebeead3c0a1b17432326e3` |
+| `evidence/p0-model/e5b-sampling-record.json` | 1,986 | `4c759bbe57eea760ccbf2cd80d6a2cf610358bf0364c76d8002555dbfbf5a640` |
+| `evidence/p0-model/e5b-sampling-request.json` | 316 | `210d408a12cee00f40e7c33fd32829c4f82ff33cfc001b619aa167d8b595518a` |
+| `evidence/p0-model/e5b-sampling-response-raw.json` | 713 | `9ec5f3c08ca2672d8363eb46de8ca4daf995be786588cada1ade03817a86b554` |
 | `evidence/p0-model/e6-extract-console.txt` | 20,495 | `e79a5775a8ef9eece120455012ad23ed7518e123d06c3f9be61d43b3a57a737b` |
 | `evidence/p0-model/e6-metrics.txt` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | `evidence/p0-model/e6-record.json` | 1,968 | `0139768c741f6fd89aaef926415b5a42adbd54788092f18a69dc6656c05eea0a` |
 | `evidence/p0-model/e6-request.json` | 300 | `c9c61047a823e819136049591ab086109fe46667edef3931dd05bf752b8daadf` |
 | `evidence/p0-model/e6-response-raw.json` | 713 | `a883331644e0ab68583d52acb11f42559f1035846073aa8454452ea168d03553` |
 | `logs/serve-e4.log` | 34,463 | `7d12122512d8d970b7418ef7665639b44e6c1f8d3f41a3fbe5555cc03bd39898` |
+| `logs/serve-e4b.log` | 33,937 | `f363f5ebc105e32d11134b48385a9f835d6c3682dc105cc94a777836469eb856` |
 | `logs/serve-e6.log` | 33,642 | `9d18826928de284bcff9a00e9fc4d0ba826d86b660ef9705b69c2ff4c99413f3` |
 | `logs/serve-e4-attempt1-offline-resolve-fail.log` | 6,678 | `273f307a19630bdd8d6cdcc6bcd2a3b0cc4d6a9564fafd8fd211cd587666ade1` |
 | `logs/serve-e4-attempt2-maxnumseqs-default-fail.log` | 36,272 | `47991d5814d648555e0aa5d5e0f02aa17207eefd78975a84c4d17a4c9c8e610d` |
 | `logs/serve-e4-attempt3-flashinfer-jit-fail.log` | 88,720 | `5511c07f40217a0473662df4ab52b1e01c5e2d1f8c459c4931741e51d57a2877` |
 | `evidence/after-model/env-report-20260917-1910.md` | 86,971 | `739abdb065112bddd8e3b19ba47eb912f6ccade9daadcfebb282db19803a709c` |
+| `evidence/after/cuda_tensor.txt` | 252 | `e89655c964f0a4a24b379b58b5af458ad6a8cc4ea3fd854a0acec9547de6bb3c` |
+| `evidence/after/env-report-20260917-1637.md` | 86,901 | `4cf8e066ca9116040069312bba55568139ee39bda9ef490084b620470c6cffe7` |
+| `evidence/after/env-report-20260917-1655.md` | 86,925 | `5d3be6f45f830028a4751c0f3a2eeced8b84db6a13f11c9db65349e17b180edf` |
+| `evidence/after/env-report-20260917-1716.md` | 86,925 | `395353c9ccf94e39aa60e23fd638b8df357a4631e2a63ee8254e4f63106b43d7` |
+| `evidence/after/import_versions.txt` | 587 | `61b623a6b1dba2e0c08d4afd8389fc8158d5266fe2e1017879f219028631e589` |
+| `evidence/after/network-tools.txt` | 1,150 | `e3f026504fa94ef9009a21078e89d65e0b1df3c432fde69ff5f78cd05d8bc207` |
+| `evidence/after/nvcc.txt` | 208 | `d5e3a195eebabdcebf990838dda4ca273b10cf09c7e01080333f03d60cc1db56` |
+| `evidence/after/pip_check.txt` | 30 | `9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09` |
+| `evidence/after/pip_freeze.txt` | 4,118 | `33585d37b124ca2dc86518d8c6606a03795ce3f21bd8e7e18139871a5d34a07f` |
+| `evidence/after/python_version.txt` | 15 | `55ae85cf4bdb38743edbcd53ea68ff36511997ec6c21b1e83d8bebc939bf056b` |
+| `evidence/after/vllm_cli.txt` | 1,162 | `40960bd7c950d219c9837b46a703b4dacbf625530008c6aff6d9ea9e874307e0` |
 | `tools/e1-model-identity.py` | 3,866 | `8a70f734f83cda4204dbc6c48d121c3eeaa41cf36dadba8f24ecc6da21e7ca5d` |
 | `tools/e2-download.sh` | 1,674 | `3b23233375513abe34a89d0066140b634b44207ed110d90e972781a9ca7a411d` |
 | `tools/e2-verify.py` | 3,595 | `949872c37f5b3f96eda67b3816aea98368ad48ddf19c4b1c39dc6b44f72a791c` |
@@ -117,10 +151,11 @@
 | `tools/e3-probe-protocol-tokens.py` | 2,741 | `495a84ea4ef185bb6c106f72f44e19671e2b8b121b392ee72e5fa4e28afce469` |
 | `tools/e4-extract.py` | 3,594 | `404061e357ccf5202c0ab7258231ae56543d8888b57be2206f482d892d51b648` |
 | `tools/e5-prompt-check.py` | 4,154 | `09b9160ae766c3d4ea3a360f810fbe224807473bd3aafa8e39970ccb79e46f67` |
-| `tools/e5-request.py` | 2,867 | `776eee95b2a6cf1ebfeaa87ddcb0dfa9fc37435d952e35ddcff35ef8dac510e7` |
+| `tools/e5-request.py` | 3,188 | `ee36679942fc3a1dc323fc145bb6c7d31d84466de8227411bfa301f33d5a44ff` |
 | `tools/gen-file-inventory.py` | 1,656 | `71763efe3bfc1167c44aba8f1beed9ef7bbac5e8745ddc0a191f191826d3ab12` |
 | `tools/gen-model-identity.py` | 5,510 | `ac77274054dc26ae2cf0a02f49508c7080593ad77060f5a3ea1014ffdfca5d6f` |
-| `tools/serve-vanilla.sh` | 3,493 | `c6cbe17cd6003c22de6ffd7d36e99b5ab084d832d235585dd636385f306f1c85` |
-| `reports/p0-model/model-report.md` | 20,030 | `b51203e0a7048c996748ead3e79b2580d210f54903a732046101409ae18201b7` |
+| `tools/serve-vanilla.sh` | 3,291 | `ff8c798d438144fc14becacf8a78d0de8abddd59f0cdbc18a06fda57e2a9d1b1` |
+| `reports/p0-model/model-report.md` | 24,133 | `6dda5892ed708bffc67e8ef658f9ba9e1f2c233b24f1334c249de1de871f5f82` |
 | `reports/p0-model/model-identity.md` | 8,530 | `2ebe5f7df1a5faa575408ff4a89f4aaed31f34ded072345119914f2c63e29a94` |
-| `reports/p0-model/serve-command.sh` | 2,733 | `58159cf1a1da863ea222612a93e0596068663d6f0680b9ea3cb0edcd9a93a92b` |
+| `reports/p0-model/serve-command.sh` | 2,836 | `adb3d2415a676aec132a8fd23ff9496c1e2144841b0e5e0ea4f91336f662d979` |
+| `setup-local-cuda.sh` | 7,497 | `0ca255e719387d9c37edf7f62f9866ef02a309ba9f783e8ac8f8b17a46da5b94` |

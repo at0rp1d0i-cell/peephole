@@ -8,27 +8,29 @@
 # 用法：bash serve-command.sh          # 前台运行；Ctrl-C 退出
 #       bash serve-command.sh &        # 后台
 #
-# 本命令的相对项（除下面注释标明的两处）全部为 vLLM 默认值，未做容量或性能调参。
+# 除下面两处说明外，全部为 vLLM 默认值，未做容量或性能调参。
 
 set -uo pipefail
 source /root/attnview/env.sh          # 唯一环境入口：venv、项目自带 CUDA、HF_HOME/HF_ENDPOINT
 
 export HF_HUB_OFFLINE=1               # 只用已下载的本地快照，不做任何网络访问
 
-# 偏离 1（必需）：离线模式下必须显式给 revision。用 commit sha 下载时 HF 缓存里没有
+# 说明 1（离线必需）：必须显式给 revision。用 commit sha 下载时 HF 缓存里没有
 #   refs/main，revision=None 会抛 LocalEntryNotFoundError 直接退出。
 REV=1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
 
-# 偏离 2（缺陷规避）：项目合并 CUDA 前缀里 nvcc 13.4 与 cuda.h(13.0) 版本不一致，
-#   flashinfer 内置 CCCL 的编译期兼容检查（cuda/std/__cccl/cuda_toolkit.h:41）会 #error，
-#   导致 sampling 算子 JIT 失败、引擎启动中止。此开关按 vLLM 官方文档化行为
-#   （envs.py:853-860）改用 PyTorch 原生 top-k/top-p 路径；不改模型、精度、attention
-#   backend、块大小、图模式与 KV 预算。真正修法见 model-report.md 的阻塞项。
-export VLLM_USE_FLASHINFER_SAMPLER=0
+# 说明 2（容量约束，非调参）：混合模型的 mamba 状态块池决定 max_num_seqs 上限。
+#   默认 1024 超过实测可用块数（652 @ gmu 0.90 / 8K），引擎在
+#   resolve_cudagraph_mode_and_sizes 直接报错退出。本阶段只做短输入，取 256（余量 >2×）。
+#   下一阶段做容量/并发扫描时必须重新确定该值。
 
-# 偏离 3（容量约束，非调参）：混合模型的 mamba 状态块池决定 max_num_seqs 上限。
-#   默认 1024 超过实测可用块数（635/652），引擎在 resolve_cudagraph_mode_and_sizes
-#   直接报错退出。本阶段只做短输入，取 256（余量 >2×）。
+# 前置（一次性）：项目自带 CUDA 前缀需完整，否则 FlashInfer 等 JIT 路径不可用。
+#   已在本机执行并写进阶段 01 脚本的第 4 步：
+#     bash /root/attnview/setup-local-cuda.sh
+#   它做三件事：① 校验 nvcc 与 cuda.h 的 minor 版本一致（不一致直接报错并给出修法）；
+#   ② 补 libcudart.so 开发链接；③ 安装官方同版本驱动 stub（lib64/stubs/libcuda.so）。
+#   本机修复记录：nvidia-cuda-runtime 13.0.96 → 13.4.92（与 nvcc 13.4.92 对齐）。
+
 exec vllm serve Qwen/Qwen3.8-27B \
   --revision "$REV" \
   --served-model-name qwen3.8-27b \
@@ -39,10 +41,11 @@ exec vllm serve Qwen/Qwen3.8-27B \
   --max-num-seqs 256 \
   --gpu-memory-utilization 0.90
 
-# 实测启动结果（E4，2026-09-17T19:03Z 起）：
-#   init engine (profile, create kv cache, warmup model) took 69.77 s (compilation: 21.24 s)
-#   Available KV cache memory: 31.24 GiB
-#   GPU KV cache size: 314,187 tokens, Maximum concurrency for 8,192 tokens per request: 38.35x
-#   Application startup complete.（health=200）
-# 首次冷启动另需 torch.compile 28 s + GDN Triton 内核 JIT（缓存目录见下）；编译缓存在
-#   /root/.cache/vllm（系统盘）——env.sh 未设 VLLM_CACHE_ROOT，属已记录的待修正项。
+# 实测启动结果：
+#   修复前（logs/serve-e4.log，VLLM_USE_FLASHINFER_SAMPLER=0 规避）：
+#     init engine 69.77 s（compilation 21.24 s）；Available KV 31.24 GiB；314,187 tokens
+#   修复后（logs/serve-e4b.log，命令与本文件一致，无任何规避）：
+#     Using FlashInfer for top-p & top-k sampling.
+#     init engine 44.87 s（compilation 0.95 s）；Available KV 31.24 GiB；314,187 tokens（逐项相同）
+#   `Application startup complete.` → `GET /health` 200
+# 编译缓存在 /root/.cache/vllm（系统盘）——env.sh 未设 VLLM_CACHE_ROOT，属已记录的待修正项。

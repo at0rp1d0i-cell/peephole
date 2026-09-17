@@ -37,21 +37,18 @@ mkdir -p "$ATTNVIEW_LOGS_DIR"
 
 export HF_HUB_OFFLINE=1
 
-# 【本阶段的一处已标注偏离】FlashInfer 的 sampling 算子 JIT 在本机编译失败：
-#   项目合并 CUDA 前缀里 nvcc 是 13.4（nvidia-cuda-nvcc 13.4.92），而 cuda.h/cuda_runtime_api.h
-#   来自 nvidia-cuda-runtime 13.0.96（CUDA_VERSION=13000）；flashinfer 内置 CCCL 的
-#   cuda/std/__cccl/cuda_toolkit.h:41 要求编译器 minor 与头文件 minor 相等 → #error。
-#   原始失败日志：logs/serve-e4-attempt3-flashinfer-jit-fail.log（命令未做任何修改）。
-#   vLLM 官方文档化开关（envs.py:853-860）可显式 opt-out，只把 top-k/top-p 采样换成
-#   PyTorch 原生路径；不改模型、精度、revision、attention backend、块大小、图模式与 KV 预算。
-#   真正的修法是统一 CUDA 版本（例如把 nvidia-cuda-runtime-cu13 升到 13.4.x），属 pin 变更，
-#   本阶段不做，作为阻塞项上报。
-export VLLM_USE_FLASHINFER_SAMPLER=0
+# 【已修复，2026-09-18】曾有一处已标注偏离：VLLM_USE_FLASHINFER_SAMPLER=0。
+#   原因：项目 CUDA 前缀里 nvcc 13.4 与 cuda.h 13.0 不一致，触发 flashinfer 内置 CCCL 的
+#   cuda/std/__cccl/cuda_toolkit.h:41 编译期 #error；且该前缀缺少 libcudart.so 开发链接与
+#   lib64/stubs/libcuda.so，JIT 链接同样不可能成功（见 logs/serve-e4-attempt3-*.log）。
+#   经用户授权在项目 venv 内统一 CUDA 版本（nvidia-cuda-runtime 13.0.96 → 13.4.92）并补齐
+#   前缀的 dev 链接与驱动 stub 后，FlashInfer JIT 路径恢复可用，故该规避已移除。
+#   修复前后对照：logs/serve-e4.log（偏离版本）vs logs/serve-e4b.log（修复后，默认启用 FlashInfer 采样）。
 
 {
   echo "=== E4 vanilla vLLM serve ==="
   echo "START_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "CMD: HF_HUB_OFFLINE=1 VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve Qwen/Qwen3.8-27B --revision $REV --served-model-name qwen3.8-27b --host 127.0.0.1 --port $PORT --dtype bfloat16 --tensor-parallel-size 1 --max-model-len $MAX_MODEL_LEN --max-num-seqs $MAX_NUM_SEQS --gpu-memory-utilization $GMEM ${EXTRA[*]-}"
+  echo "CMD: HF_HUB_OFFLINE=1 vllm serve Qwen/Qwen3.8-27B --revision $REV --served-model-name qwen3.8-27b --host 127.0.0.1 --port $PORT --dtype bfloat16 --tensor-parallel-size 1 --max-model-len $MAX_MODEL_LEN --max-num-seqs $MAX_NUM_SEQS --gpu-memory-utilization $GMEM ${EXTRA[*]-}"
   echo "LOG=$LOG"
   echo "HOSTNAME=$(hostname)"
   echo "HF_HOME=$HF_HOME HF_HUB_CACHE=$HF_HUB_CACHE"
