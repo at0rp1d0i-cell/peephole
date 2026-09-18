@@ -21,6 +21,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 
 REPO = Path(__file__).resolve().parent.parent
@@ -330,23 +331,27 @@ class FakeModel:
         self.last_metadata = None
         #: 仅供反例：让本步声明的 q_len 与 positions 行宽不一致（真实路径不会出现）
         self.q_len_override: int | None = None
+        #: 仅供反例：省略 attn_metadata 的 max_query_len（与"未包裹 InputBatch"组合 ⇒ 相位证据不可用）
+        self.omit_max_query_len = False
 
     def metadata_for(self, positions_row, q_len: int):
+        """构造与**本 pin 实测**同形的 metadata：计数器默认**全 0（未填充）**，`max_query_len` 可用。"""
         last = int(positions_row[min(q_len, int(positions_row.shape[0])) - 1])
         canonical_seq_len = last + 1
-        prefill = int(positions_row[0]) == 0 and canonical_seq_len == self.prompt_len
         metadata = SimpleNamespace(
-            num_prefill_reqs=1 if prefill else 0,
-            num_decode_reqs=0 if prefill else 1,
-            num_prefill_tokens=q_len if prefill else 0,
-            num_decode_tokens=0 if prefill else q_len,
+            num_prefill_reqs=0,
+            num_decode_reqs=0,
+            num_prefill_tokens=0,
+            num_decode_tokens=0,
             max_query_len=q_len,
             seq_lens=torch.tensor([canonical_seq_len], dtype=torch.int32),
             max_seq_len=canonical_seq_len,
             num_actual_tokens=q_len,
             block_table=torch.zeros((1, 4), dtype=torch.int32),
         )
-        if self.marker is not None:  # 反例用：只改相位计数，视图证据仍保持 canonical
+        if self.omit_max_query_len:
+            del metadata.max_query_len
+        if self.marker is not None:  # 反例用：只改相位字段，视图证据仍保持 canonical
             for field in ("num_prefill_reqs", "num_decode_reqs", "num_prefill_tokens",
                           "num_decode_tokens", "max_query_len"):
                 if hasattr(self.marker, field):
@@ -367,6 +372,31 @@ class FakeModel:
                 for layer in self.layers]
 
 
+class FakeRunner:
+    """本步 `InputBatch` 的最小替身（相位**权威证据**来源）。
+
+    `prepare_inputs` 每次调用给出本步 InputBatch；`is_prefilling_np[目标行]` 是相位判定的唯一权威证据
+    （pin `model_runner.py:1138,1345`）。默认按"首步 prefill、其后 decode"自动翻转；可用
+    `is_prefilling` 显式覆盖，或用 `req_ids` 模拟"批次里没有目标请求"（⇒ 证据不可用）。
+    """
+
+    def __init__(self, *, is_prefilling: bool | None = None, req_ids=("r-main",),
+                 auto_first_prefill: bool = True) -> None:
+        self.is_prefilling = is_prefilling
+        self.req_ids = list(req_ids)
+        self.auto_first_prefill = auto_first_prefill
+        self.prepare_calls = 0
+        self.execute_model_state = None
+
+    def prepare_inputs(self, *_args, **_kwargs):
+        self.prepare_calls += 1
+        if self.is_prefilling is not None:
+            prefill = bool(self.is_prefilling)
+        else:
+            prefill = bool(self.auto_first_prefill and self.prepare_calls == 1)
+        return SimpleNamespace(req_ids=list(self.req_ids), is_prefilling_np=np.asarray([prefill], dtype=bool))
+
+
 class LayerCaptureTest(unittest.TestCase):
     """层观测必须按 pin 的**真实契约**接入，并且只覆盖 armed 的目标请求。
 
@@ -382,22 +412,31 @@ class LayerCaptureTest(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _armed(self, model, impls, *, prompt_len: int = 3, stream: bool = True):
+    def _armed(self, model, impls, *, prompt_len: int = 3, stream: bool = True,
+               runner: "FakeRunner | None" = None):
+        """装上捕获与**相位权威证据**（runner.prepare_inputs），返回 (capture, runner)。
+
+        调用方在每步 forward 前调一次 `runner.prepare_inputs()`（与真实 runner 的顺序一致）。
+        """
         capture = self.driver.LayerCapture(
             expected_layers={index: f"language_model.model.layers.{index}.self_attn.attn"
                              for index in range(len(impls))}
         )
         for index, impl in enumerate(impls):
             capture.wrap_impl(index, impl)
+        runner = runner or FakeRunner()
+        capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture" if stream else self.dir / "unused", prompt_len=prompt_len)
-        return capture
+        return capture, runner
 
     def test_steps_layers_positions_and_metadata_are_real(self) -> None:
         impls = [FakeFlashAttentionImpl(), FakeFlashAttentionImpl(scale=0.25)]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
+        runner.prepare_inputs()
         model.forward(positions=torch.tensor([3], dtype=torch.int64))
         capture.disarm()
         model.forward(positions=torch.tensor([99], dtype=torch.int64))  # 窗口外（disarmed）
@@ -417,9 +456,11 @@ class LayerCaptureTest(unittest.TestCase):
     def test_dump_capture_export_keys_for_decode_history(self) -> None:
         impls = [FakeFlashAttentionImpl(), FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         for position in (3, 4, 5):
+            runner.prepare_inputs()
             model.forward(positions=torch.tensor([position], dtype=torch.int64))
         capture.disarm()
         target = self.dir / "layers.npz"
@@ -458,10 +499,12 @@ class LayerCaptureTest(unittest.TestCase):
     def test_each_step_is_flushed_to_disk_immediately(self) -> None:
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         first = self.dir / "capture" / "forward1.npz"
         self.assertTrue(first.exists(), "每步结束必须立刻落盘（异常也留有可审证据）")
+        runner.prepare_inputs()
         model.forward(positions=torch.tensor([3], dtype=torch.int64))
         self.assertTrue((self.dir / "capture" / "forward2.npz").exists())
         import numpy as np
@@ -495,7 +538,8 @@ class LayerCaptureTest(unittest.TestCase):
         """位置不是本步 token 的真实连续绝对位置时拒绝记录（不静默接受错误来源）。"""
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         with self.assertRaises(RuntimeError):
             model.forward(positions=torch.tensor([5, 6, 7], dtype=torch.int64))  # prefill 起点 != 0
 
@@ -510,16 +554,20 @@ class LayerCaptureTest(unittest.TestCase):
         model = FakeModel(impls, prompt_len=prompt_len)
         capture = self.driver.LayerCapture(
             expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
+        runner = FakeRunner()
         capture.wrap_impl(0, impls[0])
+        capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture", prompt_len=prompt_len)
 
         rows = torch.zeros(3, prompt_len, dtype=torch.int64)  # 第 1/2 行留 0（padding/陈旧）
         rows[0] = torch.arange(prompt_len, dtype=torch.int64)
+        runner.prepare_inputs()
         model.forward(positions=rows)
         decode_rows = torch.zeros(3, prompt_len, dtype=torch.int64)
         decode_rows[0, 0] = prompt_len
         model.q_len_override = 1  # decode 步只调度 1 个 token（真实路径：本步 q_len=1）
+        runner.prepare_inputs()
         model.forward(positions=decode_rows)
         model.q_len_override = None
         capture.disarm()
@@ -552,7 +600,8 @@ class LayerCaptureTest(unittest.TestCase):
         """执行视图必须是 canonical/global：FA metadata 的 seq_lens[0] 必须 == 本步最后位置 + 1。"""
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         capture.disarm()
         ok = self.driver.capture_accounting(capture, [1001], consumption_steps=1)
@@ -571,11 +620,14 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture = self.driver.LayerCapture(expected_layers={0: "layer0"})
+        runner = FakeRunner()
         capture.wrap_impl(0, impls[0])
+        capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         model.forward(positions=torch.tensor([9], dtype=torch.int64))  # 未 armed：warmup 步
         self.assertEqual(capture.records, {}, "未 armed 的步不得进捕获")
         capture.arm("r-main", self.dir / "capture", prompt_len=3)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         capture.disarm()
         model.forward(positions=torch.tensor([3], dtype=torch.int64))  # cleanup 步
@@ -652,7 +704,8 @@ class LayerCaptureTest(unittest.TestCase):
     def test_dump_capture_rejects_missing_prefill_step(self) -> None:
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         del capture.positions[1]
         with self.assertRaises(RuntimeError):
@@ -668,8 +721,10 @@ class LayerCaptureTest(unittest.TestCase):
         """
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         model.forward(positions=torch.arange(3, dtype=torch.int64))  # prefill 消费步 → g0
+        runner.prepare_inputs()
         model.forward(positions=torch.tensor([3], dtype=torch.int64))  # 唯一一次 decode → g1
         capture.disarm()
         tokens = [1001, 1002]
@@ -700,23 +755,92 @@ class LayerCaptureTest(unittest.TestCase):
         wrong = self.driver.capture_accounting(capture, tokens, consumption_steps=3)
         self.assertTrue(any("decode 捕获步数" in problem for problem in wrong["problems"]))
 
-    def test_phase_marker_disagreement_is_rejected(self) -> None:
-        """prefill/decode 由真实位置判定，并与 attn_metadata 真实标记互核：不一致即报错。"""
-        marker = SimpleNamespace(num_prefill_reqs=0, num_decode_reqs=1, num_prefill_tokens=0,
-                                 num_decode_tokens=1, max_query_len=1)
+    def test_single_token_prefill_via_authoritative_evidence(self) -> None:
+        """相位**唯一权威证据** = 本步 `InputBatch.is_prefilling_np[目标行]`（pin `model_runner.py:1138,1345`）。
+
+        反例回归：单 token prefill（`is_prefilling_row=True` 且本步 q_len==1 且四个计数器全 0）
+        ⇒ 必须判 **prefill 并通过**；若按 `q_len==1` 分类会判成 decode（明令禁止）⇒ 显式断言防回退。
+        """
         impls = [FakeFlashAttentionImpl()]
-        model = FakeModel(impls, prompt_len=3, marker=marker)
-        capture = self._armed(model, impls)
+        model = FakeModel(impls, prompt_len=1)  # prompt 只有 1 个 token（合法的单 token prefill）
+        runner = FakeRunner(is_prefilling=True)
+        capture = self.driver.LayerCapture(expected_layers={0: "L0"})
+        capture.wrap_impl(0, impls[0])
+        capture.wrap_runner_inputs(runner)
+        capture.wrap_model(model)
+        capture.arm("r-main", self.dir / "capture", prompt_len=1)
+        runner.prepare_inputs()
+        model.forward(positions=torch.tensor([0], dtype=torch.int64))  # q_len == 1
+        markers = capture.positions[1]["phase_markers"]
+        self.assertEqual(capture.positions[1]["phase"], "prefill")
+        self.assertEqual(markers["decided_by"], "is_prefilling_np")
+        self.assertEqual(markers["is_prefilling_row"], True)
+        self.assertFalse(markers["counters_populated"], "全 0 计数器不得作相位证据")
+        self.assertIn("全 0", markers["counters_note"])
+        self.assertNotEqual(capture.positions[1]["phase"], "decode",
+                            "按 q_len==1 会判成 decode ⇒ 必须以 is_prefilling_np 为准（防回退）")
+
+    def test_phase_authoritative_evidence_unavailable_is_error(self) -> None:
+        """取不到 `is_prefilling_np[目标行]` ⇒ 直接报错，**不得**用 q_len/max_query_len 兜底。"""
+        impls = [FakeFlashAttentionImpl()]
+        cases = {
+            "未包裹 runner（无 InputBatch）": FakeRunner(),
+            "批次里没有目标请求": FakeRunner(req_ids=("other-req",)),
+        }
+        for label, runner in cases.items():
+            model = FakeModel(impls, prompt_len=3)
+            capture = self.driver.LayerCapture()
+            capture.wrap_impl(0, impls[0])
+            if label == "未包裹 runner（无 InputBatch）":
+                capture.wrap_model(model)  # 故意不包裹 runner
+            else:
+                capture.wrap_runner_inputs(runner)
+                capture.wrap_model(model)
+                runner.prepare_inputs()
+            capture.arm("r-main", self.dir / "capture-unavailable", prompt_len=3)
+            with self.assertRaises(RuntimeError) as ctx:
+                model.forward(positions=torch.arange(3, dtype=torch.int64))
+            self.assertIn("相位权威证据不可用", str(ctx.exception), label)
+
+    def test_phase_evidence_disagreement_and_mixed_counters_are_rejected(self) -> None:
+        """证据与真实位置相位不一致 ⇒ 报错；计数器有值且 prefill/decode 并存 ⇒ 报错。"""
+        impls = [FakeFlashAttentionImpl()]
+        # (1) 证据说 decode、位置说 prefill
+        model = FakeModel(impls, prompt_len=3)
+        runner = FakeRunner(is_prefilling=False)
+        capture = self.driver.LayerCapture()
+        capture.wrap_impl(0, impls[0])
+        capture.wrap_runner_inputs(runner)
+        capture.wrap_model(model)
+        capture.arm("r-main", self.dir / "capture-mismatch", prompt_len=3)
+        runner.prepare_inputs()
         with self.assertRaises(RuntimeError) as ctx:
-            model.forward(positions=torch.arange(3, dtype=torch.int64))  # 位置说 prefill、标记说 decode
+            model.forward(positions=torch.arange(3, dtype=torch.int64))
         self.assertIn("相位判定不一致", str(ctx.exception))
+
+        # (2) 计数器有值且混合 ⇒ 报错（计数器此时是交叉核对证据）
+        marker = SimpleNamespace(num_prefill_reqs=1, num_decode_reqs=1, num_prefill_tokens=3,
+                                 num_decode_tokens=1)
+        impls2 = [FakeFlashAttentionImpl()]
+        model2 = FakeModel(impls2, prompt_len=3, marker=marker)
+        runner2 = FakeRunner(is_prefilling=True)
+        capture2 = self.driver.LayerCapture()
+        capture2.wrap_impl(0, impls2[0])
+        capture2.wrap_runner_inputs(runner2)
+        capture2.wrap_model(model2)
+        capture2.arm("r-main", self.dir / "capture-mixed", prompt_len=3)
+        runner2.prepare_inputs()
+        with self.assertRaises(RuntimeError) as ctx2:
+            model2.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("混合批", str(ctx2.exception))
 
     def test_mixed_prefill_decode_marker_is_rejected(self) -> None:
         marker = SimpleNamespace(num_prefill_reqs=1, num_decode_reqs=1, num_prefill_tokens=3,
                                  num_decode_tokens=1, max_query_len=3)
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3, marker=marker)
-        capture = self._armed(model, impls)
+        capture, runner = self._armed(model, impls)
+        runner.prepare_inputs()
         with self.assertRaises(RuntimeError) as ctx:
             model.forward(positions=torch.arange(3, dtype=torch.int64))
         self.assertIn("混合批", str(ctx.exception))

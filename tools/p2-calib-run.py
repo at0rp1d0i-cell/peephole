@@ -27,9 +27,13 @@ id 三层语义（pin 事实，混用即错配）：
 warmup 请求、未完成 prefill 的丢弃步、cleanup/其它请求都不进入主对照：强制日志只记 `target_req_id`
 的消费步且 `step` 从 1 连续，logits / 层捕获同样只覆盖主请求窗口。
 
-步数/消费账本：消费计数取**宿主观测**（每轮新增 token ≥ 1 的轮数），decode 捕获步数 = 消费计数 − 1，
-prefill/decode 由真实位置与 `attn_metadata` 真实标记判定；本阶段三臂执行视图都必须是 canonical/global
-（FA metadata `seq_lens[0] == 本步最后位置 + 1`），**不应**出现受限读视图覆写 trace。
+步数/消费账本：消费计数取**宿主观测**（每轮新增 token ≥ 1 的轮数），decode 捕获步数 = 消费计数 − 1；
+相位判定的**唯一权威证据**是本步 `InputBatch.is_prefilling_np[目标行]`（pin `model_runner.py:1138,1345`，
+由 `LayerCapture.wrap_runner_inputs` 包裹 `prepare_inputs` 取得）：取不到即报错，**不得**用
+`q_len`/`max_query_len` 代替（末尾单 token 的 prefill chunk 也满足 q_len==1）；`num_prefill_*`/
+`num_decode_*` 计数器只在有值时作交叉核对（本 pin 实测可为全 0），并与真实绝对位置互核。
+本阶段三臂执行视图都必须是 canonical/global（FA metadata `seq_lens[0] == 本步最后位置 + 1`），
+**不应**出现受限读视图覆写 trace。
 
 执行证据：**起时就落** `<out>/manifest.json`（HEAD、源码 dirty、完整安装指纹、生效配置、prompt token ids
 与哈希、起时时间戳），结束（成功/异常/超时）补 `ended_cst` 与 `exit_code`。
@@ -445,10 +449,14 @@ class LayerCapture:
         self.stream_dir: Path | None = None
         self.prev_req_ids: dict[int, list[str]] = {}
         self._active = False
+        self._step_open = False  # 只有 `_begin_step` 与 `_end_step` 之间才记录（防止跨步/嵌套误写）
         self._step_positions = None
         self._step_positions_shape: list[int] = []
         self._step_metadata = None
         self._step_view: dict = {"observable": False}
+        #: 本步 InputBatch（`prepare_inputs` 包裹得到）与逐步相位证据快照
+        self.current_input_batch = None
+        self.batch_phase: dict[int, dict] = {}
 
     # --- arming（由驱动在 engine 就绪后、提交主请求前调用） ------------------ #
 
@@ -503,6 +511,7 @@ class LayerCapture:
 
     def _begin_step(self, kwargs: dict) -> None:
         self._active = self.armed_req_id is not None
+        self._step_open = False
         self._step_positions = None
         self._step_metadata = None
         if not self._active:
@@ -529,6 +538,7 @@ class LayerCapture:
                 f"校准: 第 {self.request_step} 步上一步批次的 req_ids={prev} 不是目标请求 "
                 f"{self.armed_req_id!r}（批内多请求/绑定错配）—— 拒绝继续"
             )
+        self.batch_phase[self.request_step] = self._batch_phase_evidence()
         if dim == 2:
             # 真实入口实测：`model_inputs["positions"]` 是 `(max_num_reqs, max_num_tokens)` 批张量
             # （本机 original 实测 (3, 1505)）。单活跃请求取第 0 行，列切片在 `_end_step` 按 q_len 做。
@@ -541,9 +551,61 @@ class LayerCapture:
             self._step_positions = positions
             self._step_positions_shape = [1, int(positions.shape[0])]
         self.records.setdefault(self.request_step, {})
+        self._step_open = True
+
+    def wrap_runner_inputs(self, runner: object) -> None:
+        """包裹 runner 里构造**本步** `InputBatch` 的方法（pin `worker/gpu/model_runner.py:1159`
+        `prepare_inputs(...) -> InputBatch`）。
+
+        目的：拿到本步真实的 `input_batch.is_prefilling_np[目标行]`（适配层同样以它为准）作为相位判定的
+        **首选证据**。本 pin 实测 `num_prefill_*`/`num_decode_*` 在该步**未被填充（全 0）**，不能用它们反推。
+        包裹失败/方法缺失时不报错，但相位判定会退化到 `max_query_len`，两者都不可用时**明确报错**。
+        """
+        original = getattr(runner, "prepare_inputs", None)
+        if original is None:
+            return
+
+        def wrapper(*args, **kwargs):
+            batch = original(*args, **kwargs)
+            self.current_input_batch = batch
+            return batch
+
+        try:
+            runner.prepare_inputs = wrapper
+        except Exception:  # 只读替身/不可写对象：退化为 max_query_len 证据
+            return
+
+    def _batch_phase_evidence(self) -> dict:
+        """本步 `InputBatch` 里的相位证据（只在批次确实包含目标请求时可用）。"""
+        batch = self.current_input_batch
+        if batch is None:
+            return {"available": False, "reason": "本步 InputBatch 不可得（prepare_inputs 未包裹/未调用）"}
+        req_ids = [str(r) for r in (getattr(batch, "req_ids", ()) or ())]
+        flags = getattr(batch, "is_prefilling_np", None)
+        try:
+            values = [bool(v) for v in (flags.tolist() if hasattr(flags, "tolist") else list(flags or []))]
+        except Exception as exc:
+            return {"available": False, "reason": f"is_prefilling_np 不可读：{type(exc).__name__}: {exc}"}
+        if self.armed_req_id in req_ids:
+            row = req_ids.index(self.armed_req_id)
+            if row < len(values):
+                return {
+                    "available": True,
+                    "row": row,
+                    "is_prefilling_row": values[row],
+                    "req_ids": req_ids,
+                    "is_prefilling_np": values,
+                }
+        return {
+            "available": False,
+            "is_prefilling_row": None,
+            "req_ids": req_ids,
+            "is_prefilling_np": values,
+            "reason": "本步批次里没有目标请求（或行号越界）",
+        }
 
     def _record(self, index: int, query, key, value, out, attn_metadata=None) -> None:
-        if not self._active or self.armed_req_id is None:
+        if not self._active or not self._step_open or self.armed_req_id is None:
             return
         if query.dtype != key.dtype or query.dtype != value.dtype:
             raise RuntimeError(
@@ -570,7 +632,12 @@ class LayerCapture:
 
     @staticmethod
     def _step_marker(attn_metadata) -> dict | None:
-        """本步的**真实 prefill/decode 标记**（pin `flash_attn.py:276-283` 的 metadata 字段）。"""
+        """本步 `attn_metadata` 上的相位相关字段（**只作记录**）。
+
+        本 pin 实测 `num_prefill_reqs`/`num_decode_reqs`/`num_prefill_tokens`/`num_decode_tokens`
+        在该步可能**全为 0（未填充）**，因此它们只在**有值时**作交叉核对；相位判定的首选证据是本步
+        `InputBatch.is_prefilling_np[目标行]`，退化顺序见 `_end_step`。
+        """
         if attn_metadata is None:
             return None
         fields = ("num_prefill_reqs", "num_decode_reqs", "num_prefill_tokens", "num_decode_tokens")
@@ -609,8 +676,10 @@ class LayerCapture:
         return evidence
 
     def _end_step(self) -> None:
-        if not self._active:
+        if not self._active or not self._step_open:
+            self._step_open = False
             return
+        self._step_open = False
         step = self.request_step
         layers = self.records.get(step) or {}
         positions_tensor = self._step_positions
@@ -653,22 +722,56 @@ class LayerCapture:
                     "（目标请求的消费 token 序列不连续）"
                 )
             phase = "decode"
-        marker = self.markers.get(step)
-        phase_source = "positions"
-        if marker is not None:
-            prefill_rows = marker["num_prefill_reqs"] + marker["num_prefill_tokens"]
-            decode_rows = marker["num_decode_reqs"] + marker["num_decode_tokens"]
+        marker = dict(self.markers.get(step) or {})
+        batch = self.batch_phase.get(step) or {"available": False, "reason": "本步未取到 InputBatch 证据"}
+        counters = (
+            int(marker.get("num_prefill_reqs", 0)) + int(marker.get("num_decode_reqs", 0))
+            + int(marker.get("num_prefill_tokens", 0)) + int(marker.get("num_decode_tokens", 0))
+        )
+        marker.update({
+            "is_prefilling_available": bool(batch.get("available")),
+            "is_prefilling_row": batch.get("is_prefilling_row"),
+            "batch_req_ids": batch.get("req_ids"),
+            "batch_evidence_reason": batch.get("reason"),
+            "counters_populated": bool(counters),
+            "counters_note": (
+                "计数器有值，作交叉核对" if counters else
+                "本 pin 该步未填充 num_prefill_*/num_decode_*（全 0）⇒ **不作相位证据**"
+            ),
+        })
+        # 相位判定的**唯一权威证据**：本步 `InputBatch.is_prefilling_np[目标行]`
+        # （语义 = `num_computed_prefill_tokens_np < prefill_len_np`，pin `model_runner.py:1138,1345`）。
+        # 取不到即失败：**不得**用 `q_len` / `max_query_len` 代替（末尾单 token 的 prefill chunk 同样
+        # 满足 q_len==1，按 q_len 分类是明令禁止的）；计数器只在有值时作交叉核对。
+        if batch.get("available"):
+            marker_phase = "prefill" if batch["is_prefilling_row"] else "decode"
+            decided_by = "is_prefilling_np"
+        else:
+            raise RuntimeError(
+                f"校准: 第 {step} 步相位权威证据不可用（本步 InputBatch.is_prefilling_np[目标行] 取不到："
+                f"{marker.get('batch_evidence_reason')}）—— 拒绝用 q_len/max_query_len 代替"
+            )
+        marker["decided_by"] = decided_by
+        marker["decided_phase"] = marker_phase
+        if marker_phase != phase:
+            raise RuntimeError(
+                f"校准: 第 {step} 步的相位判定不一致：按真实位置是 {phase}，"
+                f"按 {decided_by} 是 {marker_phase}（{marker}）"
+            )
+        if counters:
+            prefill_rows = int(marker["num_prefill_reqs"]) + int(marker["num_prefill_tokens"])
+            decode_rows = int(marker["num_decode_reqs"]) + int(marker["num_decode_tokens"])
             if prefill_rows and decode_rows:
                 raise RuntimeError(
                     f"校准: 第 {step} 步是 prefill/decode 混合批（{marker}）—— 本阶段只支持单请求单相位"
                 )
-            marker_phase = "prefill" if prefill_rows else "decode"
-            if marker_phase != phase:
+            counters_phase = "prefill" if prefill_rows else "decode"
+            if counters_phase != phase:
                 raise RuntimeError(
-                    f"校准: 第 {step} 步的相位判定不一致：按真实位置是 {phase}，"
-                    f"按 attn_metadata 真实标记是 {marker_phase}（{marker}）"
+                    f"校准: 第 {step} 步计数器与相位不一致：计数器判为 {counters_phase}，真实位置/证据为 "
+                    f"{phase}（{marker}）"
                 )
-            phase_source = "positions+attn_metadata 标记"
+        phase_source = f"positions+{decided_by}"
         self.positions[step] = {
             "positions": positions,
             "q_len": q_len,
@@ -677,7 +780,7 @@ class LayerCapture:
             "tail_columns_ignored": raw_len - q_len,
             "phase": phase,
             "phase_source": phase_source,
-            "marker": marker,
+            "phase_markers": marker,
             "view": view,
         }
         if self.stream_dir is not None:
@@ -771,6 +874,7 @@ def install_capture(llm) -> LayerCapture:
     capture = LayerCapture(runner=runner, expected_layers=expected)
     for index, (_name, impl) in enumerate(fa_layers):
         capture.wrap_impl(index, impl)
+    capture.wrap_runner_inputs(runner)  # 本步 InputBatch（is_prefilling_np = 相位首选证据）
     capture.wrap_model(model)
     return capture
 
@@ -1466,7 +1570,7 @@ def capture_accounting(capture: LayerCapture, tokens: list[int], *, consumption_
                 "positions_source_shape": capture.positions[step]["positions_source_shape"],
                 "phase": capture.positions[step]["phase"],
                 "phase_source": capture.positions[step]["phase_source"],
-                "marker": capture.positions[step]["marker"],
+                "phase_markers": capture.positions[step]["phase_markers"],
             }
             for step in steps
             if step in capture.positions
