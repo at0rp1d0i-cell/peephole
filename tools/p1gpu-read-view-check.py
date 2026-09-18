@@ -608,6 +608,49 @@ class CaseRunner:
                 "rejected_before_kernel": False, "message": "越界表宽竟被喂给 kernel"}
 
 
+def git_facts() -> tuple[str, str]:
+    """运行时的 HEAD 与工作区状态（由实验自身记录，不靠事后补充）。"""
+    import subprocess
+
+    head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+                          capture_output=True, text=True).stdout.strip()
+    status = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"],
+                            capture_output=True, text=True).stdout.strip()
+    return head, status
+
+
+def write_manifest(out_dir: Path, config_path: Path, *, start: str, end: str | None = None,
+                   exit_code: int | None = None, extra: dict | None = None) -> dict:
+    """把"这次运行"的时序与身份写进证据目录：起止时间、HEAD、工作区、配置 SHA256。"""
+    head, status = git_facts()
+    payload = {
+        "command": f"python3 tools/p1gpu-read-view-check.py --config {config_path} --evidence {out_dir}",
+        "config": str(config_path),
+        "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        "head_commit": head,
+        "worktree_clean": status == "",
+        "worktree_status": status,
+        "start_time_cst": start,
+        "end_time_cst": end,
+        "exit_code": exit_code,
+        "python": platform.python_version(),
+        "torch": torch.__version__,
+        "device": torch.cuda.get_device_name(0),
+        "capability": list(torch.cuda.get_device_capability(0)),
+    }
+    if extra:
+        payload.update(extra)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "run-manifest.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    return payload
+
+
+def now_cst() -> str:
+    import datetime
+
+    return datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/p1-gpu/read-view-check-v2.json")
@@ -615,6 +658,10 @@ def main() -> int:
     parser.add_argument("--only", default=None)
     args = parser.parse_args()
 
+    out_dir = ROOT / args.evidence
+    manifest = write_manifest(out_dir, ROOT / args.config, start=now_cst())
+    print(f"run manifest: HEAD={manifest['head_commit'][:12]} clean={manifest['worktree_clean']} "
+          f"config_sha256={manifest['config_sha256'][:16]} start={manifest['start_time_cst']}")
     cfg = json.loads((ROOT / args.config).read_text())
     cases = cfg["cases"]
     if args.only:
@@ -694,8 +741,12 @@ def main() -> int:
         for m in record.get("measurements", []):
             m.pop("_masked_output", None)
     final = summarize(records)
-    out_dir = ROOT / args.evidence
-    out_dir.mkdir(parents=True, exist_ok=True)
+    exit_code = 0 if final.ok else 1
+    write_manifest(
+        out_dir, ROOT / args.config, start=manifest["start_time_cst"], end=now_cst(),
+        exit_code=exit_code,
+        extra={"criteria_total": final.total, "criteria_failed": len(final.failed), "ok": final.ok},
+    )
     (out_dir / "summary.json").write_text(json.dumps({
         "config": args.config,
         "config_sha256": hashlib.sha256((ROOT / args.config).read_bytes()).hexdigest(),
@@ -715,9 +766,10 @@ def main() -> int:
         (out_dir / f"cases-seed{seed}.json").write_text(json.dumps(group, indent=2, ensure_ascii=False, default=str))
 
     print(f"\n判据 {final.total} 条，失败 {len(final.failed)} 条 -> {'PASS' if final.ok else 'FAIL'}")
+    print(f"结束时间 {now_cst()}（run-manifest.json 已记录起止时间、HEAD 与配置 SHA256）")
     for reason in final.reasons[:40]:
         print(f"  FAIL: {reason}")
-    return 0 if final.ok else 1
+    return exit_code
 
 
 if __name__ == "__main__":
