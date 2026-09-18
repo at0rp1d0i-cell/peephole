@@ -49,7 +49,7 @@ _CALIB_FORCE = "ATTNVIEW_CALIB_FORCE"
 _CALIB_FORCE_LOG = "ATTNVIEW_CALIB_FORCE_LOG"
 _CALIB_TRACE = "ATTNVIEW_CALIB_TRACE"
 
-_CALIB_STATE: dict[str, Any] = {"tokens": None, "step": 0}
+_CALIB_STATE: dict[str, Any] = {"tokens": None, "step": 0, "bound": None}
 
 
 def _append_jsonl(path: str, record: Mapping[str, Any]) -> None:
@@ -87,22 +87,38 @@ def calibration_capture_logits(logits: torch.Tensor, input_batch: Any) -> bool:
     return True
 
 
-def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str]) -> bool:
-    """测试专用 token 强制：**原地**替换 `sampler_output.sampled_token_ids`。
+def calibration_force_tokens(
+    sampler_output: Any, req_ids: Sequence[str], num_sampled: Any
+) -> bool:
+    """测试专用 token 强制：**原地**替换 `sampler_output.sampled_token_ids` 中被消费的行。
 
     调用点必须紧跟 worker 的 `self.sample(...)` 之后、PP broadcast / `AsyncOutput` /
-    `postprocess_sampled` **之前** —— 这样 worker 历史与经 AsyncOutput 送往宿主的 token 是**同一个值**，
-    不会出现"worker 历史与解析 token 分叉"。强制声明不代表模型自主行为，仅用于同轨迹对照。
+    `postprocess_sampled` **之前**（pin `model_runner.py:1861-1920`）—— 这样 worker 历史与经
+    `AsyncOutput` 送往宿主的 token 是**同一个值**，不会分叉。
 
-    返回是否发生了替换；未设置 `ATTNVIEW_CALIB_FORCE` 时**完全不介入**（普通请求无此钩子）。
+    边界（本地复核指出后收紧）：
+
+    - **只在真正消费采样时推进轨迹**：未完成 prefill 的步 `num_sampled == 0`（`input_batch.py:506-512`），
+      不是生成一步 ⇒ 不消耗轨迹、不改写、不记日志；只强制 `num_sampled > 0` 的**行**。
+    - **按 `req_id` 绑定**：首个在消费步出现的请求被绑定为被校准请求；其它 `req_id`（含其后的
+      普通请求与清理请求）**一律不命中**，也不会消耗轨迹。
+    - 轨迹用尽只对**被绑定的那个请求**报错；形状不符即拒绝且不写一半。
+
+    返回是否发生了替换；未设置 `ATTNVIEW_CALIB_FORCE` 时完全不介入（普通请求无此钩子）。
     """
     force_path = os.environ.get(_CALIB_FORCE)
     if not force_path:
         return False
+    counts = num_sampled.detach().to("cpu").tolist() if hasattr(num_sampled, "detach") else list(num_sampled)
+    if isinstance(counts, int):
+        counts = [counts]
+    consuming = [i for i, n in enumerate(counts) if int(n) > 0]
+    if not consuming:
+        return False  # 未完成 prefill 等丢弃采样的情况：不是生成一步
+
     if _CALIB_STATE["tokens"] is None:
         payload = json.loads(Path(force_path).read_text())
         raw_tokens = payload["tokens"]
-        # 格式：tokens[step][row] = [token_ids...]（每步 × 每个请求行）；单请求单 token 即 [[[t]], ...]
         parsed: list[list[list[int]]] = []
         for step_index, rows in enumerate(raw_tokens):
             if not isinstance(rows, (list, tuple)) or any(
@@ -110,27 +126,49 @@ def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str]) -> boo
             ):
                 raise RuntimeError(
                     f"attnview 校准: 强制轨迹第 {step_index + 1} 步格式不对 —— 需要"
-                    " tokens[step][row] = [token_ids...]（每步 × 每个请求行的两级列表）"
+                    " tokens[step][row] = [token_ids...]（每步 × 每个消费请求行的两级列表）"
                 )
             parsed.append([[int(t) for t in row] for row in rows])
         _CALIB_STATE["tokens"] = parsed
+        _CALIB_STATE["bound"] = None
+        _CALIB_STATE["step"] = 0
+
+    bound = _CALIB_STATE.get("bound")
+    reqs = list(req_ids)
+    if bound is None:
+        if len(consuming) != 1:
+            raise RuntimeError(
+                f"attnview 校准: 首次消费步有 {len(consuming)} 个请求被采样，"
+                "校准只支持批内单活跃请求"
+            )
+        bound = reqs[consuming[0]]
+        _CALIB_STATE["bound"] = bound
+    if bound not in reqs:
+        return False  # 被绑定请求已结束（或本步不含它）：后续普通/清理请求不受影响
+    row = reqs.index(bound)
+    if row not in consuming:
+        return False
     tokens = _CALIB_STATE["tokens"]
     step = int(_CALIB_STATE["step"])
     if step >= len(tokens):
         raise RuntimeError(
-            f"attnview 校准: 强制轨迹只有 {len(tokens)} 步，本步是第 {step + 1} 步（轨迹用尽即拒绝）"
+            f"attnview 校准: 被绑定请求 {bound} 需要第 {step + 1} 步，但强制轨迹只有 {len(tokens)} 步"
         )
-    forced = tokens[step]
-    sampled = sampler_output.sampled_token_ids
-    raw = [[int(v) for v in row] for row in sampled.detach().to("cpu").tolist()]
-    if len(forced) != len(raw) or any(len(f) != len(r) for f, r in zip(forced, raw)):
+    forced_rows = tokens[step]
+    if len(forced_rows) != 1:
         raise RuntimeError(
-            f"attnview 校准: 第 {step + 1} 步强制 token 形状 {[len(f) for f in forced]} "
-            f"与采样形状 {[len(r) for r in raw]} 不一致"
+            f"attnview 校准: 第 {step + 1} 步轨迹有 {len(forced_rows)} 行，"
+            "而本步只有 1 个被绑定的消费请求"
         )
-    replacement = torch.tensor(forced, dtype=sampled.dtype, device=sampled.device)
-    # 原地写回：PP broadcast / AsyncOutput / postprocess 都读同一块内存
-    sampled.copy_(replacement)
+    forced = forced_rows[0]
+    sampled = sampler_output.sampled_token_ids
+    raw = [[int(v) for v in r] for r in sampled.detach().to("cpu").tolist()]
+    if len(forced) != len(raw[row]):
+        raise RuntimeError(
+            f"attnview 校准: 第 {step + 1} 步强制 token 数 {len(forced)} 与采样数 {len(raw[row])} 不一致"
+        )
+    replacement = torch.tensor([forced], dtype=sampled.dtype, device=sampled.device)
+    sampled[row : row + 1].copy_(replacement)  # 原地写回同一块内存
     _CALIB_STATE["step"] = step + 1
     log_path = os.environ.get(_CALIB_FORCE_LOG)
     if log_path:
@@ -139,7 +177,9 @@ def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str]) -> boo
             {
                 "kind": "force_tokens",
                 "step": step + 1,
-                "req_ids": list(req_ids),
+                "req_id": bound,
+                "req_ids": reqs,
+                "consuming_rows": consuming,
                 "raw_sampled": raw,
                 "forced": forced,
                 "sync_note": "本钩子含 D2H(读原始采样)+H2D(写强制 token)，属校准专用同步，非稳态行为",

@@ -215,11 +215,16 @@ def load_capture(path: Path) -> dict:
 
     # --- 每个记录步：positions + 逐层 q/out；形状 [num_heads, q_len, head_dim] ---
     step_ids: set[int] = set()
+    q_out_layers: set[tuple[int, int]] = set()
     for name in raw:
-        for pattern in (_STEP_Q, _STEP_OUT, _STEP_POS):
+        for pattern in (_STEP_Q, _STEP_OUT):
             match = pattern.match(name)
             if match:
                 step_ids.add(int(match.group(1)))
+                q_out_layers.add((int(match.group(1)), int(match.group(2))))
+        match = _STEP_POS.match(name)
+        if match:
+            step_ids.add(int(match.group(1)))
     if not step_ids:
         raise CaptureError("捕获中没有 q/out 记录步（q_step{i}_L{L} / out_step{i}_L{L} / positions_step{i}）")
 
@@ -262,6 +267,13 @@ def load_capture(path: Path) -> dict:
                     f"（含当前 token 自身），本 oracle 拒绝产出不完整参考"
                 )
         steps[step] = record
+
+    for step, layer in sorted(q_out_layers):
+        if layer not in layers:
+            problems.append(
+                f"step{step} 有 L{layer} 的 q/out 记录，但捕获中没有该层的 prefill K/V："
+                f"不静默跳过，需捕获钩子补齐该层 K/V 或去掉该记录"
+            )
 
     if problems:
         raise CaptureError("捕获格式问题：\n  - " + "\n  - ".join(problems))

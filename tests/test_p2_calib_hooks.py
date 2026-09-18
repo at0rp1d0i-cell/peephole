@@ -55,7 +55,7 @@ class CalibHookTest(unittest.TestCase):
             for k in ("ATTNVIEW_CALIB_FORCE", "ATTNVIEW_CALIB_FORCE_LOG",
                       "ATTNVIEW_CALIB_LOGITS", "ATTNVIEW_CALIB_TRACE")
         }
-        self.mod._CALIB_STATE.update({"tokens": None, "step": 0})
+        self.mod._CALIB_STATE.update({"tokens": None, "step": 0, "bound": None})
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -66,52 +66,109 @@ class CalibHookTest(unittest.TestCase):
 
     # --- 强制轨迹 --------------------------------------------------------- #
 
+    def _sampled(self, rows):
+        return torch.tensor(rows, dtype=torch.int32)
+
     def test_force_tokens_is_noop_without_env(self) -> None:
-        sampled = torch.tensor([[7], [8]], dtype=torch.int32)
-        self.assertFalse(self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["a", "b"]))
+        sampled = self._sampled([[7], [8]])
+        self.assertFalse(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=sampled), ["a", "b"], torch.tensor([1, 1])))
         self.assertEqual(sampled.tolist(), [[7], [8]], "未设开关时不得改写采样")
 
-    def test_force_tokens_replaces_in_place_and_logs_raw(self) -> None:
-        traj = self.dir / "traj.json"
-        traj.write_text(json.dumps({"tokens": [[[101], [102]], [[103], [104]]]}))
-        log = self.dir / "force.jsonl"
-        os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
-        os.environ["ATTNVIEW_CALIB_FORCE_LOG"] = str(log)
-        sampled = torch.tensor([[7], [8]], dtype=torch.int32)
-        ptr = sampled.data_ptr()
-        self.assertTrue(self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["a", "b"]))
-        self.assertEqual(sampled.tolist(), [[101], [102]])
-        self.assertEqual(sampled.data_ptr(), ptr, "必须原地替换：worker 历史与宿主看到的要是同一块内存")
-        sampled2 = torch.tensor([[9], [10]], dtype=torch.int32)
-        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled2), ["a", "b"])
-        self.assertEqual(sampled2.tolist(), [[103], [104]])
-        records = [json.loads(line) for line in log.read_text().splitlines()]
-        self.assertEqual([r["step"] for r in records], [1, 2])
-        self.assertEqual(records[0]["raw_sampled"], [[7], [8]], "原始采样必须留存")
-        self.assertEqual(records[1]["raw_sampled"], [[9], [10]])
-        self.assertIn("D2H", records[0]["sync_note"], "必须标注该钩子含同步（校准专用）")
-
-    def test_force_tokens_rejects_shape_mismatch_and_exhausted_trajectory(self) -> None:
+    def test_prefill_discard_does_not_consume_trajectory(self) -> None:
+        """未完成 prefill 的步 `num_sampled == 0`：不是生成一步，既不消耗轨迹也不改写。"""
         traj = self.dir / "traj.json"
         traj.write_text(json.dumps({"tokens": [[[101]]]}))
         os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
-        sampled = torch.tensor([[7], [8]], dtype=torch.int32)  # 2 行 vs 轨迹 1 行
-        with self.assertRaises(RuntimeError):
-            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["a", "b"])
-        self.assertEqual(sampled.tolist(), [[7], [8]], "形状不符时不得写一半")
-        ok = torch.tensor([[7]], dtype=torch.int32)
-        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=ok), ["a"])
-        self.assertEqual(ok.tolist(), [[101]])
-        with self.assertRaises(RuntimeError):
-            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=ok), ["a"])
+        log = self.dir / "force.jsonl"
+        os.environ["ATTNVIEW_CALIB_FORCE_LOG"] = str(log)
+        sampled = self._sampled([[7]])
+        self.assertFalse(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=sampled), ["r1"], torch.tensor([0])))
+        self.assertEqual(sampled.tolist(), [[7]])
+        self.assertFalse(log.exists(), "丢弃步不得写强制日志")
+        # 随后真正的 g0 步才消耗轨迹第 1 步
+        self.assertTrue(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=sampled), ["r1"], torch.tensor([1])))
+        self.assertEqual(sampled.tolist(), [[101]])
 
-    def test_force_tokens_rejects_flat_trajectory_format(self) -> None:
+    def test_force_tokens_replaces_in_place_and_logs_raw(self) -> None:
         traj = self.dir / "traj.json"
-        traj.write_text(json.dumps({"tokens": [101, 102]}))  # 少了一层（每步内应有请求行）
+        traj.write_text(json.dumps({"tokens": [[[101]], [[102]]]}))
+        log = self.dir / "force.jsonl"
         os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
-        sampled = torch.tensor([[7]], dtype=torch.int32)
+        os.environ["ATTNVIEW_CALIB_FORCE_LOG"] = str(log)
+        sampled = self._sampled([[7]])
+        ptr = sampled.data_ptr()
+        self.assertTrue(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=sampled), ["r1"], torch.tensor([1])))
+        self.assertEqual(sampled.tolist(), [[101]])
+        self.assertEqual(sampled.data_ptr(), ptr, "必须原地替换：worker 历史与宿主看到同一块内存")
+        sampled2 = self._sampled([[9]])
+        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled2), ["r1"], torch.tensor([1]))
+        self.assertEqual(sampled2.tolist(), [[102]])
+        records = [json.loads(line) for line in log.read_text().splitlines()]
+        self.assertEqual([r["step"] for r in records], [1, 2])
+        self.assertEqual(records[0]["req_id"], "r1", "必须记录被绑定的请求")
+        self.assertEqual(records[0]["raw_sampled"], [[7]], "原始采样必须留存")
+        self.assertEqual(records[1]["raw_sampled"], [[9]])
+        self.assertIn("D2H", records[0]["sync_note"], "必须标注该钩子含同步（校准专用）")
+
+    def test_other_requests_are_never_forced(self) -> None:
+        """绑定后，其它请求（含其后的普通/清理请求）不命中、也不消耗轨迹。"""
+        traj = self.dir / "traj.json"
+        traj.write_text(json.dumps({"tokens": [[[101]], [[102]]]}))
+        os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
+        r1 = self._sampled([[7]])
+        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=r1), ["r1"], torch.tensor([1]))
+        self.assertEqual(r1.tolist(), [[101]])
+        r2 = self._sampled([[9]])
+        self.assertFalse(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=r2), ["r2"], torch.tensor([1])))
+        self.assertEqual(r2.tolist(), [[9]], "非绑定请求不得被改写")
+        self.assertEqual(self.mod._CALIB_STATE["step"], 1, "非绑定请求不得消耗轨迹")
+        self.assertTrue(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=r1), ["r1"], torch.tensor([1])))
+        self.assertEqual(r1.tolist(), [[102]], "绑定请求继续走下一步")
+
+    def test_forced_request_absent_then_cleanup_request_unaffected(self) -> None:
+        """被绑定请求已结束（本步不含它）⇒ 不改写、不消耗；清理请求接入也不受影响。"""
+        traj = self.dir / "traj.json"
+        traj.write_text(json.dumps({"tokens": [[[101]]]}))
+        os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
+        r1 = self._sampled([[7]])
+        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=r1), ["r1"], torch.tensor([1]))
+        cleanup = self._sampled([[42]])
+        self.assertFalse(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=cleanup), ["cleanup-r2"], torch.tensor([1])))
+        self.assertEqual(cleanup.tolist(), [[42]])
+        self.assertEqual(self.mod._CALIB_STATE["step"], 1)
+
+    def test_exhausted_trajectory_raises_only_for_bound_request(self) -> None:
+        traj = self.dir / "traj.json"
+        traj.write_text(json.dumps({"tokens": [[[101]]]}))
+        os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
+        r1 = self._sampled([[7]])
+        self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=r1), ["r1"], torch.tensor([1]))
+        with self.assertRaises(RuntimeError):
+            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=r1), ["r1"], torch.tensor([1]))
+        other = self._sampled([[5]])
+        self.assertFalse(self.mod.calibration_force_tokens(
+            SimpleNamespace(sampled_token_ids=other), ["r9"], torch.tensor([1])),
+            "轨迹用尽只对被绑定请求报错")
+
+    def test_force_tokens_rejects_shape_mismatch_and_flat_format(self) -> None:
+        traj = self.dir / "traj.json"
+        traj.write_text(json.dumps({"tokens": [[[101, 202]]]}))
+        os.environ["ATTNVIEW_CALIB_FORCE"] = str(traj)
+        sampled = self._sampled([[7]])
+        with self.assertRaises(RuntimeError):
+            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["r1"], torch.tensor([1]))
+        self.assertEqual(sampled.tolist(), [[7]], "形状不符时不得写一半")
+        self.mod._CALIB_STATE.update({"tokens": None, "step": 0, "bound": None})
+        traj.write_text(json.dumps({"tokens": [101]}))
         with self.assertRaises(RuntimeError) as ctx:
-            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["a"])
+            self.mod.calibration_force_tokens(SimpleNamespace(sampled_token_ids=sampled), ["r1"], torch.tensor([1]))
         self.assertIn("tokens[step][row]", str(ctx.exception))
         self.assertEqual(sampled.tolist(), [[7]])
 
