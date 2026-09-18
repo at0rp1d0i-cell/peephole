@@ -1,9 +1,10 @@
 # 阶段 04 报告（返工后）：GPU 读取视图的独立数值验证
 
 日期：2026-09-18（实际 `date`，克隆实例）。返工依据：`inbox/SUP-003-R1.md`。
-冻结配置：`configs/p1-gpu/read-view-check-v2.json`（commit `1617164`，
-sha256 `990b3510df3ce45824400beb6b8744aedccb632a1a9f6abe223f6c6e511fa5d8`，**masked 用例之前**提交）。
-实现与证据提交：`36c9af7`。证据目录：`evidence/p1-gpu-v2/`（6 件 + SHA256 索引）。
+冻结配置（当前）：`configs/p1-gpu/read-view-check-v3.json`（commit `b96d08a`，文件 mtime `2026-09-18 10:02:58 +0800`，
+早于本轮运行产物 `10:06:49`）。实现与证据提交：`1c981e4`。证据目录：`evidence/p1-gpu-v3/`（7 件 + SHA256 索引）。
+上一轮 v2（commit `1617164` / `36c9af7` / `6ac3733`，证据 `evidence/p1-gpu-v2/`）保留为历史：
+其 `expect_blocks` 数组漏块 5 且未被代码读取，本轮已修正并纳入判据；v1（错误夹具）保留在 `evidence/p1-gpu/`。
 
 **结论：支持（被测 GPU 张量路径 + 阶段 03→04 数据面连通）**——同一份**常驻 GPU KV 缓存**上，
 由阶段 03 `ReadView` 产生的读取表与有效长度，使 focus/local 读取与"同可见集合、独立推导"的
@@ -77,14 +78,19 @@ FP32 参考在预冻结容差内一致；读取选择确实生效；canonical �
   （`schema_complete`）、数值、oracle 自检、读取表无 `-1`、表宽、数据面 5 项、**K 与 V 两项内容判据
   （必须都为 `True`，`None`/缺字段即失败）**、常驻性、**追加声明 `append_declared`（必须显式 True/False；
   声明追加就必须给出 `expected_slots`）**、追加 slot 逐槽匹配（K 与 V 双侧，**附加**于内容判据而非替代），
-  外加用例级行隔离与敏感度 → 本轮共 **852 条判据**。
+  外加用例级行隔离与敏感度。
+  **R2 收尾新增**：`expectation_match`（配置预冻结预期 == 独立 oracle == 候选实际，缺预期即失败）、
+  `append_slot_source_match`（期望槽必须来自**独立原位置公式**，与被测 helper 一致；实际 K、V 变化槽
+  必须等于该独立值）、`append_not_declared_is_clean`（未声明追加不得有变化槽）、常驻性由**实测
+  `data_ptr`**（本用例初始身份 vs 调用前后）得出而非硬编码、B=2 每行写入真实 K/V 完整性、
+  负对照必须被本门禁拒绝且 2 列表抬到需 3 列必须在边界被拒绝 → 本轮共 **972 条判据**。
   失败保留**完整**错误信息（含最差偏差位置与数值）。CPU 失败注入测试覆盖：每类判据的显式 False、
   `K=None`/`V=None`/两项都缺/整个 `kv_integrity` 缺失、缺少任一必需段、`appended` 非布尔、
   `appended=True` 无 `expected_slots`、追加槽只错一侧（`tests/test_gpukv.py`，106 项 CPU 全通过）。
   该轮收紧来自 advisor 复核：原实现用 `is not None` 守卫，导致 `k_unchanged=None` 时连 `v_unchanged=False`
   都不检查、缺失整个 `kv_integrity` 也能通过。
 
-## 5. 结果汇总（12 条目 × 3 种子：**852 条判据 / 0 失败 / exit 0**）
+## 5. 结果汇总（12 条目标 + 负对照裁决 × 3 种子：**972 条判据 / 0 失败 / exit 0**）
 
 | 用例 | 可见块（seed 0） | seqused_k | 尾长 | max_abs | rms |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -105,8 +111,19 @@ FP32 参考在预冻结容差内一致；读取选择确实生效；canonical �
 - **敏感度**：`sensitive_counterexample` 的 masked 与 full 输出最大差 **15.04**（门限 0.15）→ 读取选择确实生效。
 - **行隔离**：B=2 行0 逐行单独调用 vs 批量 = 4.9e-04，行1 = 0.0（均在容差内；行0 的 4.9e-04 是 bf16
   批量/单行归约差异，非串表）。
-- **越读负对照**（诊断）：正确 `seqused_k`=1569 → max_abs 0.0005；人为 +100 → **8.12**（哨兵可靠抓越读，
-  且反证正确调用不读 `seqused_k` 之后的槽）。
+- **预期三方一致**：轨迹 step2 修正后为 `[0,1,5,6,7,8]`（配置 == oracle == 候选）；
+  `focus_current_block` `[0,5,6,7]`、`tail_1` `[0,5,6]`、`block16_control` `[0,2,3]`、B=2 行0 `[0..7]`、行1 `[0,7]`
+  全部三方一致（手工推导的预期与 oracle 独立吻合）。
+- **追加 slot 独立性**：轨迹每次追加 `position=6272..6279`、独立公式 slot `2352..2359` == 被测 helper ==
+  实际 K 与 V 变化槽（`[2352]/[2352]` … `[2359]/[2359]`）。
+- **常驻观测**：轨迹全程 `resident_identity = ['cuda:0', 140461045972992, 'cuda:0', 140460362301440]`，
+  每步 `ptr_before == ptr_after == 初始身份`，`data_ptr_stable` 由实测得出。
+- **越读负对照（进门禁）**：`tail_1` 夹具（尾长 1、表宽 3）把 `seqused_k` 1569 → **1669** 仍在同一
+  **已分配**尾块内读哨兵 → 数值判据失败（max_abs **8.12**），门禁整体拒绝 ✓；旧 v1 负对照不能为 v2/v3 作证，
+  本轮已用 v3 夹具重做。
+- **边界拒绝**：A/local 的 2 列表被抬到需要 3 列时，在 `run_candidate` 内、**任何 kernel 调用之前**即被拒绝
+  （`表宽 2 < ceil(seqused_k/b)=3`）→ 满足工作单"GPU 地址均有效、禁止越界注入"。
+- 独立脚本负对照（`tools/p1gpu-overread-control.py`，同 v3 夹具）0.0005 → 8.12，同样成立。
 - 峰值显存 156 MiB（含验证用 clone），逐用例秒级；**非性能测量**。
 
 ## 6. 环境与占用（R1 §5）
@@ -119,26 +136,31 @@ RTX PRO 6000 Blackwell cc(12,0) 97887 MiB、驱动 580.142、入口 `vllm.vllm_f
 
 ## 7. 如实记录的问题与限制
 
-1. **冻结配置里两个信息性 `expect_blocks` 我手算错了**：step2 写 `[0,1,6,7,8]`，实际为 `[0,1,5,6,7,8]`
-   （`align_outward(4700)` 向下对齐到块 5，不是块 6）。该字段**不参与判据**，以 oracle 独立推导为准；
-   保留错误原样以免事后改写冻结件，在此如实说明。
-2. **主用例普通分布下误差量级 ~5e-4**：远小于容差（atol 1.5e-2）；相对偏差约 1e-3 量级。
+1. **`expect_blocks` 已修正并纳入判据**：v2 的 step2 数组漏块 5（`align_outward(4700)` 向下对齐到块 5），
+   本轮在 v3 修正为 `[0,1,5,6,7,8]` 并补全所有用例/行/step 的预期，作为**门禁判据**与 oracle、候选三方比对；
+   未改任何 span。为如实反映"配置先于运行"，我把 v2→v3 的配置提交与证据提交拆开（`b96d08a` 仅配置，
+   `1c981e4` 为代码与证据），并给出文件 mtime 作为时序证据。
+2. **越读负对照曾设计有误（已修）**：最初用 A/local（2 列表）把 `seqused_k` 1568→1668，需要第 3 列，
+   属"越界注入"；改为 `tail_1` 夹具（+100 仍在同一已分配尾块、表宽 3 足够），并新增边界守卫在任何
+   kernel 调用前拒绝表宽不足的表。
+3. **`gpucheck` 曾有一个提前 `return`**（`append` 段缺失时吞掉后续判据）——由 CPU 注入测试发现并修复。
+4. **主用例普通分布下误差量级 ~5e-4**：远小于容差（atol 1.5e-2）；相对偏差约 1e-3 量级。
    `block16_control` 误差 0.0036 略高（块更小、分布相同），仍在容差内。
-3. **B=2 行0 的"行隔离"为 4.9e-04 而非 0**：同为 bf16 归约顺序差异，非读取表串用；已按容差判定并记录。
-4. 本阶段只覆盖 **query_len=1 且保留当前 token** 的因果 decode；`seqused_k` 的前缀语义、块粒度读取
+5. **B=2 行0 的"行隔离"为 4.9e-04 而非 0**：同为 bf16 归约顺序差异，非读取表串用；已按容差判定并记录。
+6. 本阶段只覆盖 **query_len=1 且保留当前 token** 的因果 decode；`seqused_k` 的前缀语义、块粒度读取
    与"有效长度 = 覆盖位置数"的关系**不外推**到多 query/chunked prefill。
-5. 未涉及：真实权重 logits/自由生成、RoPE/位置变换、GNB/线性注意力层、prefix caching、抢占、图模式、
+7. 未涉及：真实权重 logits/自由生成、RoPE/位置变换、GNB/线性注意力层、prefix caching、抢占、图模式、
    HTTP/API、请求生命周期、并发与性能矩阵、质量与净收益。
-6. `block16_control` 与 `arbitrary_subset_supplement` 是**非协议补充用例**（后者可见集合不来自 ReadView），
+8. `block16_control` 与 `arbitrary_subset_supplement` 是**非协议补充用例**（后者可见集合不来自 ReadView），
    不用于宣称协议 decode 覆盖。
 
 ## 8. 命令与复现
 
 ```bash
 source /root/attnview/env.sh
-python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v2.json  # exit 0，852 判据 / 0 失败
-python3 tools/p1gpu-overread-control.py                                              # exit 0，越读负对照
-CUDA_VISIBLE_DEVICES='' python3 -m unittest discover -s tests -t tests               # 106 项 CPU（含失败注入）
+python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v3.json --evidence evidence/p1-gpu-v3  # exit 0，972 判据 / 0 失败
+python3 tools/p1gpu-overread-control.py --config configs/p1-gpu/read-view-check-v3.json --evidence evidence/p1-gpu-v3  # exit 0，独立越读负对照
+CUDA_VISIBLE_DEVICES='' python3 -m unittest discover -s tests -t tests               # 111 项 CPU（含失败注入与边界守卫）
 ```
 
 ## 9. 推荐下一步
