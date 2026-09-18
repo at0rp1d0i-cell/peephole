@@ -144,7 +144,7 @@ da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新�
 | async scheduling | **False** | `--no-async-scheduling`（`arg_utils.py:1645`）；字段默认 `None`（`config/scheduler.py:179`）→ **自动解析为 True**（`config/vllm.py:1262-1311`）；`disable_async_output_proc` 在本版本**已删除**（全树 0 匹配），等价开关只有它 | ⚠️ **盲区**：启动日志回显 `VllmConfig.__str__`（`v1/engine/core.py:123-127`）**不含** `async_scheduling` → 必须用**断言**核对：`max_concurrent_batches == 1`（`config/vllm.py:562-568`）且调度器类为 `Scheduler` 而非 `AsyncScheduler`（`config/scheduler.py:202-207`），并由适配层打印一行自证 banner |
 | 图捕获 | **eager** | `--enforce-eager`（`arg_utils.py:925`）；默认 False（`config/model.py:241`）；O2 默认 `cudagraph_mode=FULL_AND_PIECEWISE`（`config/vllm.py:301`）→ 必须显式关；`enforce_eager` 关编译关图（`config/vllm.py:1370-1376`、`:1584-1588`） | 运行时唯一守卫 `gpu_worker.py:786-788`（`if not enforce_eager: capture_model()`）→ 断言 `compilation_config.cudagraph_mode == NONE`，并确认日志无 `Graph capturing finished`（`model_runner.py:960-964`） |
 | prefix caching | **关闭** | 默认 **True**（`config/cache.py:138`）→ 必须 `--no-enable-prefix-caching`（`arg_utils.py:1281-1287`；解析行为外部证据 `tests/engine/test_arg_utils.py:487-490`） | 断言 `cache_config.enable_prefix_caching is False` + 启动日志回显 `enable_prefix_caching` |
-| FlashAttention 版本 | **必须显式为 2** | `--attention-config.flash_attn_version=2`（`config/attention.py:41`，`Literal[2,3,4] \| None`）；**默认 `None`** ⇒ 由平台能力决定，Blackwell（SM100+）默认 **FA4**（`v1/attention/backends/fa_utils.py:98-107`）；同名后端 `FLASH_ATTN` 覆盖 FA2/3/4（`flash_attn.py:879-899`） | 适配层 `derive_geometry` 强制 `flash_attn_version == 2`（`None`/3/4 一律 `UnsupportedConfig`）；运行期再核对 worker 日志 `Using FlashAttention version 2`（`flash_attn.py:897`） |
+| FlashAttention 版本 | **必须显式为 2** | `--attention-config.flash_attn_version=2`（`config/attention.py:41`，`Literal[2,3,4] \| None`）；默认 `None` ⇒ 由平台能力决定：`major==9` 且支持则 FA3、`major==10` 且支持则 FA4、**其余回退 FA2**（`fa_utils.py:96-117`），FA4 仅在 9.x/10.x/11.x 可用（`flash_attn_interface.py:72-84`）⇒ **本机 SM120 默认即 FA2**。显式固定的目的是复跑与可审计，不是纠正错误默认值；同名后端 `FLASH_ATTN` 覆盖 FA2/3/4（`flash_attn.py:879-899`） | 适配层 `derive_geometry` 强制 `flash_attn_version == 2`（`None`/3/4 一律 `UnsupportedConfig`）；运行期再核对 worker 日志 `Using FlashAttention version 2`（`flash_attn.py:897`） |
 | 投机/MTP | 关闭（默认即满足） | `speculative_config` 默认 `None`（`config/vllm.py:372`），仅显式提供或 HF config 含 `speculators_config` 时启用（`transformers_utils/config.py:660-663`） | 断言 `speculative_config is None` |
 | 确定性执行（固定轨迹） | `VLLM_ENABLE_V1_MULTIPROCESSING=0` | 默认 1（`envs.py:155`）；确定性执行断言见 `uniproc_executor.py:180-183` | 断言 + 记录实际取值 |
 | chunked prefill | 允许（v1 默认 `enable_chunked_prefill=True`，`config/scheduler.py:109`） | **所有 prefill chunk 走原版**；只在最后 prefill 采出 g0 后进入协议解析 | trace 中首条 `mode=global`，`effect_step` 自生成流起算 |
@@ -225,9 +225,11 @@ CPU 探针里 `[0,5,6,7]`+`6272` 的组合在 b=784 下**不可能**，只是**�
   目标组必须是 `runner.attn_groups[fa]` 里的**真实 `FullAttentionSpec`**、后端在本阶段支持集内，
   且并行度为单卡 TP1。任一处不一致即拒绝；`blocks_per_kv_block != 1` 时显式拒绝（`UnsupportedConfig`）。
   **后端名 `FLASH_ATTN` 不等于 FA2**：pin 里同一实现按 `impl.vllm_flash_attn_version` 选 FA2/3/4
-  （`flash_attn.py:879-899`，值由平台能力或 `attention_config.flash_attn_version` 决定），
-  Blackwell 的默认是 **FA4** ⇒ 本阶段要求**显式**声明 `attention_config.flash_attn_version == 2`
-  （`None` = 平台默认，一律拒绝）。检查点 2 仍须核对 worker 日志 `Using FlashAttention version 2`。
+  （`flash_attn.py:879-899`）：`major==9`→FA3、`major==10`→FA4、其余→**FA2**（`fa_utils.py:96-117`），
+  FA4 仅 9.x/10.x/11.x 可用（`flash_attn_interface.py:72-84`）⇒ **本机 SM120 默认即 FA2**。
+  本阶段仍要求**显式** `attention_config.flash_attn_version == 2`（`None` 一律拒绝），
+  目的是复跑与可审计，而**不是**"纠正本机默认 FA4"（此前表述有误，已更正）。
+  检查点 2 仍须核对 worker 日志 `Using FlashAttention version 2`。
   （否则 `seqused_k` 的计量单位会变）。**不使用默认 784**。
 - 稳定读数：`BlockTables.num_blocks.np` 是 host 镜像 → 越界检查（可见块 < 已分配块）**不需要**读 GPU 张量；
   稳态**不做**设备张量的 `.cpu()`/`.item()` 读；计量项只统计**本模块内的代码插桩次数**

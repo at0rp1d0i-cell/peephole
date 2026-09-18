@@ -205,16 +205,18 @@ def derive_geometry(runner: Any) -> tuple[Geometry, list[int]]:
             f"attnview: 全注意力组后端 {unsupported_backends} 不在本阶段支持集 "
             f"{sorted(SUPPORTED_ATTN_BACKENDS)}（只支持 FA2 路径）"
         )
-    # 后端名 `FLASH_ATTN` **不等于** FA2：pin 里同一实现按 `impl.vllm_flash_attn_version`
-    # 选择 FA2/3/4（`flash_attn.py:879-899`，值由平台能力或 `attention_config.flash_attn_version`
-    # 决定），而 Blackwell 的默认是 FA4 ⇒ 必须要求**显式**声明 FA2（`None` 表示交给平台默认，一律拒绝）。
+    # 后端名 `FLASH_ATTN` **不等于** FA2：pin 里同一实现按 `impl.vllm_flash_attn_version` 选择 FA2/3/4
+    # （`flash_attn.py:879-899`）。本 pin 的选择规则是：`major == 9` 且支持则 FA3、`major == 10` 且支持则 FA4、
+    # 其余回退 **FA2**（`fa_utils.py:96-117`），且 FA4 仅在 9.x/10.x/11.x 可用（`flash_attn_interface.py:72-84`）——
+    # 本机 SM120 的默认本来就是 FA2。仍然要求**显式**声明 FA2：为了复跑时不受平台/配置漂移影响、并可审计
+    # （`None` 表示交给平台默认 ⇒ 拒绝，而不是因为本机默认是 FA4）。
     attn_config = getattr(vllm_config, "attention_config", None)
     fa_version = getattr(attn_config, "flash_attn_version", None)
     if "FLASH_ATTN" in fa_backends and int(fa_version or 0) != 2:
         raise UnsupportedConfig(
             f"attnview: 全注意力组后端为 FLASH_ATTN，但 flash_attn_version={fa_version!r}"
-            "（None = 由平台默认决定，Blackwell 默认 FA4）：本阶段只支持 FA2，"
-            "请显式设置 --attention-config.flash_attn_version=2"
+            "（None = 交给平台默认决定）：本阶段只支持 FA2，"
+            "请显式设置 --attention-config.flash_attn_version=2（固定版本以便复跑与审计）"
         )
 
     parallel_config = getattr(vllm_config, "parallel_config", None)

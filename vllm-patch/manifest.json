@@ -1,5 +1,5 @@
 {
-  "generated_cst": "2026-09-18 13:34:10 +0800",
+  "generated_cst": "2026-09-18 13:47:34 +0800",
   "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
   "edits": {
     "v1/core/sched/output.py": {
@@ -55,7 +55,7 @@
     {
       "src": "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py",
       "dest": "v1/worker/gpu/attnview_adapter.py",
-      "sha256": "ce2164f9d25165b376aaea62e15c794d632bc431169db22b9642b6e38249b80a"
+      "sha256": "1a4d19ce1a1bb625f82b180884888e655c081e7f2aabff0a63e45d6dd67ffb87"
     },
     {
       "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
