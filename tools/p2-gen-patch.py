@@ -76,7 +76,7 @@ EDITS: list[tuple[str, str, str]] = [
 
         # attnview: EngineCore 侧解析层。普通请求（无载荷）完全不经过它；
         # 只有携带 extra_args["attnview"] 的内部请求才会启用，并在不支持配置下显式拒绝。
-        from vllm.v1.engine.attnview_engine import AttnViewEngine
+        from vllm.v1.engine.attnview_engine import AttnViewEngine, make_token_text_of
 
         self.attnview = AttnViewEngine(
             vllm_config,
@@ -84,6 +84,8 @@ EDITS: list[tuple[str, str, str]] = [
             geometry_fetcher=lambda: self.model_executor.collective_rpc(
                 "attnview_geometry", single_value=True
             ),
+            # 真实 tokenizer 的懒加载取值函数：普通请求不会触发，DA 请求首 token 即可解析。
+            token_text_of=make_token_text_of(vllm_config),
         )
 """,
     ),

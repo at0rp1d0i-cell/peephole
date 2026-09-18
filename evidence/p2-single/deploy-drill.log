@@ -1,26 +1,29 @@
-=== 部署/撤销演练 2026-09-18 12:09:30 +0800 ===
---- 0) 前置状态：checkout 干净、两副本一致 ---
-git status: 0 行; 两副本差异文件: 0
---- 1) 负例：篡改目标文件后 apply 必须拒绝（未知前置哈希）---
-拒绝部署：/root/autodl-tmp/attnview/vllm/vllm/v1/core/sched/output.py 的当前哈希 5a9f92d9b602 != 期望前置 41cf5780a013（文件已被他人改动或版本不符）
+=== 部署/撤销演练（事务化脚本；2026-09-18 12:17:57 +0800）===
+--- 0) 前置：checkout 脏行=0；两副本差异=0 ---
+--- 1) 负例：篡改目标后 apply 必须整体拒绝、不碰任何文件 ---
+预检失败：1 项冲突，未修改任何文件
+  前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
 apply 退出码=4（期望 4）
-篡改已还原: 0 行
---- 2) apply ---
-部署完成：27 个目标（源码 checkout + site-packages 两处）
-退出码=0
---- 3) verify ---
-校验：27 个目标，全部一致
-退出码=0
---- 4) 部署后导入与符号 ---
-adapter.fa_override_for_step: True | engine.AttnViewEngine: True
-build_attn_metadata 新参: True
-SchedulerOutput 是 dataclass: True | 含 da_step_plans: True
+拒绝后事务记录存在=0（期望 0）
+--- 2) apply / 3) verify ---
+部署完成：27 个目标（源码 checkout + site-packages 两处），事务记录 vllm-patch/deployed.json
+apply 退出码=0
+校验（state=deployed）：27 个目标，全部一致
+verify 退出码=0
+--- 4) 部署后符号与接线 ---
+adapter.fa_override_for_step: True
+engine.make_token_text_of: True | TokenizerUnavailable: True
+build_attn_metadata(da_fa_override): True
+mamba_hybrid.prepare_attn(da_fa_override): True
+SchedulerOutput.da_step_plans: True
 Worker.attnview_geometry: True
-step() 接合: True True
-mamba_hybrid.prepare_attn 新参: True
+core.__init__ 注入 tokenizer 工厂: True | 构造 AttnViewEngine: True
+core.step 接合: True | 批次队列守卫: True
 退出码=0
---- 5) revert（恢复原文件 + 删除新增文件 + 校验指纹）---
+--- 5) revert / 6) 撤销后指纹 ---
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/__pycache__/attnview_adapter.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/__pycache__/attnview_engine.cpython-312.pyc
 撤销完成：27 个目标已恢复/删除，指纹已校验
-退出码=0
---- 6) 撤销后指纹 ---
-checkout 脏行数=0（期望 0）; 两副本差异=0（期望 0）; attnview 包目录=0（期望 0）; vllm-patch/orig 存在=0（期望 0）
+revert 退出码=0
+checkout 脏行=0（期望 0）；两副本差异=0（期望 0）；包目录残留=0（期望 0）；orig=0（期望 0）；事务记录=0（期望 0）

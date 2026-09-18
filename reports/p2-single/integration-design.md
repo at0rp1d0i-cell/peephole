@@ -286,3 +286,40 @@ GPUModelRunner.execute_model                         [worker 进程]
   在本环境仍失败（`NameError: torch`），因此**不宣称** worker 运行通道已验证；TP=1 走 `UniProcExecutor`
   同进程直调（不经该解码器）是**本轮自读**的源码事实，仍需检查点 2 实测确认。
 
+### 13.8 第二轮更正（本地复核指出的三个 blocker，均已修并加回归测试）
+
+**(a) 计划构造时机**：初稿把 `build_step_plan` 放在 `on_step_outputs`（输出解析之后、**下一次 `schedule()`
+之前**），并用 `attention_kv_len_next` 索引当时的 canonical 块映射 —— 这**错**：块是按本次调度分配的，
+例如 `prompt_len=6272`（8 块）时，消费 g0 的那次 forward 要写**块 8**，而块 8 直到本次 `schedule()` 才分配。
+
+- 现在：`on_step_outputs` 只做登记/丢弃终结/解析/释放；**计划在 `attach_plans` 内构造**（紧跟 `schedule()` 之后），
+  长度按本次调度算：`attention_kv_len = num_computed_tokens + num_scheduled_tokens`（decode 步即 prompt + 已生成，
+  含本步写入的当前 token），模式/引用取解析后的当前状态（第 t 步解析 → 本步生效）。
+- **prefill 按运行期进度跳过**：`num_computed_tokens < num_prompt_tokens` 即不出计划（末尾 prefill chunk 也可能
+  只调度 1 个 token，不能用 token 数判断）；同时校验载荷 `prompt_len` 与调度器 `num_prompt_tokens` 一致，不一致拒绝。
+- 回归测试：`test_plan_after_schedule_uses_allocated_block_and_current_token`（8→9 块轨迹）、
+  `test_plan_before_block_allocation_would_overrun`（把计划挪回 schedule 之前必越界报错）、
+  `test_no_plan_during_prefill_even_single_token_chunk`。
+
+**(b) 真实 tokenizer 接线**：初稿 `core.py` 构造 `AttnViewEngine` 时**没传** `token_text_of`，而模块内
+默认分支直接抛「tokenizer 未注入」→ 首个真实采样 token 必崩；而我的测试全都注入了假取词函数，把这个缺口盖住了。
+
+- 现在：新增 `make_token_text_of(vllm_config)`，用 v0.29.0 的真实入口
+  `vllm.tokenizers.get_tokenizer(name, tokenizer_mode=…, trust_remote_code=…, revision=…)`（函数内**惰性**导入，
+  模块级保持零 vllm/torch 依赖），`core.py` 显式注入；普通请求永不触发加载，DA 请求首 token 即可解析。
+- 回归测试：`test_default_construction_uses_real_tokenizer`（**不注入**取词函数，用本地快照的真实 tokenizer
+  编码 `<local>` 并断言状态机进入 local）、`test_core_py_passes_tokenizer_factory`（AST 断言 `core.py` 传了工厂）、
+  `test_missing_tokenizer_raises_clear_error`（缺 model_config 时抛 `TokenizerUnavailable` 而非含糊错误）。
+
+**(c) 部署脚本事务化**：初稿「边检查边覆盖、最后才写记录」→ 后置目标冲突会留下无法常规 revert 的半部署；
+`revert` 不核对现状就覆盖/删除、还无条件 `rmtree` 包目录。
+
+- 现在：`apply` 先**全目标预检**（任一不符即整体拒绝、不碰任何文件）→ 备份 + **先落盘事务日志**（标 `applying`）
+  → 复制并逐项校验 → 任一步失败**自动回滚**；`revert` 先**全量核对**（现状须等于部署后哈希、备份须等于前置哈希）
+  再动文件，不符即整体拒绝（`--force` 才可越过，且仍校验备份）；只删本次新增文件，包目录用 `rmdir` 逐级清理、
+  清理本次产生的字节码缓存，目录内非本次文件**保留并告警**（不算撤销失败）。
+- 场景测试（隔离临时树）：`test_last_target_conflict_blocks_whole_deploy`、
+  `test_revert_refuses_when_target_changed_after_apply`（含 `--force`）、
+  `test_revert_keeps_unrelated_files_in_package_dir`、`test_apply_verify_revert_round_trip`；
+  真实环境演练见 `evidence/p2-single/deploy-drill.log`。
+

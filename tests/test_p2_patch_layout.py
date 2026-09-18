@@ -208,15 +208,31 @@ class PatchShapeTest(unittest.TestCase):
                 tree = parse(REPO / item["src"])
                 self.assertIsInstance(tree, ast.Module)
         engine_path = REPO / "vllm-patch/files/vllm/v1/engine/attnview_engine.py"
-        imported: set[str] = set()
-        for node in ast.walk(parse(engine_path)):
-            if isinstance(node, ast.Import):
-                imported.update(alias.name.split(".")[0] for alias in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported.add(node.module.split(".")[0])
-        self.assertNotIn("torch", imported, "引擎侧模块不得 import torch（跨进程边界）")
-        self.assertNotIn("vllm", imported, "引擎侧模块不得 import vllm（跨进程边界）")
-        self.assertIn("attnview", imported, "引擎侧模块应复用 attnview 纯逻辑包")
+        tree = parse(engine_path)
+
+        def imported_names(scope: ast.AST) -> set[str]:
+            names: set[str] = set()
+            for node in ast.walk(scope):
+                if isinstance(node, ast.Import):
+                    names.update(alias.name.split(".")[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    names.add(node.module.split(".")[0])
+            return names
+
+        def module_body_module():  # 只保留模块级语句（跳过函数/类体）
+            top = ast.Module(body=[], type_ignores=[])
+            for stmt in tree.body:
+                if not isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    top.body.append(stmt)
+            return top
+
+        module_level = imported_names(module_body_module())
+        self.assertNotIn("torch", module_level, "引擎侧模块**模块级**不得 import torch")
+        self.assertNotIn("vllm", module_level, "引擎侧模块**模块级**不得 import vllm（否则 import 即拉模型栈）")
+        self.assertIn("attnview", module_level, "引擎侧模块应复用 attnview 纯逻辑包")
+        # 惰性导入允许出现在函数体内（只在真正需要 tokenizer/几何时才触发）
+        function_level = imported_names(tree) - module_level
+        self.assertIn("vllm", function_level, "tokenizer 应在函数内惰性导入，避免普通请求付出加载成本")
 
 
 class DeployScriptSafetyTest(unittest.TestCase):
