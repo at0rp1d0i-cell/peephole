@@ -1,6 +1,6 @@
-=== 部署/撤销演练（事务化脚本；2026-09-18 12:17:57 +0800）===
---- 0) 前置：checkout 脏行=0；两副本差异=0 ---
---- 1) 负例：篡改目标后 apply 必须整体拒绝、不碰任何文件 ---
+=== 部署/撤销演练（事务化脚本；2026-09-18 12:23:35 +0800）===
+--- 0) 前置：checkout 脏行=0；两副本差异=0；HEAD=7a2f5d8 ---
+--- 1) 负例：篡改目标后 apply 必须整体拒绝、不碰任何文件、不留事务记录 ---
 预检失败：1 项冲突，未修改任何文件
   前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
 apply 退出码=4（期望 4）
@@ -10,9 +10,9 @@ apply 退出码=4（期望 4）
 apply 退出码=0
 校验（state=deployed）：27 个目标，全部一致
 verify 退出码=0
---- 4) 部署后符号与接线 ---
-adapter.fa_override_for_step: True
-engine.make_token_text_of: True | TokenizerUnavailable: True
+--- 4) 部署后符号、接线与门禁 ---
+adapter.fa_override_for_step: True | 覆写入口内已接线门禁: True
+engine.make_token_text_of: True | 引擎侧登记即校验: True
 build_attn_metadata(da_fa_override): True
 mamba_hybrid.prepare_attn(da_fa_override): True
 SchedulerOutput.da_step_plans: True
