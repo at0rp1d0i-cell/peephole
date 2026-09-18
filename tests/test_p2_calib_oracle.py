@@ -50,6 +50,30 @@ ORACLE = load_oracle()
 # ---------------------------------------------------------------- 夹具与工具
 
 
+def meta_arrays(
+    *,
+    prompt_len: int,
+    scale: float,
+    num_heads: int,
+    num_kv_heads: int,
+    head_dim: int,
+    layer: int = 3,
+    scale_source: str | None = None,
+) -> dict:
+    arrays = {
+        "prompt_len": np.array(prompt_len, dtype=np.int64),
+        "scale": np.array(scale, dtype=np.float64),
+        "num_heads": np.array(num_heads, dtype=np.int64),
+        "num_kv_heads": np.array(num_kv_heads, dtype=np.int64),
+        "head_dim": np.array(head_dim, dtype=np.int64),
+        "layer_index": np.array(layer, dtype=np.int64),
+        "dtype_name": np.array("bfloat16"),
+    }
+    if scale_source is not None:
+        arrays["scale_source"] = np.array(scale_source)
+    return arrays
+
+
 def build_arrays(
     *,
     prompt_len: int,
@@ -80,15 +104,17 @@ def build_arrays(
         arrays[f"k_prefill_L{layer_}"] = np.asarray(tensor, dtype=np.float32)
     for layer_, tensor in v.items():
         arrays[f"v_prefill_L{layer_}"] = np.asarray(tensor, dtype=np.float32)
-    arrays["prompt_len"] = np.array(prompt_len, dtype=np.int64)
-    arrays["scale"] = np.array(scale, dtype=np.float64)
-    arrays["num_heads"] = np.array(num_heads, dtype=np.int64)
-    arrays["num_kv_heads"] = np.array(num_kv_heads, dtype=np.int64)
-    arrays["head_dim"] = np.array(head_dim, dtype=np.int64)
-    arrays["layer_index"] = np.array(layer, dtype=np.int64)
-    arrays["dtype_name"] = np.array("bfloat16")
-    if scale_source is not None:
-        arrays["scale_source"] = np.array(scale_source)
+    arrays.update(
+        meta_arrays(
+            prompt_len=prompt_len,
+            scale=scale,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+            head_dim=head_dim,
+            layer=layer,
+            scale_source=scale_source,
+        )
+    )
     return arrays
 
 
@@ -290,8 +316,8 @@ class NonFiniteReportTest(unittest.TestCase):
         failures = [entry for entry in report["non_finite"] if entry["tensor"] == "out"]
         self.assertEqual(len(failures), 1)
         self.assertEqual(
-            {key: failures[0][key] for key in ("scope", "layer", "step", "position")},
-            {"scope": "comparison", "layer": 3, "step": 1, "position": 3},
+            {key: failures[0][key] for key in ("level", "scope", "layer", "step", "position")},
+            {"level": "comparison", "scope": "prefill", "layer": 3, "step": 1, "position": 3},
         )
         self.assertEqual(failures[0]["non_finite"], 1)
 
@@ -308,8 +334,9 @@ class NonFiniteReportTest(unittest.TestCase):
         self.assertEqual(report["summary"]["non_finite_count"], 1)
         self.assertEqual(report["summary"]["finite_comparisons"], 1)
         self.assertEqual(report["per_layer"]["3"]["finite"], 1)
-        self.assertEqual(report["per_step"]["1"]["finite"], 0)
-        self.assertEqual(report["per_step"]["2"]["finite"], 1)
+        self.assertEqual(report["per_step"]["prefill:1"]["finite"], 0)
+        self.assertEqual(report["per_step"]["prefill:2"]["finite"], 1)
+        self.assertEqual(report["per_scope"]["prefill"]["finite"], 1)
 
 
 # ---------------------------------------------------------------- 5. 元数据缺失
@@ -497,6 +524,218 @@ class CliEndToEndTest(unittest.TestCase):
         self.assertTrue(
             any("scale" in warning and "derived" in warning for warning in report["warnings"])
         )
+
+
+# ---------------------------------------------------------------- 8. decode 步两段参考
+
+
+class DecodeStepReferenceTest(unittest.TestCase):
+    """decode 链参考：canonical KV = prefill 段 + step1..step i 的 current token（含 GQA 与位置边界）。"""
+
+    HEAD_DIM, PROMPT_LEN, NUM_HEADS, NUM_KV_HEADS = 2, 3, 4, 2
+    PREFILL_K = (
+        [[1.0, 0.0], [0.0, 1.0], [1.0, 0.5]],
+        [[0.5, 1.0], [1.0, -1.0], [0.0, 0.5]],
+    )
+    PREFILL_V = (
+        [[1.0, 2.0], [3.0, 4.0], [0.5, 0.25]],
+        [[-1.0, 1.0], [0.5, -0.5], [2.0, 0.0]],
+    )
+    QUERIES = ([1.0, 0.5], [-0.5, 1.0], [0.25, 1.5], [2.0, -0.5])
+    CURRENTS = {
+        1: {"k": ([[0.5, -0.5]], [[-1.0, 0.25]]), "v": ([[0.25, -0.75]], [[1.5, 0.5]])},
+        2: {"k": ([[0.75, 0.25]], [[0.5, -1.5]]), "v": ([[-0.5, 1.25]], [[0.75, -0.25]])},
+        3: {"k": ([[-0.25, 1.0]], [[1.25, 0.5]]), "v": ([[2.0, 0.5]], [[-0.75, 0.75]])},
+    }
+
+    @property
+    def scale(self) -> float:
+        return 1.0 / math.sqrt(self.HEAD_DIM)
+
+    def expected(self, upto: int) -> list[list[float]]:
+        """手算 step=upto 的每 head 期望输出：keys = prefill + current1..upto（head 0/1→kv0、2/3→kv1）。"""
+        repeat = self.NUM_HEADS // self.NUM_KV_HEADS
+        keys = [[row for row in self.PREFILL_K[kvh]] for kvh in range(self.NUM_KV_HEADS)]
+        values = [[row for row in self.PREFILL_V[kvh]] for kvh in range(self.NUM_KV_HEADS)]
+        for step in range(1, upto + 1):
+            for kvh in range(self.NUM_KV_HEADS):
+                keys[kvh].extend(self.CURRENTS[step]["k"][kvh])
+                values[kvh].extend(self.CURRENTS[step]["v"][kvh])
+        return [
+            hand_computed_dense(query, keys[head // repeat], values[head // repeat], self.scale)
+            for head, query in enumerate(self.QUERIES)
+        ]
+
+    def prefill_only(self) -> list[list[float]]:
+        """反例参考：忽略当前 token（只用 prefill KV）的每 head 输出。"""
+        repeat = self.NUM_HEADS // self.NUM_KV_HEADS
+        return [
+            hand_computed_dense(
+                query,
+                self.PREFILL_K[head // repeat],
+                self.PREFILL_V[head // repeat],
+                self.scale,
+            )
+            for head, query in enumerate(self.QUERIES)
+        ]
+
+    def chain_arrays(self, steps: int) -> dict:
+        """步 1..steps 的链式捕获：每步 1 个当前 token，位置 prompt_len, prompt_len+1, …（无空洞）。"""
+        arrays: dict = {
+            "k_prefill_L3": np.asarray(self.PREFILL_K, dtype=np.float32),
+            "v_prefill_L3": np.asarray(self.PREFILL_V, dtype=np.float32),
+            **meta_arrays(
+                prompt_len=self.PROMPT_LEN,
+                scale=self.scale,
+                num_heads=self.NUM_HEADS,
+                num_kv_heads=self.NUM_KV_HEADS,
+                head_dim=self.HEAD_DIM,
+            ),
+        }
+        for step in range(1, steps + 1):
+            arrays[f"decode_q_step{step}_L3"] = np.asarray([[query] for query in self.QUERIES], dtype=np.float32)
+            arrays[f"decode_out_step{step}_L3"] = np.asarray(
+                [[row] for row in self.expected(step)], dtype=np.float32
+            )
+            arrays[f"decode_pos_step{step}"] = np.asarray([self.PROMPT_LEN + step - 1], dtype=np.int64)
+            arrays[f"k_current_step{step}_L3"] = np.asarray(self.CURRENTS[step]["k"], dtype=np.float32)
+            arrays[f"v_current_step{step}_L3"] = np.asarray(self.CURRENTS[step]["v"], dtype=np.float32)
+        return arrays
+
+    def test_first_decode_step_matches_hand_computed_two_segment_reference(self) -> None:
+        arrays = self.chain_arrays(1)
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", arrays)
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(capture, report_path)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["summary"]["decode_steps"], [1])
+        self.assertEqual(report["summary"]["decode_steps_referenced"], [1])
+        self.assertEqual(report["summary"]["prefill_steps"], [])
+        self.assertEqual(report["summary"]["comparisons_by_scope"], {"decode": 1})
+        comparison = report["comparisons"][0]
+        self.assertEqual(comparison["scope"], "decode")
+        self.assertEqual(
+            {key: comparison[key] for key in ("layer", "step", "position", "keys_used", "finite")},
+            {"layer": 3, "step": 1, "position": 3, "keys_used": 4, "finite": True},
+        )
+        # 位置 3 的 query 必须看到 key 0..3 = 3 个 prefill + 当前 token，手算值在 1e-5 内一致。
+        self.assertLess(comparison["max_abs_err"], 1e-5)
+        self.assertEqual(report["per_step"]["decode:1"]["chain_steps"], [1])
+        self.assertEqual(report["per_step"]["decode:1"]["positions"], [3])
+        self.assertEqual(report["per_scope"]["decode"]["comparisons"], 1)
+        # 反例：忽略当前 token（只用 prefill KV）会显著不同 → 上面的 1e-5 排除了该替代参考。
+        worst = max(
+            abs(good - bad)
+            for good_row, bad_row in zip(self.expected(1), self.prefill_only())
+            for good, bad in zip(good_row, bad_row)
+        )
+        self.assertGreater(worst, 1e-2)
+
+    def test_three_step_chain_references_every_step(self) -> None:
+        arrays = self.chain_arrays(3)
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", arrays)
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(capture, report_path)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["summary"]["decode_steps_referenced"], [1, 2, 3])
+        self.assertEqual(report["summary"]["comparisons"], 3)
+        by_step = {item["step"]: item for item in report["comparisons"]}
+        for step in (1, 2, 3):
+            self.assertEqual(by_step[step]["scope"], "decode")
+            self.assertEqual(by_step[step]["position"], self.PROMPT_LEN + step - 1)
+            # 步 i 的参考用到 prefill + 步 1..i 的 current，共 (prompt_len + i) 个 key。
+            self.assertEqual(by_step[step]["keys_used"], self.PROMPT_LEN + step)
+            self.assertLess(by_step[step]["max_abs_err"], 1e-5)
+            self.assertEqual(report["per_step"][f"decode:{step}"]["chain_steps"], list(range(1, step + 1)))
+
+    def test_step_three_uses_the_first_two_current_kv(self) -> None:
+        arrays = self.chain_arrays(3)
+        # 只改步 2 的 current K/V：步 3 的参考必须随之改变（否则说明它没用到步 1、2 的 current）。
+        arrays["k_current_step2_L3"] = arrays["k_current_step2_L3"] + 3.0
+        arrays["v_current_step2_L3"] = arrays["v_current_step2_L3"] - 2.0
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = ORACLE.load_capture(write_npz(Path(tmp) / "capture.npz", arrays))
+            report = ORACLE.build_report(capture)
+        by_step = {item["step"]: item for item in report["comparisons"]}
+        self.assertLess(by_step[1]["max_abs_err"], 1e-5)  # 步 1 只用 prefill + 步 1 current → 不受影响
+        self.assertGreater(by_step[2]["max_abs_err"], 1e-2)  # 步 2 用到步 2 current
+        self.assertGreater(by_step[3]["max_abs_err"], 1e-2)  # 步 3 用到步 1、2 current → 结果必须变
+
+    def test_prefill_only_substitute_would_show_a_large_error(self) -> None:
+        arrays = self.chain_arrays(1)
+        arrays["decode_out_step1_L3"] = np.asarray(
+            [[row] for row in self.prefill_only()], dtype=np.float32
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = ORACLE.load_capture(write_npz(Path(tmp) / "capture.npz", arrays))
+            report = ORACLE.build_report(capture)
+        comparison = report["comparisons"][0]
+        self.assertEqual(comparison["scope"], "decode")
+        self.assertGreater(comparison["max_abs_err"], 1e-2)
+
+    def test_position_hole_in_chain_exits_2(self) -> None:
+        arrays = self.chain_arrays(3)
+        arrays["decode_pos_step2"] = np.asarray([self.PROMPT_LEN + 3], dtype=np.int64)  # 位置空洞
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", arrays)
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(capture, report_path)
+            self.assertEqual(proc.returncode, 2)
+            self.assertIn("链位置有空洞", proc.stderr)
+            self.assertIn("缺少位置 4..5 的 KV", proc.stderr)
+            self.assertFalse(report_path.exists())
+
+    def test_missing_middle_current_rejects_the_chain(self) -> None:
+        base = self.chain_arrays(3)
+        cases = {
+            "缺步 2 的 current 张量": (
+                {name: value for name, value in base.items() if name != "k_current_step2_L3"},
+                "缺 k_current_step2_L3",
+            ),
+            "整个步 2 缺失": (
+                {name: value for name, value in base.items() if "_step2" not in name},
+                "step2",
+            ),
+        }
+        for label, (arrays, keyword) in cases.items():
+            with self.subTest(label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    capture = write_npz(Path(tmp) / "capture.npz", arrays)
+                    report_path = Path(tmp) / "report.json"
+                    proc = run_cli(capture, report_path)
+                    self.assertEqual(proc.returncode, 2)
+                    self.assertIn(keyword, proc.stderr)
+                    self.assertFalse(report_path.exists())
+
+    def test_incomplete_decode_capture_is_rejected(self) -> None:
+        base = self.chain_arrays(1)
+        cases = {
+            "缺 k_current": (lambda a: a.pop("k_current_step1_L3"), "缺 k_current_step1_L3"),
+            "缺 decode_pos": (lambda a: a.pop("decode_pos_step1"), "缺 decode_pos_step1"),
+            "位置数量与 q 不一致": (
+                lambda a: a.__setitem__("decode_pos_step1", np.asarray([3, 4], dtype=np.int64)),
+                "形状",
+            ),
+            "层覆盖不全": (
+                lambda a: a.__setitem__("layer_name_L7", np.asarray("layers.7.self_attn.attn")),
+                "层覆盖不全",
+            ),
+        }
+        for label, (mutate, keyword) in cases.items():
+            with self.subTest(label):
+                arrays = {name: value for name, value in base.items()}
+                mutate(arrays)
+                with tempfile.TemporaryDirectory() as tmp:
+                    capture = write_npz(Path(tmp) / "capture.npz", arrays)
+                    with self.assertRaises(ORACLE.CaptureError) as ctx:
+                        ORACLE.load_capture(capture)
+                self.assertIn(keyword, str(ctx.exception))
 
 
 if __name__ == "__main__":

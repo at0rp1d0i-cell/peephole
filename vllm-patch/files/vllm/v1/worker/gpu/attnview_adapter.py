@@ -45,11 +45,59 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 
 _CALIB_LOGITS = "ATTNVIEW_CALIB_LOGITS"
-_CALIB_FORCE = "ATTNVIEW_CALIB_FORCE"
+_CALIB_ARM = "ATTNVIEW_CALIB_ARM"
 _CALIB_FORCE_LOG = "ATTNVIEW_CALIB_FORCE_LOG"
 _CALIB_TRACE = "ATTNVIEW_CALIB_TRACE"
 
-_CALIB_STATE: dict[str, Any] = {"tokens": None, "step": 0, "bound": None}
+_CALIB_STATE: dict[str, Any] = {"arm": None, "mtime": None, "force_step": 0, "logits_step": 0}
+
+
+def calibration_arm() -> Mapping[str, Any] | None:
+    """读**控制文件**决定是否 armed；文件不存在 ⇒ 未 armed（启动/预热一律不介入）。
+
+    为什么不用"第一个消费请求"绑定：warmup 用真实 `NewRequestData` 调 `sample_tokens`
+    （pin `warmup.py:307-348,389-426`），`num_sampled` 可能为 1，会抢先把轨迹绑到 warmup 上。
+    因此改由驱动在 engine 就绪后写入控制文件、显式给出 `target_req_id`。
+
+    控制文件内容：
+    `{"target_req_id": str, "tokens": [[[t]], ...], "force_log": path|null,
+      "logits_path": path|null, "trace_path": path|null}`
+    """
+    path = os.environ.get(_CALIB_ARM)
+    if not path:
+        return None
+    target = Path(path)
+    if not target.exists():
+        return None  # 启动/预热：未 armed
+    mtime = target.stat().st_mtime_ns
+    if _CALIB_STATE["arm"] is None or _CALIB_STATE["mtime"] != mtime:
+        payload = json.loads(target.read_text())
+        if "target_req_id" not in payload:
+            raise RuntimeError("attnview 校准: 控制文件缺少 target_req_id（拒绝按首个请求猜测）")
+        _CALIB_STATE["arm"] = payload
+        _CALIB_STATE["mtime"] = mtime
+        _CALIB_STATE["force_step"] = 0
+        _CALIB_STATE["logits_step"] = 0
+    return _CALIB_STATE["arm"]
+
+
+def _calib_tokens(arm: Mapping[str, Any]) -> list[list[list[int]]]:
+    """解析并缓存强制轨迹（`tokens[step][row] = [token_ids...]`；格式不符即拒绝）。"""
+    cached = arm.get("_parsed_tokens")
+    if cached is not None:
+        return cached
+    parsed: list[list[list[int]]] = []
+    for step_index, rows in enumerate(arm.get("tokens") or []):
+        if not isinstance(rows, (list, tuple)) or any(
+            isinstance(row, int) or not isinstance(row, (list, tuple)) for row in rows
+        ):
+            raise RuntimeError(
+                f"attnview 校准: 强制轨迹第 {step_index + 1} 步格式不对 —— 需要"
+                " tokens[step][row] = [token_ids...]（每步 × 每个消费请求行的两级列表）"
+            )
+        parsed.append([[int(t) for t in row] for row in rows])
+    arm["_parsed_tokens"] = parsed  # type: ignore[index]
+    return parsed
 
 
 def _append_jsonl(path: str, record: Mapping[str, Any]) -> None:
@@ -87,78 +135,40 @@ def calibration_capture_logits(logits: torch.Tensor, input_batch: Any) -> bool:
     return True
 
 
-def calibration_force_tokens(
-    sampler_output: Any, req_ids: Sequence[str], num_sampled: Any
-) -> bool:
-    """测试专用 token 强制：**原地**替换 `sampler_output.sampled_token_ids` 中被消费的行。
+def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str], num_sampled: Any) -> bool:
+    """测试专用 token 强制：**原地**替换 `sampler_output.sampled_token_ids` 中被消费的目标行。
 
-    调用点必须紧跟 worker 的 `self.sample(...)` 之后、PP broadcast / `AsyncOutput` /
-    `postprocess_sampled` **之前**（pin `model_runner.py:1861-1920`）—— 这样 worker 历史与经
-    `AsyncOutput` 送往宿主的 token 是**同一个值**，不会分叉。
+    调用点：worker `self.sample(...)` 之后、PP broadcast / `AsyncOutput` / `postprocess_sampled`
+    **之前**（pin `model_runner.py:1861-1920`）—— 两侧共用同一 token，不分叉。
 
-    边界（本地复核指出后收紧）：
-
-    - **只在真正消费采样时推进轨迹**：未完成 prefill 的步 `num_sampled == 0`（`input_batch.py:506-512`），
-      不是生成一步 ⇒ 不消耗轨迹、不改写、不记日志；只强制 `num_sampled > 0` 的**行**。
-    - **按 `req_id` 绑定**：首个在消费步出现的请求被绑定为被校准请求；其它 `req_id`（含其后的
-      普通请求与清理请求）**一律不命中**，也不会消耗轨迹。
-    - 轨迹用尽只对**被绑定的那个请求**报错；形状不符即拒绝且不写一半。
-
-    返回是否发生了替换；未设置 `ATTNVIEW_CALIB_FORCE` 时完全不介入（普通请求无此钩子）。
+    绑定与推进（本地复核后收紧）：
+    - 只有**控制文件显式给出的 target_req_id** 才被强制；文件不存在 ⇒ 未 armed（warmup/普通/cleanup 一律不命中）；
+    - 只在 `num_sampled > 0` 的**消费步**推进（未完成 prefill 丢弃不是生成一步）；
+    - 步号用 `force_step`（与 logits 捕获的 `logits_step` 相互独立）。
     """
-    force_path = os.environ.get(_CALIB_FORCE)
-    if not force_path:
+    arm = calibration_arm()
+    if arm is None:
         return False
+    reqs = [str(r) for r in req_ids]
+    target = str(arm["target_req_id"])
+    if target not in reqs:
+        return False
+    row = reqs.index(target)
     counts = num_sampled.detach().to("cpu").tolist() if hasattr(num_sampled, "detach") else list(num_sampled)
     if isinstance(counts, int):
         counts = [counts]
-    consuming = [i for i, n in enumerate(counts) if int(n) > 0]
-    if not consuming:
-        return False  # 未完成 prefill 等丢弃采样的情况：不是生成一步
-
-    if _CALIB_STATE["tokens"] is None:
-        payload = json.loads(Path(force_path).read_text())
-        raw_tokens = payload["tokens"]
-        parsed: list[list[list[int]]] = []
-        for step_index, rows in enumerate(raw_tokens):
-            if not isinstance(rows, (list, tuple)) or any(
-                isinstance(row, int) or not isinstance(row, (list, tuple)) for row in rows
-            ):
-                raise RuntimeError(
-                    f"attnview 校准: 强制轨迹第 {step_index + 1} 步格式不对 —— 需要"
-                    " tokens[step][row] = [token_ids...]（每步 × 每个消费请求行的两级列表）"
-                )
-            parsed.append([[int(t) for t in row] for row in rows])
-        _CALIB_STATE["tokens"] = parsed
-        _CALIB_STATE["bound"] = None
-        _CALIB_STATE["step"] = 0
-
-    bound = _CALIB_STATE.get("bound")
-    reqs = list(req_ids)
-    if bound is None:
-        if len(consuming) != 1:
-            raise RuntimeError(
-                f"attnview 校准: 首次消费步有 {len(consuming)} 个请求被采样，"
-                "校准只支持批内单活跃请求"
-            )
-        bound = reqs[consuming[0]]
-        _CALIB_STATE["bound"] = bound
-    if bound not in reqs:
-        return False  # 被绑定请求已结束（或本步不含它）：后续普通/清理请求不受影响
-    row = reqs.index(bound)
-    if row not in consuming:
+    if row >= len(counts) or int(counts[row]) <= 0:
         return False
-    tokens = _CALIB_STATE["tokens"]
-    step = int(_CALIB_STATE["step"])
+    tokens = _calib_tokens(arm)
+    step = int(_CALIB_STATE["force_step"])
     if step >= len(tokens):
         raise RuntimeError(
-            f"attnview 校准: 被绑定请求 {bound} 需要第 {step + 1} 步，但强制轨迹只有 {len(tokens)} 步"
+            f"attnview 校准: 被绑定请求 {target} 需要第 {step + 1} 步，但强制轨迹只有 {len(tokens)} 步"
         )
     forced_rows = tokens[step]
     if len(forced_rows) != 1:
         raise RuntimeError(
-            f"attnview 校准: 第 {step + 1} 步轨迹有 {len(forced_rows)} 行，"
-            "而本步只有 1 个被绑定的消费请求"
+            f"attnview 校准: 第 {step + 1} 步轨迹有 {len(forced_rows)} 行，而本步只有 1 个被绑定的消费请求"
         )
     forced = forced_rows[0]
     sampled = sampler_output.sampled_token_ids
@@ -167,24 +177,57 @@ def calibration_force_tokens(
         raise RuntimeError(
             f"attnview 校准: 第 {step + 1} 步强制 token 数 {len(forced)} 与采样数 {len(raw[row])} 不一致"
         )
-    replacement = torch.tensor([forced], dtype=sampled.dtype, device=sampled.device)
-    sampled[row : row + 1].copy_(replacement)  # 原地写回同一块内存
-    _CALIB_STATE["step"] = step + 1
-    log_path = os.environ.get(_CALIB_FORCE_LOG)
+    sampled[row : row + 1].copy_(
+        torch.tensor([forced], dtype=sampled.dtype, device=sampled.device)
+    )
+    _CALIB_STATE["force_step"] = step + 1
+    log_path = arm.get("force_log")
     if log_path:
         _append_jsonl(
             log_path,
             {
                 "kind": "force_tokens",
                 "step": step + 1,
-                "req_id": bound,
+                "req_id": target,
                 "req_ids": reqs,
-                "consuming_rows": consuming,
                 "raw_sampled": raw,
                 "forced": forced,
                 "sync_note": "本钩子含 D2H(读原始采样)+H2D(写强制 token)，属校准专用同步，非稳态行为",
             },
         )
+    return True
+
+
+def calibration_capture_logits(logits: torch.Tensor, input_batch: Any) -> bool:
+    """测试专用：保存**完整** logits（不是 top-k 归一化后的近似），只对被绑定目标请求。
+
+    调用点：worker `sample` 里 `compute_logits(...)` **之后**、grammar/sampler 就地改写**之前**
+    （pin `model_runner.py:1421-1432`）。步号 `logits_step` 与强制钩子相互独立。
+    """
+    arm = calibration_arm()
+    if arm is None:
+        return False
+    reqs = [str(r) for r in (getattr(input_batch, "req_ids", ()) or ())]
+    target = str(arm["target_req_id"])
+    if target not in reqs:
+        return False
+    path = arm.get("logits_path")
+    if not path:
+        return False
+    record = {
+        "step": int(_CALIB_STATE["logits_step"]) + 1,
+        "req_id": target,
+        "req_ids": reqs,
+        "logits": logits.detach().to("cpu", dtype=torch.float32),
+        "shape": list(logits.shape),
+        "dtype_on_device": str(logits.dtype),
+        "sync_note": "本钩子含显式 D2H 同步（保存完整 logits），属校准专用，非稳态行为",
+    }
+    target_path = Path(path)
+    existing = torch.load(target_path, weights_only=False) if target_path.exists() else []
+    existing.append(record)
+    torch.save(existing, target_path)  # 逐步落盘：异常也留有可审证据
+    _CALIB_STATE["logits_step"] = int(_CALIB_STATE["logits_step"]) + 1
     return True
 
 
@@ -200,12 +243,17 @@ def calibration_note_override(
     `inputs` 传本步的 canonical 块表/长度张量等；这里记录 `data_ptr()` 与 `_version`
     （都是 **CPU 侧**元数据，不读设备内存、不触发同步），用于事后核对"canonical/非 FA 输入未被就地改写"。
     """
-    trace_path = os.environ.get(_CALIB_TRACE)
+    arm = calibration_arm()
+    if arm is None:
+        return
+    trace_path = arm.get("trace_path")
     if not trace_path:
+        return
+    if str(arm["target_req_id"]) not in [str(r) for r in req_ids]:
         return
     record: dict[str, Any] = {
         "kind": "override_step",
-        "step": int(_CALIB_STATE["step"]),
+        "step": int(_CALIB_STATE["force_step"]),
         "req_ids": list(req_ids),
         "num_scheduled_tokens": dict(getattr(scheduler_output, "num_scheduled_tokens", None) or {}),
         "stream": _stream_fingerprint(),
@@ -697,7 +745,7 @@ def fa_override_for_step(
         rows_with_override=tuple(overridden),
         plans=row_plans,
     )
-    if os.environ.get(_CALIB_TRACE):
+    if os.environ.get(_CALIB_ARM):
         calibration_note_override(
             override,
             req_ids=req_ids,
