@@ -114,6 +114,22 @@ def run_candidate(q_gpu, k_gpu, v_gpu, tables, scale):
     if not (k_gpu.is_cuda and v_gpu.is_cuda and q_gpu.is_cuda):
         raise AssertionError("候选路径要求 q/k/v 都在 CUDA 上常驻")
     before = (k_gpu.device, k_gpu.data_ptr(), v_gpu.device, v_gpu.data_ptr())
+    num_physical = int(k_gpu.shape[0])
+    block_size = int(k_gpu.shape[1])  # 缓存块维；与各表声明的 block_size 必须一致
+    for index, t in enumerate(tables):
+        if int(t.block_size) != block_size:
+            raise AssertionError(
+                f"第 {index} 行：表声明的块大小 {t.block_size} 与 KV 缓存块维 {block_size} 不一致"
+            )
+        needed = -(-t.seqused_k // t.block_size)
+        if t.width < needed:
+            raise AssertionError(
+                f"第 {index} 行：表宽 {t.width} < ceil(seqused_k/b)={needed}，会索引越界列；"
+                "此类越读必须在 CPU 边界被拒绝，不得喂给 kernel"
+            )
+        out_of_range = [pid for pid in t.physical_blocks if not 0 <= pid < num_physical]
+        if out_of_range:
+            raise AssertionError(f"第 {index} 行：物理 ID 超出缓存范围 {out_of_range}（num_blocks={num_physical}）")
     batch = len(tables)
     width = max(t.width for t in tables)
     block_table = torch.tensor([t.padded_row(width) for t in tables], dtype=torch.int32, device="cuda")
@@ -229,30 +245,42 @@ class CaseRunner:
             sink=tuple(self.layout["sink"]),
         )
 
-    def run(self) -> dict:
-        case, seed = self.case, self.seed
-        kind = case["kind"]
-        kv_plan = self._kv_plan()
+    def _prepare(self, kv_plan, amplify_blocks=()):
+        """建真值 → 散布并逐位置核对 → 一次性上传 GPU，返回 (真值, GPU 缓存, q, 核对位置数)。"""
         max_kv = max(kv_plan)
-        amplify_blocks = self.sensitive_blocks if case.get("amplify_excluded_blocks") else ()
         k_true, v_true = make_truth(
-            max_kv, self.kvh, self.d, seed,
+            max_kv, self.kvh, self.d, self.seed,
             amplify_blocks=amplify_blocks, amplify=self.amplify, block_size=self.block_size,
         )
         k_cpu, v_cpu, verified = scatter_and_verify(k_true, v_true, kv_plan[0], self.nb, self.block_size, self.l2p)
         k_gpu = k_cpu.to("cuda")
         v_gpu = v_cpu.to("cuda")
-        q_gpu = torch.randn(1, self.heads, self.d, generator=make_generator(seed, 2), dtype=torch.float32)\
+        q_gpu = torch.randn(1, self.heads, self.d, generator=make_generator(self.seed, 2), dtype=torch.float32)\
             .to(torch.bfloat16).to("cuda")
+        # 本用例的常驻身份：跨 step 比对必须用它，不能把 True 硬编码成观测
+        self.resident = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
+        self.cache_digests = (
+            hashlib.sha256(k_cpu.float().numpy().tobytes()).hexdigest()[:32],
+            hashlib.sha256(v_cpu.float().numpy().tobytes()).hexdigest()[:32],
+        )
+        return k_true, v_true, k_gpu, v_gpu, q_gpu, verified
+
+    def run(self) -> dict:
+        case, seed = self.case, self.seed
+        kind = case["kind"]
+        kv_plan = self._kv_plan()
+        amplify_blocks = self.sensitive_blocks if case.get("amplify_excluded_blocks") else ()
+        k_true, v_true, k_gpu, v_gpu, q_gpu, verified = self._prepare(kv_plan, amplify_blocks)
 
         record = {
             "id": case["id"], "seed": seed, "kind": kind, "block_size": self.block_size,
             "layout": case["layout"], "prompt_len": self.layout["prompt_len"],
             "distribution": "sensitive_amplified" if amplify_blocks else "normal",
             "fill_verified_positions": verified,
-            "cache_k_digest": hashlib.sha256(k_cpu.float().numpy().tobytes()).hexdigest()[:32],
-            "cache_v_digest": hashlib.sha256(v_cpu.float().numpy().tobytes()).hexdigest()[:32],
+            "cache_k_digest": self.cache_digests[0],
+            "cache_v_digest": self.cache_digests[1],
             "data_ptr": {"k": k_gpu.data_ptr(), "v": v_gpu.data_ptr()},
+            "resident_identity": list(self.resident),
             "measurements": [],
         }
         if kind == "batch2":
@@ -271,7 +299,7 @@ class CaseRunner:
         return [int(case["kv_len"])]
 
     def _measure(self, *, label, mode, refs, kv_len, prompt_len, k_true, v_true, k_gpu, v_gpu, q_row, table=None,
-                 extra_ok=None, appended=False):
+                 extra_ok=None, appended=False, expected_blocks_config=None, append_meta=None):
         """一步：数据面交叉核对 → GPU 读取 → 独立参考 → 数值与内容判据。"""
         view = None
         if table is None:
@@ -291,7 +319,9 @@ class CaseRunner:
 
         k_before = k_gpu.clone()
         v_before = v_gpu.clone()
+        ptr_before = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
         out, block_table, seqused_k = run_candidate(q_row, k_gpu, v_gpu, [table], self.scale)
+        ptr_after = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
         k_after = k_gpu.clone()
         v_after = v_gpu.clone()
 
@@ -345,14 +375,19 @@ class CaseRunner:
                     f"写入 slot 候选={candidate_slot} oracle={oracle.next_write_slot}"
                 ),
             },
-            "kv_integrity": {
-                "k_unchanged": k_unchanged,
-                "v_unchanged": v_unchanged,
-                "expected_slots": None,
-                "k_changed_slots": None,
-                "v_changed_slots": None,
+            "kv_integrity": {"k_unchanged": k_unchanged, "v_unchanged": v_unchanged},
+            "residency": {
+                "resident_identity": list(self.resident),
+                "ptr_before": list(ptr_before),
+                "ptr_after": list(ptr_after),
+                "data_ptr_stable": ptr_before == ptr_after == self.resident,
             },
-            "residency": {"data_ptr_stable": True},
+            "expectation": {
+                "config": list(expected_blocks_config) if expected_blocks_config is not None else None,
+                "oracle": list(oracle.visible_blocks),
+                "actual": list(table.visible_blocks),
+            },
+            "append": dict(append_meta) if append_meta else {"declared": False},
         }
         if view is not None:
             measurement["read_view"] = {
@@ -379,38 +414,39 @@ class CaseRunner:
         for step in steps:
             kv_len = int(step["kv_len"])
             mode, refs = step["mode"], tuple(step.get("refs", []))
+            expected_blocks = step.get("expect_blocks")
+            if expected_blocks is None:
+                expected_blocks = case.get("expect_blocks")      # 单例：预期写在用例级
+            if expected_blocks is None and case["kind"] == "arbitrary":
+                expected_blocks = case.get("logical_blocks")
+            append_meta = None
             if step.get("writes"):
-                # 真实追加：先写入 canonical slot（GPU 上原地写），再读取
-                expected_slot = next_write_slot(kv_len - 1, self.block_size, self.l2p)[2]
+                # 追加：期望 slot 用**原位置公式独立算**（不经被测 helper），并按它实际写入
+                position = kv_len - 1
+                logical, offset = divmod(position, self.block_size)
+                slot_independent = self.l2p[logical] * self.block_size + offset
+                slot_helper = next_write_slot(position, self.block_size, self.l2p)[2]
                 k_snap, v_snap = k_gpu.clone(), v_gpu.clone()
                 flat_k, flat_v = k_gpu.view(-1, self.kvh, self.d), v_gpu.view(-1, self.kvh, self.d)
-                flat_k[expected_slot] = k_true[kv_len - 1].to("cuda")
-                flat_v[expected_slot] = v_true[kv_len - 1].to("cuda")
-                k_changed = changed_slots(k_snap, k_gpu, self.kvh, self.d)
-                v_changed = changed_slots(v_snap, v_gpu, self.kvh, self.d)
-                measurement = {
-                    "append": {"expected_slot": expected_slot, "k_changed_slots": k_changed, "v_changed_slots": v_changed},
+                flat_k[slot_independent] = k_true[position].to("cuda")
+                flat_v[slot_independent] = v_true[position].to("cuda")
+                append_meta = {
+                    "declared": True,
+                    "position": position,
+                    "slot_independent": slot_independent,
+                    "slot_helper": slot_helper,
+                    "k_changed_slots": changed_slots(k_snap, k_gpu, self.kvh, self.d),
+                    "v_changed_slots": changed_slots(v_snap, v_gpu, self.kvh, self.d),
                 }
-            else:
-                measurement = {}
             table = None
             if case["kind"] == "arbitrary" and step.get("writes", 0) == 0:
                 table = self._arbitrary_table(case)
             m, _, _, _ = self._measure(
                 label=f"step{step['step']}", mode=mode, refs=refs, kv_len=kv_len, prompt_len=prompt_len,
                 k_true=k_true, v_true=v_true, k_gpu=k_gpu, v_gpu=v_gpu, q_row=q_gpu, table=table,
-                extra_ok=measurement if measurement else None,
-                appended=bool(step.get("writes")),
+                appended=bool(step.get("writes")), expected_blocks_config=expected_blocks,
+                append_meta=append_meta,
             )
-            if measurement:
-                m.update(measurement)
-                m["kv_integrity"] = {
-                    "k_unchanged": m["kv_integrity"]["k_unchanged"],
-                    "v_unchanged": m["kv_integrity"]["v_unchanged"],
-                    "expected_slots": [measurement["append"]["expected_slot"]],
-                    "k_changed_slots": measurement["append"]["k_changed_slots"],
-                    "v_changed_slots": measurement["append"]["v_changed_slots"],
-                }
             record["measurements"].append(m)
             if case.get("amplify_excluded_blocks") and not step.get("writes"):
                 full_table = read_table_from_read_view(
@@ -456,8 +492,12 @@ class CaseRunner:
         block_table = torch.tensor([t.padded_row(width) for t in tables], dtype=torch.int32, device="cuda")
         seqused_k = torch.tensor([t.seqused_k for t in tables], dtype=torch.int32, device="cuda")
         k_before, v_before = k_gpu.clone(), v_gpu.clone()
+        ptr_before = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
         out, _, _ = run_candidate(q2, k_gpu, v_gpu, tables, self.scale)
+        ptr_after = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
         k_after, v_after = k_gpu.clone(), v_gpu.clone()
+        k_unchanged = bool(torch.equal(k_before, k_after))
+        v_unchanged = bool(torch.equal(v_before, v_after))
         row_isolation = []
         for index, (row, table, oracle) in enumerate(zip(rows, tables, oracles)):
             single, _, _ = run_candidate(q2[index: index + 1], k_gpu, v_gpu, [table], self.scale)
@@ -492,8 +532,19 @@ class CaseRunner:
                     "current_block_retained": (int(row["kv_len"]) - 1) // self.block_size in oracle.visible_blocks,
                     "details": f"候选块={list(table.visible_blocks)} oracle块={list(oracle.visible_blocks)}",
                 },
-                "kv_integrity": {"k_unchanged": None, "v_unchanged": None, "expected_slots": None},
-                "residency": {"data_ptr_stable": True},
+                "kv_integrity": {"k_unchanged": k_unchanged, "v_unchanged": v_unchanged},
+                "residency": {
+                    "resident_identity": list(self.resident),
+                    "ptr_before": list(ptr_before),
+                    "ptr_after": list(ptr_after),
+                    "data_ptr_stable": ptr_before == ptr_after == self.resident,
+                },
+                "expectation": {
+                    "config": list(row["expect_blocks"]) if row.get("expect_blocks") else None,
+                    "oracle": list(oracle.visible_blocks),
+                    "actual": list(table.visible_blocks),
+                },
+                "append": {"declared": False},
                 "row_isolation_max_abs": row_isolation[-1],
             })
         record["extra_criteria"] = [{
@@ -501,11 +552,60 @@ class CaseRunner:
             "ok": all(value <= self.atol for value in row_isolation),
             "detail": f"逐行单独调用与批量输出的最大偏差={row_isolation}（容差 {self.atol}）",
         }]
-        record["kv_integrity"] = {"k_unchanged": bool(torch.equal(k_before, k_after)),
-                                  "v_unchanged": bool(torch.equal(v_before, v_after)),
-                                  "expected_slots": None}
-        for m in record["measurements"]:
-            m["kv_integrity"] = record["kv_integrity"]
+        record["kv_integrity"] = {"k_unchanged": k_unchanged, "v_unchanged": v_unchanged}
+        record["resident_identity"] = list(self.resident)
+
+
+    def run_negative_control(self) -> dict:
+        """同一夹具上把 seqused_k 人为 +100（读入尾块哨兵）：记录用于证明门禁会拒绝它。"""
+        import dataclasses
+
+        case = self.case
+        kv_len = int(case["kv_len"])
+        k_true, v_true, k_gpu, v_gpu, q_gpu, verified = self._prepare([kv_len])
+        view = self.read_view(case["mode"], tuple(case.get("refs", [])), kv_len, self.layout["prompt_len"])
+        honest = read_table_from_read_view(view, self.l2p)
+        over = dataclasses.replace(honest, seqused_k=honest.seqused_k + 100)
+        measurement, _, _, _ = self._measure(
+            label="overread", mode=case["mode"], refs=tuple(case.get("refs", [])), kv_len=kv_len,
+            prompt_len=self.layout["prompt_len"], k_true=k_true, v_true=v_true, k_gpu=k_gpu, v_gpu=v_gpu,
+            q_row=q_gpu, table=over, appended=False,
+            expected_blocks_config=case.get("expect_blocks"),
+        )
+        measurement.pop("_masked_output", None)
+        measurement["note"] = ("单 query 越读负对照：诚实 seqused_k=%d，人为 +100 读到尾块哨兵；"
+                               "本记录**必须**被 attnview.gpucheck 拒绝" % honest.seqused_k)
+        return {
+            "id": "negative_control_overread", "seed": self.seed, "kind": "control",
+            "mode": case["mode"], "kv_len": kv_len, "fill_verified_positions": verified,
+            "honest_seqused_k": honest.seqused_k, "control_seqused_k": over.seqused_k,
+            "table_width": honest.width, "block_size": self.block_size,
+            "tail_len": honest.tail_len, "overread_within_allocated_block": True,
+            "measurements": [measurement],
+        }
+
+    def check_boundary_rejection(self) -> dict:
+        """2 列的表被抬到需要 3 列：必须在 CPU/GPU 边界被拒绝，且**不进入 kernel**。"""
+        import dataclasses
+
+        kv_len = int(self.layout["prompt_len"])
+        view = self.read_view("local", (), kv_len, self.layout["prompt_len"])
+        table = read_table_from_read_view(view, self.l2p)
+        stretched = dataclasses.replace(table, seqused_k=table.seqused_k + 100)
+        dummy = torch.zeros(1, self.block_size, self.kvh, self.d, dtype=torch.bfloat16, device="cuda")
+        q = torch.zeros(1, self.heads, self.d, dtype=torch.bfloat16, device="cuda")
+        try:
+            run_candidate(q, dummy, dummy.clone(), [stretched], self.scale)
+        except AssertionError as exc:
+            return {
+                "id": "boundary_rejection_check", "seed": self.seed, "kind": "control",
+                "table_width": table.width, "seqused_k_honest": table.seqused_k,
+                "seqused_k_stretched": stretched.seqused_k,
+                "needed_width": -(-stretched.seqused_k // self.block_size),
+                "rejected_before_kernel": True, "message": str(exc),
+            }
+        return {"id": "boundary_rejection_check", "seed": self.seed, "kind": "control",
+                "rejected_before_kernel": False, "message": "越界表宽竟被喂给 kernel"}
 
 
 def main() -> int:
@@ -528,6 +628,7 @@ def main() -> int:
     print(f"cases {[c['id'] for c in cases]}\n")
 
     records = []
+    control_records = []
     for seed in seeds:
         for case in cases:
             runner = CaseRunner(cfg, case, seed)
@@ -549,13 +650,53 @@ def main() -> int:
                       f"rms={n.get('rms') if n.get('rms') is None else round(n['rms'], 6)} "
                       f"{'OK' if n.get('within_tolerance') else 'FAIL'}")
 
+    # 负对照（诊断 + 门禁）：(a) tail_1 夹具上在**同一已分配尾块内**越读 100 个哨兵槽；
+    # (b) 2 列表被抬到需要 3 列时必须先在边界被拒绝（不得进入 kernel，避免越界注入）
+    for seed in seeds:
+        tail_case = {"id": "negative_control_overread", "kind": "single", "layout": "tail1", "mode": "local",
+                     "refs": [], "kv_len": 4705, "expect_blocks": [0, 5, 6]}
+        ctl_record = CaseRunner(cfg, tail_case, seed).run_negative_control()
+        control_records.append(ctl_record)
+        ctl_summary = summarize([ctl_record])
+        numeric_failed = any(c.name.endswith("numeric") for c in ctl_summary.failed)
+
+        boundary_case = {"id": "boundary_rejection_check", "kind": "single", "layout": "A", "mode": "local",
+                         "refs": [], "kv_len": 6272, "expect_blocks": [0, 7]}
+        boundary = CaseRunner(cfg, boundary_case, seed).check_boundary_rejection()
+        control_records.append(boundary)
+
+        verdict = (not ctl_summary.ok) and numeric_failed and boundary["rejected_before_kernel"]
+        print(f"seed{seed} 负对照：tail_1 越读 +100（诚实 {ctl_record['honest_seqused_k']} → "
+              f"{ctl_record['control_seqused_k']}，仍在 {ctl_record['table_width']} 列表内、尾块 {ctl_record['tail_len']}）"
+              f"门禁拒绝={'是' if not ctl_summary.ok else '否'} 数值判据失败={'是' if numeric_failed else '否'}；"
+              f"2 列表抬到需 {boundary['needed_width']} 列在边界被拒绝={'是' if boundary['rejected_before_kernel'] else '否'}")
+        records.append({
+            "id": "negative_control_verdict", "seed": seed, "control_only": True,
+            "extra_criteria": [
+                {
+                    "name": "negative_control_rejected",
+                    "ok": (not ctl_summary.ok) and numeric_failed,
+                    "detail": (f"tail_1 诚实 seqused_k={ctl_record['honest_seqused_k']} → 越读 "
+                               f"{ctl_record['control_seqused_k']}（同一已分配尾块内的哨兵槽）；"
+                               f"门禁拒绝={not ctl_summary.ok}，数值判据失败={numeric_failed}；"
+                               f"原因={'; '.join(ctl_summary.reasons[:4])}"),
+                },
+                {
+                    "name": "boundary_rejection_enforced",
+                    "ok": boundary["rejected_before_kernel"],
+                    "detail": (f"2 列表 +100 需要 {boundary['needed_width']} 列 > 表宽 {boundary['table_width']}："
+                               f"{boundary['message']}"),
+                },
+            ],
+        })
+
     for record in records:
-        for m in record["measurements"]:
+        for m in record.get("measurements", []):
             m.pop("_masked_output", None)
     final = summarize(records)
     out_dir = ROOT / args.evidence
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "v2-summary.json").write_text(json.dumps({
+    (out_dir / "summary.json").write_text(json.dumps({
         "config": args.config,
         "config_sha256": hashlib.sha256((ROOT / args.config).read_bytes()).hexdigest(),
         "torch": torch.__version__, "vllm_entry": "vllm.vllm_flash_attn.flash_attn_varlen_func",
@@ -565,12 +706,13 @@ def main() -> int:
         "criteria_total": final.total, "criteria_failed": len(final.failed),
         "ok": final.ok, "reasons": list(final.reasons),
         "records": records,
+        "control_records": control_records,
     }, indent=2, ensure_ascii=False, default=str))
     per_seed: dict[str, list] = {}
     for record in records:
         per_seed.setdefault(str(record["seed"]), []).append(record)
     for seed, group in per_seed.items():
-        (out_dir / f"v2-cases-seed{seed}.json").write_text(json.dumps(group, indent=2, ensure_ascii=False, default=str))
+        (out_dir / f"cases-seed{seed}.json").write_text(json.dumps(group, indent=2, ensure_ascii=False, default=str))
 
     print(f"\n判据 {final.total} 条，失败 {len(final.failed)} 条 -> {'PASS' if final.ok else 'FAIL'}")
     for reason in final.reasons[:40]:

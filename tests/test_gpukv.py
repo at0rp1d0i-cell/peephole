@@ -45,8 +45,11 @@ def good_case(**overrides):
             "current_block_retained": True,
             "details": "",
         },
-        "kv_integrity": {"k_unchanged": True, "v_unchanged": True, "expected_slots": None},
-        "residency": {"data_ptr_stable": True},
+        "kv_integrity": {"k_unchanged": True, "v_unchanged": True},
+        "residency": {"resident_identity": ["cuda:0", 1, "cuda:0", 2], "ptr_before": ["cuda:0", 1, "cuda:0", 2],
+                      "ptr_after": ["cuda:0", 1, "cuda:0", 2], "data_ptr_stable": True},
+        "expectation": {"config": [0, 7], "oracle": [0, 7], "actual": [0, 7]},
+        "append": {"declared": False},
     }
     measurement.update(overrides)
     return {"id": "case_x", "seed": 0, "measurements": [measurement]}
@@ -62,6 +65,7 @@ class ReadTableFromViewTest(unittest.TestCase):
         self.assertEqual(table.seqused_k, 1568)
         self.assertEqual(table.tail_len, 784)
         self.assertEqual(table.next_write_position, 6272)
+        self.assertEqual(table.block_size, B)
 
     def test_tail_block_count_follows_written_length(self) -> None:
         view = fake_view(visible_blocks=(0, 6), physical=(7, 1), spans=((0, 784), (4704, 4705)), kv_len=4705)
@@ -115,6 +119,48 @@ class ReadTableFromViewTest(unittest.TestCase):
         self.assertEqual(next_write_slot(6273, B, L2P), (8, 1, 3 * B + 1))
 
 
+class BoundaryGuardTest(unittest.TestCase):
+    """越读必须在 CPU 边界被拒绝，不得产出会索引越界列/非法地址的表。"""
+
+    def test_table_width_must_cover_seqused(self) -> None:
+        import dataclasses
+
+        view = fake_view(visible_blocks=(0, 7), physical=(7, 8), spans=((0, 784), (5488, 6272)), kv_len=6272)
+        table = read_table_from_view(view, L2P)
+        self.assertEqual(table.width, -(-table.seqused_k // B))
+        # 人为把 seqused_k 抬高，使需要的列数超过表宽 -> 必须能构造出来（负对照用），
+        # 但 GPU 边界（run_candidate）会拒绝；此处校验 ReadKit 自身对不一致表宽报错
+        bad = fake_view(visible_blocks=(0, 5, 6), physical=(7, 9, 1),
+                        spans=((0, 784), (3920, 4704), (4704, 4705)), kv_len=4705)
+        good = read_table_from_view(bad, L2P)
+        self.assertEqual((good.width, good.seqused_k), (3, 1569))
+        over = dataclasses.replace(good, seqused_k=good.seqused_k + 100)
+        self.assertEqual(-(-over.seqused_k // B), over.width, "尾块内越读仍应在已分配列内（不得越界列）")
+        # 而 2 列的表抬高到需要 3 列时，宽度不一致
+        two_col = read_table_from_view(
+            fake_view(visible_blocks=(0, 7), physical=(7, 8), spans=((0, 784), (5488, 6272)), kv_len=6272), L2P
+        )
+        stretched = dataclasses.replace(two_col, seqused_k=two_col.seqused_k + 100)
+        self.assertGreater(-(-stretched.seqused_k // B), stretched.width)
+
+    def test_table_block_size_must_match_cache(self) -> None:
+        table = read_table_from_view(
+            fake_view(visible_blocks=(0, 7), physical=(7, 8), spans=((0, 784), (5488, 6272)), kv_len=6272), L2P
+        )
+        self.assertEqual(table.block_size, 784)
+        # 16 块大小的表与 784 的缓存不能混用（GPU 边界会断言）
+        alt = read_table_from_view(
+            fake_view(visible_blocks=(0, 3), physical=(7, 0), spans=((0, 53),), kv_len=53, block_size=16), L2P
+        )
+        self.assertEqual(alt.block_size, 16)
+
+    def test_view_with_inconsistent_width_is_rejected(self) -> None:
+        # 可见块 3 个但物理表有效前缀只有 2 个 -> 转换边界报错
+        view = fake_view(visible_blocks=(0, 5, 6), physical=(7, 9), spans=((0, 784), (3920, 4705)), kv_len=4705)
+        with self.assertRaises(GpuKvError):
+            read_table_from_view(view, L2P)
+
+
 class AcceptanceAggregationTest(unittest.TestCase):
     def test_all_criteria_pass(self) -> None:
         summary = summarize([good_case()])
@@ -135,9 +181,15 @@ class AcceptanceAggregationTest(unittest.TestCase):
             "data_plane_write_slot": {"data_plane": {"blocks_match": True, "physical_match": True, "seqused_match": True, "write_slot_match": False, "current_block_retained": True, "details": "写入位置不一致"}},
             "kv_k_unchanged": {"kv_integrity": {"k_unchanged": False, "v_unchanged": True, "expected_slots": None}},
             "kv_v_unchanged": {"kv_integrity": {"k_unchanged": True, "v_unchanged": False, "expected_slots": None}},
-            "append_slot_k": {"appended": True, "kv_integrity": {"k_unchanged": True, "v_unchanged": True, "expected_slots": [99], "k_changed_slots": [1], "v_changed_slots": [99]}},
+            "append_slot_k": {"appended": True, "append": {"declared": True, "position": 6272,
+                                                           "slot_independent": 2352, "slot_helper": 2352,
+                                                           "k_changed_slots": [1], "v_changed_slots": [2352]}},
             "append_declared": {"appended": None},
             "resident_cache": {"residency": {"data_ptr_stable": False}},
+            "expectation_match": {"expectation": {"config": [0, 7], "oracle": [0, 8], "actual": [0, 7]}},
+            "append_slot_source_match": {"appended": True, "append": {"declared": True, "position": 6272,
+                                                                     "slot_independent": 2352, "slot_helper": 99,
+                                                                     "k_changed_slots": [2352], "v_changed_slots": [2352]}},
         }
         for name, overrides in injections.items():
             with self.subTest(criterion=name):
@@ -172,7 +224,8 @@ class AcceptanceAggregationTest(unittest.TestCase):
                     )
 
     def test_missing_measurement_sections_fail(self) -> None:
-        for section in ("numeric", "oracle_selfcheck", "read_table", "data_plane", "residency", "appended"):
+        for section in ("numeric", "oracle_selfcheck", "read_table", "data_plane", "residency", "appended",
+                        "expectation", "append"):
             with self.subTest(section=section):
                 case = good_case()
                 case["measurements"][0].pop(section)
@@ -180,23 +233,55 @@ class AcceptanceAggregationTest(unittest.TestCase):
                 self.assertFalse(summary.ok, f"缺少 {section} 竟然通过")
                 self.assertTrue(any(c.name.endswith("schema_complete") for c in summary.failed))
 
-    def test_append_declaration_is_enforced(self) -> None:
-        # appended=True 却没给 expected_slots -> 失败
-        case = good_case(appended=True)
-        case["measurements"][0]["kv_integrity"] = {"k_unchanged": True, "v_unchanged": True, "expected_slots": None}
-        self.assertFalse(summarize([case]).ok)
+    def test_append_declaration_and_slot_discipline(self) -> None:
         # appended 不是布尔 -> 失败
-        case = good_case(appended="yes")
-        self.assertFalse(summarize([case]).ok)
-        # 追加判据是附加项：给了 expected_slots 就必须逐槽匹配
+        self.assertFalse(summarize([good_case(appended="yes")]).ok)
+        # 声明追加但没有独立来源/变化槽记录 -> 失败
         case = good_case(appended=True)
-        case["measurements"][0]["kv_integrity"] = {
-            "k_unchanged": True, "v_unchanged": True, "expected_slots": [2352],
-            "k_changed_slots": [2352], "v_changed_slots": [2353],
-        }
+        case["measurements"][0]["append"] = {"declared": True, "position": 6272, "slot_independent": 2352,
+                                             "slot_helper": 2352}
+        summary = summarize([case])
+        self.assertFalse(summary.ok)
+        self.assertTrue(any(c.name.endswith("append_slot_k") for c in summary.failed))
+        # 期望槽与被测 helper 同源（不一致）-> 失败
+        case = good_case(appended=True)
+        case["measurements"][0]["append"] = {"declared": True, "position": 6272, "slot_independent": 2352,
+                                             "slot_helper": 99, "k_changed_slots": [2352], "v_changed_slots": [2352]}
+        self.assertFalse(summarize([case]).ok)
+        # 实际只错一侧（V）-> 失败
+        case = good_case(appended=True)
+        case["measurements"][0]["append"] = {"declared": True, "position": 6272, "slot_independent": 2352,
+                                             "slot_helper": 2352, "k_changed_slots": [2352], "v_changed_slots": [2353]}
         summary = summarize([case])
         self.assertFalse(summary.ok)
         self.assertTrue(any(c.name.endswith("append_slot_v") for c in summary.failed))
+        # declared=False 却记录了变化槽 -> 失败
+        case = good_case()
+        case["measurements"][0]["append"] = {"declared": False, "k_changed_slots": [1]}
+        self.assertFalse(summarize([case]).ok)
+
+    def test_expectation_must_be_present_and_three_way_equal(self) -> None:
+        # 配置预期缺失（预冻结预期必须参与判据）
+        case = good_case()
+        case["measurements"][0]["expectation"] = {"config": None, "oracle": [0, 7], "actual": [0, 7]}
+        summary = summarize([case])
+        self.assertFalse(summary.ok)
+        self.assertTrue(any(c.name.endswith("expectation_match") for c in summary.failed))
+        # 候选与独立 oracle 不一致
+        case = good_case()
+        case["measurements"][0]["expectation"] = {"config": [0, 7], "oracle": [0, 7], "actual": [0, 8]}
+        self.assertFalse(summarize([case]).ok)
+        # 三方一致 -> 通过
+        case = good_case()
+        case["measurements"][0]["expectation"] = {"config": [0, 7], "oracle": [0, 7], "actual": [0, 7]}
+        self.assertTrue(summarize([case]).ok, summarize([case]).reasons)
+
+    def test_control_only_case_uses_extra_criteria(self) -> None:
+        case = {"id": "negative_control_verdict", "seed": 0, "control_only": True,
+                "extra_criteria": [{"name": "negative_control_rejected", "ok": True, "detail": "已被拒绝"}]}
+        self.assertTrue(summarize([case]).ok)
+        case["extra_criteria"][0]["ok"] = False
+        self.assertFalse(summarize([case]).ok)
 
     def test_extra_criteria_gate_the_verdict(self) -> None:
         case = good_case()

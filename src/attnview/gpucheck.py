@@ -32,7 +32,7 @@ def _crit(name: str, ok: Any, detail: str = "") -> Criterion:
 
 REQUIRED_MEASUREMENT_KEYS = (
     "label", "mode", "kv_len", "numeric", "oracle_selfcheck", "read_table",
-    "data_plane", "kv_integrity", "residency", "appended",
+    "data_plane", "kv_integrity", "residency", "appended", "expectation", "append",
 )
 
 
@@ -103,34 +103,66 @@ def _measurement_criteria(label: str, m: Mapping[str, Any]) -> list[Criterion]:
                 )
             )
 
-    # 追加判据是**附加**判据：给出 expected_slots 就必须逐槽匹配；
-    # 声明 appended=True 却没给 expected_slots 也直接失败。
+    # 预期块三方一致：配置预冻结预期 == 独立 oracle == 候选实际；缺预期即失败
+    expectation = m.get("expectation")
+    if not isinstance(expectation, Mapping):
+        out.append(_crit(f"{label}/expectation_match", False, f"缺少 expectation（实际 {expectation!r}）"))
+    else:
+        config_blocks = expectation.get("config")
+        oracle_blocks = expectation.get("oracle")
+        actual_blocks = expectation.get("actual")
+        present = isinstance(config_blocks, list) and bool(config_blocks)
+        agree = (
+            present
+            and list(config_blocks) == list(oracle_blocks or [])
+            and list(config_blocks) == list(actual_blocks or [])
+        )
+        out.append(
+            _crit(
+                f"{label}/expectation_match",
+                agree,
+                f"配置={config_blocks} oracle={oracle_blocks} 候选={actual_blocks}"
+                + ("" if present else "（配置缺少 expect_blocks：预冻结预期必须参与判据）"),
+            )
+        )
+
+    # 追加判据是**附加**判据；期望槽必须来自独立原位置公式，而不是被测 helper
+    append = m.get("append")
+    if not isinstance(append, Mapping):
+        out.append(_crit(f"{label}/append_declared", False, f"缺少 append 段（实际 {append!r}）"))
+        append = {"declared": None}
+    declared = append.get("declared")
     appended = m.get("appended")
     out.append(
-        _crit(f"{label}/append_declared", appended in (True, False), f"appended={appended!r}（必须为 True/False）")
+        _crit(
+            f"{label}/append_declared",
+            declared in (True, False) and declared == appended,
+            f"append.declared={declared!r} appended={appended!r}",
+        )
     )
-    expected = None
-    if isinstance(integrity, Mapping):
-        expected = integrity.get("expected_slots")
-    if expected is not None:
-        expected = list(expected)
+    if declared:
+        independent = append.get("slot_independent")
+        helper = append.get("slot_helper")
         out.append(
             _crit(
-                f"{label}/append_slot_k",
-                integrity.get("k_changed_slots") == expected,
-                f"K 变化槽={integrity.get('k_changed_slots')} 期望={expected}",
+                f"{label}/append_slot_source_match",
+                isinstance(independent, int) and isinstance(helper, int) and independent == helper,
+                f"独立原位置公式 slot={independent} 被测 helper slot={helper}",
             )
         )
-        out.append(
-            _crit(
-                f"{label}/append_slot_v",
-                integrity.get("v_changed_slots") == expected,
-                f"V 变化槽={integrity.get('v_changed_slots')} 期望={expected}",
+        for key, name in (("k_changed_slots", "append_slot_k"), ("v_changed_slots", "append_slot_v")):
+            changed = append.get(key)
+            out.append(
+                _crit(
+                    f"{label}/{name}",
+                    isinstance(independent, int) and changed == [independent],
+                    f"{key}={changed} 期望（独立公式）=[{independent}]",
+                )
             )
-        )
-    elif appended is True:
+    else:
+        leaked = [append.get(k) for k in ("k_changed_slots", "v_changed_slots") if append.get(k)]
         out.append(
-            _crit(f"{label}/append_slot_k", False, "appended=True 但未给出 expected_slots")
+            _crit(f"{label}/append_not_declared_is_clean", not leaked, f"未声明追加却记录了变化槽：{leaked}")
         )
     residency = m.get("residency", {})
     out.append(
@@ -148,6 +180,10 @@ def evaluate_case(case: Mapping[str, Any]) -> list[Criterion]:
     out: list[Criterion] = []
     prefix = f"{case.get('id')}#seed{case.get('seed')}"
     measurements = list(case.get("measurements", []))
+    if not measurements and case.get("control_only"):
+        for extra in case.get("extra_criteria", []):
+            out.append(_crit(f"{prefix}/{extra.get('name')}", extra.get("ok"), str(extra.get("detail", ""))))
+        return out
     if not measurements:
         out.append(_crit(f"{prefix}/has_measurements", False, "用例没有产生任何测量记录"))
     for m in measurements:

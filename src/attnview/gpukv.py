@@ -35,6 +35,7 @@ class ReadTable:
     tail_len: int
     attention_kv_len: int
     next_write_position: int
+    block_size: int
 
     @property
     def width(self) -> int:
@@ -150,6 +151,12 @@ def read_table_from_read_view(view, logical_to_physical) -> ReadTable:
         )
 
     seqused_k = sum(counts)
+    needed_width = -(-seqused_k // block_size)
+    if needed_width != len(valid_prefix):
+        raise GpuKvError(
+            f"表宽 {len(valid_prefix)} 与 ceil(seqused_k/block_size)={needed_width} 不一致："
+            "后端会按前缀语义索引第 needed_width 列，列数不足即越界"
+        )
     return ReadTable(
         physical_blocks=tuple(valid_prefix),
         visible_blocks=visible_blocks,
@@ -158,4 +165,5 @@ def read_table_from_read_view(view, logical_to_physical) -> ReadTable:
         tail_len=counts[-1],
         attention_kv_len=kv_len,
         next_write_position=int(view.next_write_position),
+        block_size=block_size,
     )

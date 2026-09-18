@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -27,7 +28,11 @@ from attnview.gpukv import read_table_from_read_view  # noqa: E402
 
 
 def main() -> int:
-    cfg = json.loads((ROOT / "configs" / "p1-gpu" / "read-view-check-v2.json").read_text())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/p1-gpu/read-view-check-v3.json")
+    parser.add_argument("--evidence", default="evidence/p1-gpu-v3")
+    args = parser.parse_args()
+    cfg = json.loads((ROOT / args.config).read_text())
     layout = cfg["layouts"]["tail1"]
     cc, tc = cfg["canonical_cache"], cfg["tensor_contract"]
     l2p = tuple(cc["logical_to_physical"])
@@ -72,7 +77,7 @@ def main() -> int:
               f"({'PASS' if h['within_tolerance'] else 'FAIL'}) | 越读 +100 max_abs={o['max_abs']:.4f} "
               f"({'PASS(不应出现)' if o['within_tolerance'] else 'FAIL(符合预期)'})")
 
-    out = ROOT / "evidence" / "p1-gpu-v2" / "negative-control.json"
+    out = ROOT / args.evidence / "negative-control.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"purpose": "越读负对照（v2 夹具）", "records": results}, indent=2, ensure_ascii=False))
     detected = all((not r["overread"]["within_tolerance"]) and r["honest"]["within_tolerance"] for r in results)
