@@ -620,7 +620,8 @@ def git_facts() -> tuple[str, str]:
 
 
 def write_manifest(out_dir: Path, config_path: Path, *, start: str, end: str | None = None,
-                   exit_code: int | None = None, extra: dict | None = None) -> dict:
+                   exit_code: int | None = None, extra: dict | None = None,
+                   name: str = "run-manifest.json") -> dict:
     """把"这次运行"的时序与身份写进证据目录：起止时间、HEAD、工作区、配置 SHA256。"""
     head, status = git_facts()
     # 运行自身产物（证据目录）会让工作区变脏；"代码是否等于 HEAD"要看排除它之后的状态
@@ -649,7 +650,7 @@ def write_manifest(out_dir: Path, config_path: Path, *, start: str, end: str | N
     if extra:
         payload.update(extra)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "run-manifest.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    (out_dir / name).write_text(json.dumps(payload, indent=2, ensure_ascii=False))
     return payload
 
 

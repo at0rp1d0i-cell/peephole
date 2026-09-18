@@ -34,7 +34,8 @@ def main() -> int:
     args = parser.parse_args()
     out_dir = ROOT / args.evidence
     manifest = gpu_check.write_manifest(out_dir, ROOT / args.config, start=gpu_check.now_cst(),
-                                        extra={"script": "p1gpu-overread-control.py"})
+                                        extra={"script": "p1gpu-overread-control.py"},
+                                        name="control-manifest.json")
     print(f"run manifest: HEAD={manifest['head_commit'][:12]} clean={manifest['worktree_clean']} "
           f"config_sha256={manifest['config_sha256'][:16]} start={manifest['start_time_cst']}")
     cfg = json.loads((ROOT / args.config).read_text())
@@ -88,7 +89,8 @@ def main() -> int:
     detected = all((not r["overread"]["within_tolerance"]) and r["honest"]["within_tolerance"] for r in results)
     gpu_check.write_manifest(out_dir, ROOT / args.config, start=manifest["start_time_cst"], end=gpu_check.now_cst(),
                              exit_code=0 if detected else 1, extra={"script": "p1gpu-overread-control.py",
-                                                                   "detected": detected})
+                                                                   "detected": detected},
+                             name="control-manifest.json")
     print(f"\n哨兵抓越读：{'成立' if detected else '不成立'} -> {out}")
     print(f"结束时间 {gpu_check.now_cst()}")
     return 0 if detected else 1
