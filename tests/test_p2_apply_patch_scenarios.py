@@ -138,6 +138,20 @@ class DeployScenarioTest(unittest.TestCase):
     def journal_path(self) -> Path:
         return self.root / "vllm-patch/deployed.json"
 
+    def journal_records(self) -> dict[str, dict]:
+        """journal 的 per-record 视图：`dest` → 记录（含 pending/writing/written 进度）。"""
+        journal = json.loads(self.journal_path().read_text())
+        return {record["dest"]: record for record in journal["files"]}
+
+    def crash_apply(self, index: int = 2) -> dict[str, dict]:
+        """在第 `index` 次部署 copy 处硬崩溃（`os._exit`），返回崩溃后的 journal 记录。"""
+        crash = self.run_tool_injected("crash", index, "injected deployment copy failure")
+        self.assertEqual(crash.returncode, 9, crash.stdout + crash.stderr)
+        return self.journal_records()
+
+    def tree_rel(self, path: Path) -> str:
+        return path.relative_to(self.root).as_posix()
+
     def last_modified_target(self) -> Path:
         return self.root / INSTALL_REL / sorted(self.manifest["edits"])[-1]
 
@@ -318,6 +332,86 @@ class DeployScenarioTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.snapshot(self.dests), pre)
         self.assertFalse(self.journal_path().exists())
+
+    def test_revert_preserves_external_changes_to_untouched_targets(self) -> None:
+        """崩溃后：本事务未触及的目标被外部改动/外部新建 → revert 一律保留并报告。"""
+        pre = self.snapshot(self.dests)
+        records = self.crash_apply(2)
+
+        # journal 必须能区分“已写”与“未触及”
+        self.assertEqual(records[self.tree_rel(self.dests[0])]["state"], "written")
+        self.assertEqual(records[self.tree_rel(self.dests[1])]["state"], "writing")
+        self.assertEqual(records[self.tree_rel(self.dests[2])]["state"], "pending")
+        planned_new = self.dests[2 * len(self.manifest["edits"])]
+        self.assertEqual(records[self.tree_rel(planned_new)]["state"], "pending")
+
+        # 外部改动一个本事务未触及的改写目标；外部新建一个本事务计划但未写的新增目标
+        external_target = self.dests[3]
+        external_target.write_text(external_target.read_text() + "# external edit\n")
+        external_hash = sha256(external_target)
+        planned_new.parent.mkdir(parents=True, exist_ok=True)
+        planned_new.write_text("externally created file\n")
+        external_new_hash = sha256(planned_new)
+
+        result = self.run_tool("revert")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(sha256(external_target), external_hash, "未触及目标的外部改动不得被覆盖")
+        self.assertEqual(sha256(planned_new), external_new_hash, "外部新建文件不得被删除")
+        self.assertIn("preserved:", result.stderr)
+        for path in (self.tree_rel(external_target), self.tree_rel(planned_new)):
+            self.assertIn(path, result.stderr, "被保留的对象必须在输出里点名")
+        # 本事务写入过的对象恢复干净，其余未触及目标保持原样
+        for path, digest in pre.items():
+            if path in (str(external_target), str(planned_new)):
+                continue
+            self.assertEqual(sha256(Path(path)), digest, f"{path} 应回到部署前内容")
+        self.assertFalse(self.journal_path().exists(), "事务记录应清除")
+
+    def test_revert_preserves_written_target_changed_externally(self) -> None:
+        """崩溃后：本事务写过但随后被外部改动的目标 → 保留并告警，不得用备份覆盖。"""
+        records = self.crash_apply(2)
+        written = self.dests[0]
+        self.assertEqual(records[self.tree_rel(written)]["state"], "written")
+        written.write_text(written.read_text() + "# external edit after our write\n")
+        external_hash = sha256(written)
+
+        result = self.run_tool("revert")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(sha256(written), external_hash, "写入后被外部改动的内容不得被覆盖")
+        self.assertIn("preserved:", result.stderr)
+        self.assertIn(self.tree_rel(written), result.stderr)
+        self.assertIn("写入后被外部改动", result.stderr)
+        self.assertFalse(self.journal_path().exists())
+
+    def test_force_revert_overrides_external_edits_but_not_pending(self) -> None:
+        """`--force` 可强制覆盖已写目标的外部改动；`pending`（本事务未触及）仍然不动。"""
+        pre = self.snapshot(self.dests)
+        self.crash_apply(2)
+        written = self.dests[0]
+        written.write_text(written.read_text() + "# external edit\n")
+        planned_new = self.dests[2 * len(self.manifest["edits"])]
+        planned_new.parent.mkdir(parents=True, exist_ok=True)
+        planned_new.write_text("externally created file\n")
+        external_new_hash = sha256(planned_new)
+
+        result = self.run_tool("revert", "--force")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(sha256(written), pre[str(written)], "--force 应按备份恢复本事务写过的目标")
+        self.assertEqual(sha256(planned_new), external_new_hash, "pending 目标即便 --force 也不得动")
+        self.assertIn("preserved:", result.stderr)
+        self.assertFalse(self.journal_path().exists())
+
+    def test_verify_after_crash_ignores_pending_records(self) -> None:
+        """崩溃后 `verify` 只判定本事务实际写过的对象：未写入的 pending 记录不算差异。"""
+        self.crash_apply(2)
+
+        result = self.run_tool("verify")
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("本事务未写入", result.stdout)
 
     def test_bytecode_cleanup_only_touches_this_transaction(self) -> None:
         """字节码清理按 `--repo-root` 解析、只删本事务落位模块的 `.pyc`（含包目录条目）。"""

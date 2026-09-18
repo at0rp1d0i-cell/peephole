@@ -11,15 +11,29 @@
 - **先全量预检、再动任何文件**：逐个核对部署源哈希（新文件 + patched 替换文件，须等于记录的 post）
   与目标状态（改写目标须存在且等于 pre；新增目标不得存在）；任一不符 → 整体拒绝（退出码 4），
   不留下半部署状态；
-- 预检通过后先落**备份与事务日志**（`deployed.json` 标 `applying` + 完整目标清单），并立即校验
-  备份完整性（须等于记录的前置哈希），全部落盘成功后才开始改写目标；
-- 写入路径（`mkdir` / `copy2` / 部署后哈希 / 日志定稿）任一步失败 → 只回滚**本事务实际写过的对象**
+- 预检通过后先落**备份与事务日志**（`deployed.json` 标 `applying` + 完整目标清单，逐条 `state:
+  pending`），并立即校验备份完整性（须等于记录的前置哈希），全部落盘成功后才开始改写目标；
+- **写入进度逐步落盘**：每个目标先标 `writing` 落盘、用「同目录临时文件 + `os.replace`」原子落位，
+  校验后标 `written` 落盘。因此磁盘上的 journal 始终能回答“本事务实际写过哪些对象”，且目标只会是
+  `pre` 或 `post`，不会出现半截文件；
+- 写入路径（`mkdir` / 落位 / 部署后哈希 / 日志落盘）任一步失败 → 只回滚**本事务实际写过的对象**
   （改写目标回填已验证的备份、新建目标删除、本事务新建的空目录逐个 `rmdir`），清除事务记录后
   以退出码 5 退出；回滚自身失败则**保留**事务记录，交给 `revert` 按未完成事务继续恢复，仍返回非零；
-- `revert` 有两个入口：`state == "deployed"` 时**先全量核对**每个目标的现状哈希（须等于记录的后置
-  哈希）与备份哈希（须等于记录的前置哈希），现状不符整体拒绝（退出码 7，`--force` 可强制执行），
-  **备份完整性任何情况下都不可绕过**；`state != "deployed"`（崩溃/中断留下的 `applying`）时不再
-  要求现状匹配，直接按已落位对象恢复并正常退出（退出码 0，幂等）；
+- `revert` 有两个入口：
+  * `state == "deployed"`：**先全量核对**每个目标的现状哈希（须等于记录的后置哈希）与备份哈希
+    （须等于记录的前置哈希），现状不符整体拒绝（退出码 7，`--force` 可强制执行），
+    **备份完整性任何情况下都不可绕过**；
+  * `state != "deployed"`（崩溃/中断留下的 `applying`）：**只处理本事务实际写过的对象** ——
+    `written`/`writing`（旧格式无 `state` 字段的记录视同 `writing`）按内容判归属：
+    当前内容 == 记录 `post` → 是本事务写的（改写目标回填备份、新增目标删除）；内容 == `pre`
+    或新增目标不存在 → 本事务的写入没有落位，跳过；其余（写入后被外部改动、被删除、外部新建）
+    → **保留并告警，绝不覆盖**（`--force` 才强制按备份恢复/删除）。`pending` 记录是明确的
+    “本事务未触及”证据，**任何情况下都不动它**（`--force` 也不动）；
+- 退出码：0 = 撤销完成（本事务的对象已恢复/删除；若保留了外部状态，stderr 有 `preserved:` 提示
+  与计数）；4 = 完整性/预检拒绝；5 = 写入失败并已回滚；6 = `verify` 发现差异；
+  7 = 核对失败或存在无法恢复的对象（事务记录保留）。
+  保留外部状态仍算撤销完成（本事务的契约是“只动自己写过的”，此时契约已满足；外部改动不是本事务的
+  责任，也不该被无声覆盖），由 `preserved:` 行与 exit 0 区分于“无保留的干净撤销”。
 - 只删除**本次新增**的文件；包目录用 `rmdir` 逐级清理，**绝不** `rmtree`，
   目录内若仍有无关文件则保留目录并给出告警；
 - 字节码清理只针对**本事务落位的模块**：按 `layout.repo / record['dest']` 定位其 `__pycache__`
@@ -31,6 +45,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timedelta, timezone
@@ -165,10 +180,111 @@ def missing_dirs(dest_dir: Path, stop: Path) -> list[Path]:
 
 def discard_journal(layout: Layout) -> None:
     """尽力清除事务记录（只在事务对象已恢复、或目标文件从未被改动时调用）。"""
+    for path in (layout.journal, layout.journal.with_name(layout.journal.name + ".tmp")):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            print(f"warning: 事务记录未能删除：{rel(layout, path)}（{exc!r}）", file=sys.stderr)
+
+
+def save_journal(layout: Layout, journal: dict) -> None:
+    """原子落盘事务记录（同目录临时文件 + `os.replace`），崩溃不会留下半截 JSON。"""
+    tmp = layout.journal.with_name(layout.journal.name + ".tmp")
+    tmp.write_text(json.dumps(journal, ensure_ascii=False, indent=2))
+    os.replace(tmp, layout.journal)
+
+
+def tmp_path_of(dest: Path) -> Path:
+    """部署落位用的同目录临时文件（`os.replace` 前的中间态）。"""
+    return dest.parent / f".{dest.name}.p2-deploy-tmp"
+
+
+def replace_copy(src: Path, dest: Path) -> None:
+    """原子落位单个文件：先写同目录临时文件再 `os.replace`。
+
+    目的是让目标只有 `pre` / `post` 两种内容，崩溃不会留下半截文件 —— 这是
+    “journal 里的 `writing` 记录只能靠内容判归属”能成立的前提。
+    """
+    tmp = tmp_path_of(dest)
     try:
-        layout.journal.unlink(missing_ok=True)
-    except OSError as exc:
-        print(f"warning: 事务记录未能删除：{rel(layout, layout.journal)}（{exc!r}）", file=sys.stderr)
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def target_state(layout: Layout, record: dict) -> str:
+    """目标当前内容相对本事务记录的状态：`post` / `pre` / `missing` / `other`（外部内容）。"""
+    dest = layout.repo / record["dest"]
+    if not dest.exists():
+        return "missing"
+    if not dest.is_file():
+        return "other"
+    got = sha256_file(dest)
+    if got == record["post"]:
+        return "post"
+    if record["kind"] == "modified" and got == record["pre"]:
+        return "pre"
+    return "other"
+
+
+def perturbed(record: dict, cur: str) -> bool:
+    """`pending` 目标是否已被外部改动（用于报告，不用于归属推断）。"""
+    return cur != ("pre" if record["kind"] == "modified" else "missing")
+
+
+def recovery_action(record: dict, cur: str, *, force: bool) -> str:
+    """崩溃恢复时对单条记录的动作：`skip` / `undo` / `preserve`。
+
+    `pending`（journal 明示本事务未触及）永不 undo，只报告；`writing`/`written`（旧格式无
+    `state` 字段视同 `writing`）以内容判归属：`post` 才是本事务写的，`pre`/不存在表示写入未落位，
+    其余一律 `preserve`（`--force` 才改成 `undo`）。
+    """
+    if (record.get("state") or "unknown") == "pending":
+        return "preserve" if perturbed(record, cur) else "skip"
+    if cur == "post":
+        return "undo"
+    if cur == "pre" or (record["kind"] == "added" and cur == "missing"):
+        return "skip"
+    return "undo" if force else "preserve"
+
+
+def undo_record(layout: Layout, record: dict) -> list[str]:
+    """撤销本事务写入的单个对象（改写目标回填备份、新增目标删除），返回问题清单。幂等。"""
+    dest = layout.repo / record["dest"]
+    tmp = tmp_path_of(dest)
+    problems: list[str] = []
+    if record["kind"] == "modified":
+        backup_rel = record.get("backup")
+        backup = layout.repo / str(backup_rel)
+        if not backup_rel or not backup.is_file():
+            problems.append(f"无法恢复（缺备份）：{record['dest']}")
+        elif sha256_file(backup) != record["pre"]:
+            problems.append(f"备份哈希不符，拒绝用于恢复：{backup_rel}")
+        else:
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(backup, dest)
+            except OSError as exc:
+                problems.append(f"恢复失败：{record['dest']}（{exc!r}）")
+            else:
+                if sha256_file(dest) != record["pre"]:
+                    problems.append(f"恢复后哈希不符：{record['dest']}")
+    elif dest.exists():
+        try:
+            dest.unlink()
+        except OSError as exc:
+            problems.append(f"删除失败：{record['dest']}（{exc!r}）")
+    try:
+        tmp.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return problems
 
 
 # --------------------------------------------------------------------------- #
@@ -233,6 +349,7 @@ def do_apply(layout: Layout, manifest: dict) -> int:
                 "kind": t["kind"],
                 "package": t["package"],
                 "backup": None,
+                "state": "pending",  # pending → writing → written，随写入逐步落盘
             }
             if t["kind"] == "modified":
                 backup = backup_path(layout, dest)
@@ -242,18 +359,13 @@ def do_apply(layout: Layout, manifest: dict) -> int:
                     raise BackupIntegrityError(f"备份哈希不符：{rel(layout, backup)}")
                 record["backup"] = rel(layout, backup)
             records.append(record)
-        layout.journal.write_text(
-            json.dumps(
-                {
-                    "state": "applying",
-                    "started_cst": now_cst(),
-                    "pin_commit": manifest.get("pin_commit"),
-                    "files": records,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
+        journal = {
+            "state": "applying",
+            "started_cst": now_cst(),
+            "pin_commit": manifest.get("pin_commit"),
+            "files": records,
+        }
+        save_journal(layout, journal)
     except BackupIntegrityError as exc:
         print(f"{exc}；备份阶段拒绝，未修改任何目标文件", file=sys.stderr)
         shutil.rmtree(layout.orig_root, ignore_errors=True)
@@ -265,32 +377,35 @@ def do_apply(layout: Layout, manifest: dict) -> int:
         discard_journal(layout)
         return 5
 
-    # --- 阶段 3：复制并逐项校验；任一步失败即只回滚本事务已落位的对象 ---
+    # --- 阶段 3：逐个原子落位并逐项校验；任一步失败即只回滚本事务已落位的对象 ---
     attempted: list[dict] = []
     created_dirs: list[Path] = []
     try:
         for record in records:
             dest = layout.repo / record["dest"]
+            record["state"] = "writing"  # 意图先落盘：崩溃后这一条也视为“本事务动过”
+            save_journal(layout, journal)
+            attempted.append(record)
             created_dirs.extend(missing_dirs(dest.parent, layout.repo))
             dest.parent.mkdir(parents=True, exist_ok=True)
-            attempted.append(record)  # 先登记：copy2 可能写到一半才失败
-            shutil.copy2(layout.repo / record["src"], dest)
+            replace_copy(layout.repo / record["src"], dest)
             got = sha256_file(dest)
             if got != record["post"]:
                 raise DeploymentError(
                     f"部署后哈希不符：{record['dest']} {got[:12]} != {record['post'][:12]}"
                 )
+            record["state"] = "written"
+            save_journal(layout, journal)
     except (OSError, DeploymentError) as exc:
         print(f"部署失败：{exc}；自动回滚已落位的 {len(attempted)} 个对象", file=sys.stderr)
         _rollback(layout, attempted, created_dirs=created_dirs)
         return 5
 
     try:
-        journal = json.loads(layout.journal.read_text())
         journal["state"] = "deployed"
         journal["deployed_cst"] = now_cst()
-        layout.journal.write_text(json.dumps(journal, ensure_ascii=False, indent=2))
-    except (OSError, json.JSONDecodeError) as exc:
+        save_journal(layout, journal)
+    except OSError as exc:
         print(f"事务记录定稿失败：{exc!r}；自动回滚全部 {len(records)} 个已落位对象", file=sys.stderr)
         _rollback(layout, records, created_dirs=created_dirs)
         return 5
@@ -307,28 +422,9 @@ def _rollback(layout: Layout, records: list[dict], *, created_dirs: list[Path] |
     """
     problems: list[str] = []
     for record in records:
-        dest = layout.repo / record["dest"]
-        if record["kind"] == "modified":
-            backup_rel = record.get("backup")
-            backup = layout.repo / str(backup_rel)
-            if not backup_rel or not backup.is_file() or sha256_file(backup) != record["pre"]:
-                problems.append(f"回滚缺少可信备份：{record['dest']}（backup={backup_rel}）")
-                continue
-            if dest.is_file() and sha256_file(dest) == record["pre"]:
-                continue  # 目标未被改动（或已回滚过）：幂等跳过
-            try:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(backup, dest)
-            except OSError as exc:
-                problems.append(f"回滚写入失败：{record['dest']}（{exc!r}）")
-                continue
-            if sha256_file(dest) != record["pre"]:
-                problems.append(f"回滚后哈希不符：{record['dest']}")
-        elif dest.exists():
-            try:
-                dest.unlink()
-            except OSError as exc:
-                problems.append(f"回滚删除失败：{record['dest']}（{exc!r}）")
+        if record["kind"] == "modified" and target_state(layout, record) == "pre":
+            continue  # 未落位（或已回滚过）：幂等跳过
+        problems.extend(undo_record(layout, record))
     # 本事务新建的空目录逐个 rmdir（只删空目录，绝不 rmtree 无关内容）
     for path in sorted(set(created_dirs or []), key=lambda p: len(p.parts), reverse=True):
         try:
@@ -379,17 +475,25 @@ def do_verify(layout: Layout) -> int:
     if journal is None:
         print("未部署（无事务记录）")
         return 0
-    bad = []
+    deployed = journal.get("state") == "deployed"
+    bad: list[str] = []
+    unwritten: list[str] = []
     for record in journal["files"]:
-        dest = layout.repo / record["dest"]
-        if not dest.is_file():
-            bad.append(f"缺失 {record['dest']}")
+        # 未完成事务里 `pending`（本事务从未触及）与“写入未落位”的记录不能按“应为 post”判失败
+        rstate = record.get("state") or "unknown"
+        if not deployed and rstate == "pending":
+            unwritten.append(record["dest"])
             continue
-        got = sha256_file(dest)
-        if got != record["post"]:
-            bad.append(f"哈希不符 {record['dest']} {got[:12]} != {record['post'][:12]}")
-    print(f"校验（state={journal.get('state')}）：{len(journal['files'])} 个目标，"
-          + ("全部一致" if not bad else "存在差异"))
+        cur = target_state(layout, record)
+        if cur == "post":
+            continue
+        if not deployed and (cur == "pre" or (record["kind"] == "added" and cur == "missing")):
+            unwritten.append(record["dest"])
+            continue
+        bad.append(f"{record['dest']}：当前 {cur}，期望 {record['post'][:12]}")
+    print(f"校验（state={journal.get('state')}）：{len(journal['files'])} 个目标"
+          + (f"（{len(unwritten)} 个本事务未写入/未落位）" if unwritten else "")
+          + "，" + ("全部一致" if not bad else "存在差异"))
     for line in bad:
         print("  " + line)
     return 0 if not bad else 6
@@ -407,10 +511,12 @@ def do_revert(layout: Layout, *, force: bool) -> int:
         return 0
     records = journal["files"]
     state = journal.get("state")
+    preserved: list[str] = []
 
-    # --- 阶段 1：核对（不修改任何文件） ---
-    # `deployed`：先全量核对现状哈希与备份哈希；`applying`（崩溃/中断的半部署）：不要求现状匹配，
-    # 直接按已落位对象恢复。备份完整性任何情况下都不可绕过（--force 也不例外）。
+    # --- 阶段 1：核对 + 制定计划（不修改任何文件） ---
+    # `deployed`：全量核对现状，任一不符整体拒绝（退出码 7，`--force` 才继续）；
+    # 未完成事务（`applying` 等）：只处理 journal 标记为本事务实际写过的对象，外部状态一律保留。
+    # 备份完整性（缺失/哈希不符）任何情况下都不可绕过（`--force` 也不例外）。
     if state == "deployed":
         state_problems: list[str] = []
         backup_problems: list[str] = []
@@ -439,41 +545,35 @@ def do_revert(layout: Layout, *, force: bool) -> int:
             return 7
         if state_problems:
             print(f"警告：--force 忽略 {len(state_problems)} 项现状核对问题", file=sys.stderr)
+        plan = [("undo", record) for record in records]
     else:
-        backup_problems = [p for record in records for p in backup_problems_of(layout, record)]
-        if backup_problems:
-            print(f"事务未完成（state={state}）且备份不可信：{len(backup_problems)} 项，未修改任何文件", file=sys.stderr)
-            for line in backup_problems:
+        print(f"事务未完成（state={state}）：只处理本事务实际写过的对象", file=sys.stderr)
+        plan = []
+        plan_problems: list[str] = []
+        for record in records:
+            action = recovery_action(record, target_state(layout, record), force=force)
+            if action == "undo":
+                plan_problems.extend(backup_problems_of(layout, record))
+            elif action == "preserve":
+                rstate = record.get("state") or "unknown"
+                reason = "本事务未触及" if rstate == "pending" else "写入后被外部改动"
+                preserved.append(f"{record['dest']}（{reason}）")
+            plan.append((action, record))
+        if plan_problems:
+            print(f"撤销前核对失败：{len(plan_problems)} 项备份问题，未修改任何文件"
+                  "（备份完整性不可用 --force 绕过）", file=sys.stderr)
+            for line in plan_problems:
                 print("  " + line, file=sys.stderr)
             return 7
-        print(f"事务未完成（state={state}）：按实际落位情况恢复，不要求现状与部署后哈希一致", file=sys.stderr)
 
-    # --- 阶段 2：只恢复/删除本次的文件（幂等：已回到前置状态的目标不动） ---
+    # --- 阶段 2：只恢复/删除计划中 `undo` 的对象（恢复内容来自已校验的备份，重复调用无副作用） ---
     leftovers: list[str] = []
-    for record in records:
-        dest = layout.repo / record["dest"]
-        if record["kind"] == "modified":
-            backup = layout.repo / str(record["backup"])
-            if not backup.is_file():
-                leftovers.append(f"无法恢复（缺备份）：{record['dest']}")
-                continue
-            if dest.is_file() and sha256_file(dest) == record["pre"]:
-                continue
-            try:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(backup, dest)
-            except OSError as exc:
-                leftovers.append(f"恢复失败：{record['dest']}（{exc!r}）")
-        elif dest.exists():
-            # 新增目标：部署预检已保证它此前不存在，故此刻存在即本事务写入（可能是半截文件）——
-            # 按“实际已写入的对象”删除，正是崩溃恢复要做的。
-            try:
-                dest.unlink()
-            except OSError as exc:
-                leftovers.append(f"删除失败：{record['dest']}（{exc!r}）")
+    acted = [record for action, record in plan if action == "undo"]
+    for record in acted:
+        leftovers.extend(undo_record(layout, record))
 
-    # --- 阶段 3a：清掉本次落位模块的字节码缓存（属本次副产物） ---
-    cleaned = clean_bytecode(layout, records)
+    # --- 阶段 3a：清掉本次落位模块的字节码缓存（属本次副产物；未触及的模块不动） ---
+    cleaned = clean_bytecode(layout, acted)
 
     # --- 阶段 3：包目录只清本次文件，空目录用 rmdir ---
     # 说明：目录里若还有**非本次**文件，属于他人内容 —— 保留文件与目录并**告警**，
@@ -498,13 +598,13 @@ def do_revert(layout: Layout, *, force: bool) -> int:
             if not extra:
                 warnings.append(f"包目录非空，未删除：{rel(layout, package_dir)}")
 
-    # --- 阶段 4：收尾 ---
-    for record in records:
-        dest = layout.repo / record["dest"]
+    # --- 阶段 4：收尾（只校验本事务真正恢复/删除过的对象） ---
+    for record in acted:
+        cur = target_state(layout, record)
         if record["kind"] == "modified":
-            if not dest.is_file() or sha256_file(dest) != record["pre"]:
-                leftovers.append(f"恢复后哈希不符：{record['dest']}")
-        elif dest.exists():
+            if cur != "pre":
+                leftovers.append(f"恢复后与前置内容不一致：{record['dest']}（{cur}）")
+        elif cur != "missing":
             leftovers.append(f"新增目标未被删除：{record['dest']}")
     if leftovers:
         print("撤销未完全成功（保留事务记录以便处理）：", file=sys.stderr)
@@ -517,7 +617,15 @@ def do_revert(layout: Layout, *, force: bool) -> int:
         print("cleaned: " + line, file=sys.stderr)
     for line in warnings:
         print("warning: " + line, file=sys.stderr)
-    print(f"撤销完成：{len(records)} 个目标已恢复/删除，指纹已校验" + (f"（{len(warnings)} 条告警）" if warnings else ""))
+    for line in preserved:
+        print("preserved: " + line, file=sys.stderr)
+    summary = f"撤销完成：{len(acted)} 个目标已恢复/删除，指纹已校验"
+    notes = []
+    if warnings:
+        notes.append(f"{len(warnings)} 条告警")
+    if preserved:
+        notes.append(f"{len(preserved)} 个外部对象被保留")
+    print(summary + (f"（{'、'.join(notes)}）" if notes else ""))
     return 0
 
 

@@ -1,0 +1,29 @@
+=== 部署/撤销演练（提交后；2026-09-18 13:35:15 +0800；HEAD=a208ed0）===
+--- 1) 负例：篡改目标 → apply 必须拒绝(4) 且零写入 ---
+预检失败：1 项冲突，未修改任何文件
+  前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
+apply 退出码=4（期望 4）
+--- 2) apply/verify ---
+部署完成：27 个目标（源码 checkout + site-packages 两处），事务记录 vllm-patch/deployed.json
+apply=0
+校验（state=deployed）：27 个目标，全部一致
+verify=0
+--- 3) 部署态核验（真实调用）---
+编排早于 execute_model: True
+shutdown 接线: True
+抢占=中止+抛不支持: True
+抢占用真实 finish_requests: True
+门禁按实例: True
+几何取 runner 实际对象: True
+FA2 版本+prefill 边界: True
+hybrid 转传覆写: True
+default 显式拒绝: True
+--- 4) 部署态全量测试（应含提交态校验通过）---
+Ran 227 tests in 9.000s
+
+FAILED (failures=21, skipped=1)
+--- 5) revert/指纹 ---
+warning: 包目录仍有非本次文件，已保留：['__pycache__']
+撤销完成：27 个目标已恢复/删除，指纹已校验（1 条告警）
+revert=0
+脏行=0（期望 0）；副本差异=0（期望 0）；orig=0；事务=0
