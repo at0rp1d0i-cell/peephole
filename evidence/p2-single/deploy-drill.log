@@ -1,5 +1,5 @@
-=== 部署/撤销演练（事务化脚本；2026-09-18 12:23:35 +0800）===
---- 0) 前置：checkout 脏行=0；两副本差异=0；HEAD=7a2f5d8 ---
+=== 部署/撤销演练（事务化脚本；2026-09-18 13:17:36 +0800；HEAD=2141f9c）===
+--- 0) 前置：checkout 脏行=0；两副本差异=0 ---
 --- 1) 负例：篡改目标后 apply 必须整体拒绝、不碰任何文件、不留事务记录 ---
 预检失败：1 项冲突，未修改任何文件
   前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
@@ -10,15 +10,13 @@ apply 退出码=4（期望 4）
 apply 退出码=0
 校验（state=deployed）：27 个目标，全部一致
 verify 退出码=0
---- 4) 部署后符号、接线与门禁 ---
-adapter.fa_override_for_step: True | 覆写入口内已接线门禁: True
-engine.make_token_text_of: True | 引擎侧登记即校验: True
+--- 4) 部署后符号、接线、门禁与存活守卫 ---
+adapter.fa_override_for_step 内接线门禁: True
+engine.make_token_text_of: True | 登记门禁: True | 存活守卫: True
+引擎侧 on_step_outputs 先查账本: True
 build_attn_metadata(da_fa_override): True
-mamba_hybrid.prepare_attn(da_fa_override): True
 SchedulerOutput.da_step_plans: True
-Worker.attnview_geometry: True
-core.__init__ 注入 tokenizer 工厂: True | 构造 AttnViewEngine: True
-core.step 接合: True | 批次队列守卫: True
+core.__init__ 注入 tokenizer 工厂: True | step 接合: True | 批次队列守卫: True
 退出码=0
 --- 5) revert / 6) 撤销后指纹 ---
 cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__

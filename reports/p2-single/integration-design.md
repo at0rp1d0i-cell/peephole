@@ -355,3 +355,19 @@ GPUModelRunner.execute_model                         [worker 进程]
   断言 manifest 引用的每个来源都在提交里、且**内容哈希与 manifest 声明一致**、且不再被 `.gitignore` 忽略。
   该测试断言的是提交态，因此失败即意味着"有产物没入库/入库的是旧版本"。
 
+**(g) 执行中取消/抢占的存活核对（第四轮 blocker）**：初稿的 `on_step_outputs` 先 `register_new_requests` 再
+`parse_outputs`，且只看 `SchedulerOutput.finished_req_ids` —— 但那个集合是**上一步**终结的快照
+（`Scheduler.schedule()` 在返回前已 `self.finished_req_ids = set()`，`scheduler.py:1495`）；
+执行中被取消的请求由 `_process_aborts_queue` 处理，`update_from_output` 会**跳过**它（`:1880`）并**不产出 finish 项**，
+`_free_request` 会 `del self.requests[...]`（`:2512`）。因此旧顺序会**重建/解析已取消请求**。
+
+- 现在：每一步先取**调度器账本存活集**（`self._requests()`），顺序为
+  ①丢弃 `finished_req_ids`（上一步快照）→ ②**按存活集过滤后**再登记新请求 → ③把"账本里消失且本步无正常终结项"
+  的请求判为执行中取消/抢占：**不解析**、直接释放并写 trace（`cancelled_during_step` / `preempted_during_step`，
+  后者标 `unsupported: true` —— 抢占本阶段不支持，驱动侧据此停该用例）→ ④只解析「仍存活」或「本步**正常终结**」
+  的请求（正常终结的 stop token 仍须进入解析与 trace）→ ⑤释放本步正常终结者。
+- 测试：`AbortDuringStepTest` 覆盖 CPU 轨迹"schedule → 执行中 abort → 输出回收"（含"被取消请求的采样 token
+  不得进入解析"、"正常 stop token 仍解析后释放"、"登记前已取消则不登记"、"抢占标记 unsupported"），
+  并用源码锚定测试断言 pin 里确实有 `self.finished_req_ids = set()`、`del self.requests[...]`、
+  `if request is None or request.is_finished():` 三处语义，防止夹具与源码漂移。
+
