@@ -13,7 +13,10 @@ engine 侧解析见 `vllm/v1/engine/attnview_engine.py`（跨进程边界：本�
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import torch
@@ -23,12 +26,193 @@ from attnview.step_plan import Geometry, StepPlan, UnsupportedConfig, check_supp
 __all__ = [
     "DA_PLAN_FIELD",
     "DaFaOverride",
+    "calibration_force_tokens",
+    "calibration_capture_logits",
+    "calibration_note_override",
     "derive_geometry",
     "assert_supported_config",
     "fa_override_for_step",
     "metering_snapshot",
     "reset_metering",
 ]
+
+# --------------------------------------------------------------------------- #
+# 校准专用钩子（仅当环境变量设置时生效；普通运行**零影响**，不引入分支成本以外的行为）
+#
+# - `ATTNVIEW_CALIB_FORCE`：JSON 文件 `{"tokens": [[t], ...]}`，按步给强制轨迹；
+# - `ATTNVIEW_CALIB_FORCE_LOG`：把每步的**原始采样**与**强制值**逐行写成 JSONL；
+# - `ATTNVIEW_CALIB_TRACE`：把每步覆写后的 FA metadata 与 canonical/非 FA 输入不变证据写成 JSONL。
+# --------------------------------------------------------------------------- #
+
+_CALIB_LOGITS = "ATTNVIEW_CALIB_LOGITS"
+_CALIB_FORCE = "ATTNVIEW_CALIB_FORCE"
+_CALIB_FORCE_LOG = "ATTNVIEW_CALIB_FORCE_LOG"
+_CALIB_TRACE = "ATTNVIEW_CALIB_TRACE"
+
+_CALIB_STATE: dict[str, Any] = {"tokens": None, "step": 0}
+
+
+def _append_jsonl(path: str, record: Mapping[str, Any]) -> None:
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def calibration_capture_logits(logits: torch.Tensor, input_batch: Any) -> bool:
+    """测试专用：保存**完整** logits（不是 top-k 归一化后的近似）。
+
+    调用点必须在 worker `GPUModelRunner.sample` 里 `self.model.compute_logits(...)` **之后**、
+    grammar/sampler **就地改写之前**（pin `model_runner.py:1421-1432`）—— 归一化或截断后的 top-k
+    无法用于全词表最大绝对误差/RMS，也会漏掉尾部的非有限值。
+
+    落盘 `ATTNVIEW_CALIB_LOGITS` 指向的 `.pt`（`torch.save`，追加成 dict 列表）：
+    `{"step": i, "req_ids": [...], "logits": fp32 CPU 张量[num_rows, vocab]}`。
+    未设置该环境变量时完全不介入（普通请求零影响）。本钩子含显式 D2H 同步，属校准专用。
+    """
+    path = os.environ.get(_CALIB_LOGITS)
+    if not path:
+        return False
+    _CALIB_STATE["step"] = int(_CALIB_STATE.get("step", 0))
+    record = {
+        "step": int(_CALIB_STATE["step"]) + 1,
+        "req_ids": list(getattr(input_batch, "req_ids", ()) or ()),
+        "logits": logits.detach().to("cpu", dtype=torch.float32),
+        "shape": list(logits.shape),
+        "dtype_on_device": str(logits.dtype),
+        "sync_note": "本钩子含显式 D2H 同步（保存完整 logits），属校准专用，非稳态行为",
+    }
+    target = Path(path)
+    existing = torch.load(target, weights_only=False) if target.exists() else []
+    existing.append(record)
+    torch.save(existing, target)
+    return True
+
+
+def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str]) -> bool:
+    """测试专用 token 强制：**原地**替换 `sampler_output.sampled_token_ids`。
+
+    调用点必须紧跟 worker 的 `self.sample(...)` 之后、PP broadcast / `AsyncOutput` /
+    `postprocess_sampled` **之前** —— 这样 worker 历史与经 AsyncOutput 送往宿主的 token 是**同一个值**，
+    不会出现"worker 历史与解析 token 分叉"。强制声明不代表模型自主行为，仅用于同轨迹对照。
+
+    返回是否发生了替换；未设置 `ATTNVIEW_CALIB_FORCE` 时**完全不介入**（普通请求无此钩子）。
+    """
+    force_path = os.environ.get(_CALIB_FORCE)
+    if not force_path:
+        return False
+    if _CALIB_STATE["tokens"] is None:
+        payload = json.loads(Path(force_path).read_text())
+        raw_tokens = payload["tokens"]
+        # 格式：tokens[step][row] = [token_ids...]（每步 × 每个请求行）；单请求单 token 即 [[[t]], ...]
+        parsed: list[list[list[int]]] = []
+        for step_index, rows in enumerate(raw_tokens):
+            if not isinstance(rows, (list, tuple)) or any(
+                isinstance(row, int) or not isinstance(row, (list, tuple)) for row in rows
+            ):
+                raise RuntimeError(
+                    f"attnview 校准: 强制轨迹第 {step_index + 1} 步格式不对 —— 需要"
+                    " tokens[step][row] = [token_ids...]（每步 × 每个请求行的两级列表）"
+                )
+            parsed.append([[int(t) for t in row] for row in rows])
+        _CALIB_STATE["tokens"] = parsed
+    tokens = _CALIB_STATE["tokens"]
+    step = int(_CALIB_STATE["step"])
+    if step >= len(tokens):
+        raise RuntimeError(
+            f"attnview 校准: 强制轨迹只有 {len(tokens)} 步，本步是第 {step + 1} 步（轨迹用尽即拒绝）"
+        )
+    forced = tokens[step]
+    sampled = sampler_output.sampled_token_ids
+    raw = [[int(v) for v in row] for row in sampled.detach().to("cpu").tolist()]
+    if len(forced) != len(raw) or any(len(f) != len(r) for f, r in zip(forced, raw)):
+        raise RuntimeError(
+            f"attnview 校准: 第 {step + 1} 步强制 token 形状 {[len(f) for f in forced]} "
+            f"与采样形状 {[len(r) for r in raw]} 不一致"
+        )
+    replacement = torch.tensor(forced, dtype=sampled.dtype, device=sampled.device)
+    # 原地写回：PP broadcast / AsyncOutput / postprocess 都读同一块内存
+    sampled.copy_(replacement)
+    _CALIB_STATE["step"] = step + 1
+    log_path = os.environ.get(_CALIB_FORCE_LOG)
+    if log_path:
+        _append_jsonl(
+            log_path,
+            {
+                "kind": "force_tokens",
+                "step": step + 1,
+                "req_ids": list(req_ids),
+                "raw_sampled": raw,
+                "forced": forced,
+                "sync_note": "本钩子含 D2H(读原始采样)+H2D(写强制 token)，属校准专用同步，非稳态行为",
+            },
+        )
+    return True
+
+
+def calibration_note_override(
+    override: DaFaOverride | None,
+    *,
+    req_ids: Sequence[str],
+    scheduler_output: Any,
+    inputs: Mapping[str, Any],
+) -> None:
+    """把本步 FA 覆写与其"未改写入参"证据写成 JSONL（仅在 `ATTNVIEW_CALIB_TRACE` 设置时）。
+
+    `inputs` 传本步的 canonical 块表/长度张量等；这里记录 `data_ptr()` 与 `_version`
+    （都是 **CPU 侧**元数据，不读设备内存、不触发同步），用于事后核对"canonical/非 FA 输入未被就地改写"。
+    """
+    trace_path = os.environ.get(_CALIB_TRACE)
+    if not trace_path:
+        return
+    record: dict[str, Any] = {
+        "kind": "override_step",
+        "step": int(_CALIB_STATE["step"]),
+        "req_ids": list(req_ids),
+        "num_scheduled_tokens": dict(getattr(scheduler_output, "num_scheduled_tokens", None) or {}),
+        "stream": _stream_fingerprint(),
+        "inputs": {
+            name: {
+                "shape": list(t.shape),
+                "dtype": str(t.dtype),
+                "data_ptr": int(t.data_ptr()),
+                "version": int(getattr(t, "_version", -1)),
+            }
+            for name, t in inputs.items()
+            if hasattr(t, "data_ptr")
+        },
+    }
+    if override is None:
+        record["override"] = None
+    else:
+        record["override"] = {
+            "group_index": int(override.group_index),
+            "rows_with_override": list(override.rows_with_override),
+            "max_seq_len": int(override.max_seq_len),
+            "seqused_k": [int(v) for v in override.seq_lens.detach().to("cpu").tolist()],
+            "visible_logical_blocks": {
+                str(row): list(plan.visible_logical_blocks) for row, plan in override.plans.items()
+            },
+            "block_table": {
+                "shape": list(override.block_table.shape),
+                "dtype": str(override.block_table.dtype),
+                "data_ptr": int(override.block_table.data_ptr()),
+            },
+            "metering": metering_snapshot(),
+        }
+    _append_jsonl(trace_path, record)
+
+
+def _stream_fingerprint() -> dict[str, Any]:
+    """记录当前 CUDA stream 与图捕获状态（只读元数据；不读设备内容、不触发同步）。"""
+    if not torch.cuda.is_available():
+        return {"cuda": False}
+    device = torch.cuda.current_device()
+    stream = torch.cuda.current_stream(device)
+    return {
+        "cuda": True,
+        "device": int(device),
+        "stream_id": int(getattr(stream, "cuda_stream", 0)),
+        "capturing": bool(torch.cuda.is_current_stream_capturing()),
+    }
 
 #: `SchedulerOutput` 上承载每步计划的可选字段名（唯一入口）。
 DA_PLAN_FIELD = "da_step_plans"
@@ -447,7 +631,7 @@ def fa_override_for_step(
     # 不需要再并入 DA 行原来的 canonical 上界（那会让单请求场景永不缩短，妨碍后续耗时归因）。
     max_seq_len = int(buffers["seq_lens_cpu"][:rows].max().item())
     _METERING["host_reads_of_cpu_staging"] += 1
-    return DaFaOverride(
+    override = DaFaOverride(
         group_index=fa,
         block_table=buffers["block_table"],
         seq_lens=buffers["seq_lens"],
@@ -456,3 +640,16 @@ def fa_override_for_step(
         rows_with_override=tuple(overridden),
         plans=row_plans,
     )
+    if os.environ.get(_CALIB_TRACE):
+        calibration_note_override(
+            override,
+            req_ids=req_ids,
+            scheduler_output=scheduler_output,
+            inputs={
+                "fa_group_table": group_table,
+                "input_seq_lens": input_batch.seq_lens,
+                "input_seq_lens_cpu": input_batch.seq_lens_cpu_upper_bound,
+                "group0_table": block_tables[0],
+            },
+        )
+    return override

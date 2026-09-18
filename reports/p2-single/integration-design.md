@@ -434,3 +434,18 @@ DA 行是 `seqused_k`，无需再并入原 canonical 上界；单请求压缩视
 （`build_attn_metadata` 开头的 `seq_lens[:num_reqs]` 切片会产生新对象，测试按此真实语义断言）；
 ③ 计量计数明确为**代码插桩范围**：删除从未更新的 `host_reads_of_device_tensors`，
 新增 `scalar_assignments`/`host_reads_of_cpu_staging`，并在模块文档写明"设备侧同步/耗时须由 GPU 观测"。
+
+### 13.10 校准专用观测钩子（SUP-004 校准单，默认零影响）
+
+三个钩子都只在**对应环境变量被设置**时生效，普通运行完全不介入（无行为差异）：
+
+| 钩子 | 位置（pin 事实） | 作用 | 环境变量 |
+| --- | --- | --- | --- |
+| 强制轨迹 | worker `model_runner.py`：`self.sample(...)` **之后**、PP broadcast / `AsyncOutput` / `postprocess_sampled` **之前**（`:1861-1920`） | **原地**替换 `sampler_output.sampled_token_ids` ⇒ worker 历史与送往宿主的 token 是同一个值（不分叉）；同时记录**原始采样** | `ATTNVIEW_CALIB_FORCE` / `ATTNVIEW_CALIB_FORCE_LOG` |
+| 完整 logits | worker `sample`：`compute_logits(...)` **之后**、grammar/sampler **就地改写之前**（`:1421-1432`） | 保存**全词表** logits（top-k 归一化后无法做全词表误差与尾部非有限值检查） | `ATTNVIEW_CALIB_LOGITS` |
+| 覆写 trace | `fa_override_for_step` 返回前 | 逐步记录 `seqused_k`/可见块/`max_seq_len`/缓冲指针、**入参指纹**（`data_ptr`/`_version`，CPU 侧元数据、不读设备）与真实 stream/图捕获状态 | `ATTNVIEW_CALIB_TRACE` |
+
+- 强制轨迹格式：`{"tokens": [step][row] = [token_ids...]}`（每步 × 每个请求行）；格式不符或轨迹用尽即**拒绝**，不静默降级。
+- 前两个钩子含显式 D2H/H2D 同步，属于**校准专用**，不是稳态行为；报告必须分别标注。
+- 不修改 prompt 合同：校准沿用阶段 03 的 `render_arm` 输出与其 token span。
+

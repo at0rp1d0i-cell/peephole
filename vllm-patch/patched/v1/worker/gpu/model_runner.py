@@ -1421,6 +1421,12 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             sample_hidden_states = hidden_states[input_batch.logits_indices]
             logits = self.model.compute_logits(sample_hidden_states)
 
+        # attnview 校准: 测试专用完整 logits 捕获 —— 必须在 `compute_logits` **之后**、
+        # grammar/sampler 就地改写 **之前**（否则拿到的是被掩码/采样器改过的张量；
+        # 归一化/截断后的 top-k 无法用于全词表误差与尾部非有限值检查）。
+        # 未设置 ATTNVIEW_CALIB_LOGITS 时完全不介入（普通请求零影响）。
+        attnview_adapter.calibration_capture_logits(logits, input_batch)
+
         if grammar_output is not None:
             # Apply grammar bitmask to the logits in-place.
             assert self.structured_outputs_worker is not None
@@ -1874,6 +1880,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         sampler_output, num_sampled, num_rejected = self.sample(
             hidden_states, input_batch, grammar_output
         )
+        # attnview 校准: 测试专用 token 强制点 —— 必须在**采样之后**、
+        # PP broadcast / AsyncOutput / postprocess_sampled **之前**：这样 worker 历史
+        # （postprocess_sampled 读的就是这块内存）与送往宿主的 token 是同一个值，不会分叉。
+        # 未设置 ATTNVIEW_CALIB_FORCE 时完全不介入（普通请求零影响）。
+        attnview_adapter.calibration_force_tokens(sampler_output, input_batch.req_ids)
 
         if self.pp_handler is not None:
             # Broadcast to non-last PP ranks (handles spec decode multi-token).
