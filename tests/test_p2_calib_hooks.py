@@ -1128,6 +1128,158 @@ class CumulativeOutputRegressionTest(unittest.TestCase):
         self.assertEqual(drove["consuming_steps"], 3)
 
 
+class PreflightFailureLandingTest(unittest.TestCase):
+    """起时 manifest 之后的**所有**异常都必须有落点（本地复核反例：曾经只剩 source 快照）。
+
+    覆盖：部署态前置校验（`deployment_fingerprint`）失败 ⇒ ①`<out>/manifest.json` 含
+    `failures`/`ended_cst`/`exit_code`；②`<out>/error.txt` 含完整原始 traceback；③返回非零。
+    """
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_preflight", REPO / "tools/p2-calib-run.py")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_preflight_exception_lands_in_manifest_and_error_txt(self) -> None:
+        original_fingerprint = self.driver.deployment_fingerprint
+        original_prompt = self.driver.build_prompt
+        self.driver.deployment_fingerprint = lambda arm, **kw: (_ for _ in ()).throw(
+            RuntimeError("部署态前置校验失败：checkout != post（模拟）"))
+        self.driver.build_prompt = lambda: (
+            SimpleNamespace(token_ids=(1, 2, 3), rendered="x", segment_spans=[(0, 1)],
+                            scaffold=SimpleNamespace(local_window_span=(1, 3), sink_span=(0, 1))),
+            {"protocol": "v1.0", "prompt_len": 3, "segment_spans": [[0, 1]],
+             "local_window_span": [1, 3], "sink_span": [0, 1]},
+        )
+        try:
+            code = self.driver.main(["--arm", "original", "--out", str(self.dir / "run-x")])
+        finally:
+            self.driver.deployment_fingerprint = original_fingerprint
+            self.driver.build_prompt = original_prompt
+
+        out = self.dir / "run-x"
+        self.assertNotEqual(code, 0, "前置校验失败必须非零退出")
+        manifest = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(manifest["exit_code"], code)
+        self.assertTrue(manifest["ended_cst"], "结束时间戳必须落盘")
+        self.assertTrue(any("deployment" in failure or "exception" in failure
+                            for failure in manifest.get("failures", [])),
+                        f"failures 必须记录前置失败：{manifest.get('failures')}")
+        self.assertIsNone(manifest["deployment"], "校验失败时 deployment 保持未写入")
+        error = (out / "error.txt").read_text()
+        self.assertIn("Traceback", error, "必须保留完整原始 traceback")
+        self.assertIn("部署态前置校验失败", error)
+        self.assertTrue((out / "source" / Path(self.driver.__file__).name).exists(),
+                        "源码快照仍要留下（起时冻结先于校验）")
+
+
+class DeploymentFingerprintTest(unittest.TestCase):
+    """按臂核对的部署身份（本地复核反例：apply 之后 **pin checkout 也是 post**，不得再拿它比 pre）。
+
+    用假部署树覆盖：`installed_root` / `pin_root`（checkout）/ `patch_root`（补丁树 + manifest）。
+    """
+
+    EDITED = "v1/core/sched/output.py"
+    ADDED = "v1/engine/attnview_engine.py"
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_deploy", REPO / "tools/p2-calib-run.py")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.pre = "A" * 8 + "\n"
+        self.post = "B" * 8 + "\n"
+        self.added = "C" * 8 + "\n"
+        self.installed = self.root / "installed"
+        self.checkout = self.root / "checkout"
+        self.patch = self.root / "patch"
+        for base in (self.installed, self.checkout, self.patch / "patched", self.patch / "files/vllm"):
+            (base / "v1/core/sched").mkdir(parents=True, exist_ok=True)
+            (base / "v1/engine").mkdir(parents=True, exist_ok=True)
+        (self.patch / "patched" / self.EDITED).write_text(self.post)
+        (self.patch / "files/vllm" / self.ADDED).write_text(self.added)
+        (self.patch / "manifest.json").write_text(json.dumps({
+            "generated_cst": "2026-09-18 14:30:03 +0800",
+            "pin_commit": "deadbeef",
+            "edits": {self.EDITED: {"pre_sha256": self.driver.sha256_text(self.pre),
+                                    "post_sha256": self.driver.sha256_text(self.post)}},
+            "new_files": [{"dest": self.ADDED, "sha256": self.driver.sha256_text(self.added)}],
+        }))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _lay(self, *, installed_edited: str | None, installed_added: str | None,
+             checkout_edited: str | None, checkout_added: str | None) -> None:
+        for root, edited, added in ((self.installed, installed_edited, installed_added),
+                                    (self.checkout, checkout_edited, checkout_added)):
+            for path, content in ((root / self.EDITED, edited), (root / self.ADDED, added)):
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_text(content)
+
+    def _fingerprint(self, arm: str) -> dict:
+        return self.driver.deployment_fingerprint(
+            arm, installed_root=self.installed, pin_root=self.checkout, patch_root=self.patch)
+
+    def test_patched_arm_requires_both_copies_at_post(self) -> None:
+        """真实反例：apply 同时改写两副本 ⇒ checkout 与 installed **都**必须 == post 才通过。
+
+        - ① 两副本 == post（真实部署态）⇒ 通过；
+        - ② checkout 已改（== post）但 installed != post ⇒ 报错并列出双方实际值与期望值；
+        - ③ 防回退：以 `checkout == pre` 判 patched 臂 ⇒ 必然失败（旧口径的误判根源）。
+        """
+        self._lay(installed_edited=self.post, installed_added=self.added,
+                  checkout_edited=self.post, checkout_added=self.added)
+        evidence = self._fingerprint("patched-global")
+        record = evidence["edited"][self.EDITED]
+        self.assertEqual(record["installed_sha256"], self.driver.sha256_text(self.post))
+        self.assertEqual(record["checkout_sha256"], self.driver.sha256_text(self.post))
+        self.assertEqual(record["expected_for_arm"], self.driver.sha256_text(self.post))
+        self.assertTrue(record["checkout_checked"], "patched 臂同样核对 checkout")
+        self.assertTrue(evidence["added"][self.ADDED]["checkout_checked"])
+
+        # ② installed 还是 pre（未部署）而 checkout 已是 post ⇒ 拒绝，并列出三值
+        self._lay(installed_edited=self.pre, installed_added=None,
+                  checkout_edited=self.post, checkout_added=self.added)
+        with self.assertRaises(RuntimeError) as ctx:
+            self._fingerprint("patched-global")
+        message = str(ctx.exception)
+        self.assertIn("installed=", message)
+        self.assertIn("checkout=", message)
+        self.assertIn("manifest.post=", message)
+
+        # ③ checkout 停在 pre（apply 没改到它）⇒ 也必须拒绝；以 pre 判定 patched 臂是错的
+        self._lay(installed_edited=self.post, installed_added=self.added,
+                  checkout_edited=self.pre, checkout_added=None)
+        with self.assertRaises(RuntimeError) as ctx2:
+            self._fingerprint("patched-disabled")
+        self.assertIn("checkout=", str(ctx2.exception))
+        self.assertNotEqual(self.driver.sha256_text(self.pre), self.driver.sha256_text(self.post),
+                            "以 checkout == pre 判 patched 臂会放过不一致部署 ⇒ 该写法被禁止")
+
+    def test_original_arm_requires_pin_and_installed_at_pre(self) -> None:
+        self._lay(installed_edited=self.pre, installed_added=None,
+                  checkout_edited=self.pre, checkout_added=None)
+        self._fingerprint("original")
+        self._lay(installed_edited=self.post, installed_added=self.added,
+                  checkout_edited=self.post, checkout_added=self.added)
+        with self.assertRaises(RuntimeError) as ctx:
+            self._fingerprint("original")
+        self.assertIn("期望双方都 == manifest.pre=", str(ctx.exception))
+
+    def test_manifest_tree_mismatch_is_refused(self) -> None:
+        self._lay(installed_edited=self.post, installed_added=self.added,
+                  checkout_edited=self.post, checkout_added=self.added)
+        (self.patch / "patched" / self.EDITED).write_text("D" * 8 + "\n")
+        with self.assertRaises(RuntimeError) as ctx:
+            self._fingerprint("patched-global")
+        self.assertIn("补丁 manifest 与补丁树不一致", str(ctx.exception))
+
+
 class RunSourceFreezeTest(unittest.TestCase):
     """运行源冻结（R2）：脚本自身 sha256 + 源码快照落进 run 目录，运行期被改即判失败。"""
 

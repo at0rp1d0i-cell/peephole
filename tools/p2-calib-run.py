@@ -228,73 +228,91 @@ class Watchdog:
 # --------------------------------------------------------------------------- #
 
 
-def patch_targets() -> tuple[list[str], list[str]]:
+def patch_targets(patch_root: Path | None = None) -> tuple[list[str], list[str]]:
     """从补丁 manifest 读**本次补丁涉及的全部目标文件**（相对 vllm 包根）。"""
-    manifest = json.loads((PATCH_ROOT / "manifest.json").read_text())
+    manifest = json.loads(((patch_root or PATCH_ROOT) / "manifest.json").read_text())
     edited = sorted(manifest["edits"])
     added = sorted(entry["dest"] for entry in manifest["new_files"])
     return edited, added
 
 
-def deployment_fingerprint(arm: str) -> dict:
-    """完整安装指纹 + 身份断言：安装副本、补丁树、and manifest 声明三者互核，不以文件是否存在代替。"""
-    manifest = json.loads((PATCH_ROOT / "manifest.json").read_text())
-    edited, added = patch_targets()
+def deployment_fingerprint(arm: str, *, installed_root: Path | None = None, pin_root: Path | None = None,
+                           patch_root: Path | None = None) -> dict:
+    """按**臂**核对部署身份（对象不同、期望值不同；失败信息里同时给出双方实际值与双方期望值）。
+
+    - `original`：安装副本**与** pin checkout 都必须 == manifest 的 **pre**（未部署态）；
+    - `patched-*`：安装副本**与** checkout 都必须 == manifest 的 **post** —— 两者都是部署目标
+      （`tools/p2-apply-patch.py apply` 同时改写，本地复核反例已确认），任一不等于 post 即拒绝；
+    - 补丁树与 manifest 声明必须自洽（post / new_files.sha256）；
+    - 失败信息同时给出「对象（installed / checkout）× 期望（pre / post）× 实际值」。
+    """
+    installed_root = Path(installed_root or INSTALLED_VLLM)
+    pin_root = Path(pin_root or PIN_VLLM)
+    patch_root = Path(patch_root or PATCH_ROOT)
+    manifest = json.loads((patch_root / "manifest.json").read_text())
+    edited, added = patch_targets(patch_root)
     declared_added = {entry["dest"]: entry["sha256"] for entry in manifest["new_files"]}
     evidence: dict = {
         "arm": arm,
-        "installed_root": str(INSTALLED_VLLM),
-        "pin_root": str(PIN_VLLM),
-        "patch_root": str(PATCH_ROOT),
+        "installed_root": str(installed_root),
+        "pin_root": str(pin_root),
+        "patch_root": str(patch_root),
         "patch_manifest_generated_cst": manifest.get("generated_cst"),
         "patch_manifest_pin_commit": manifest.get("pin_commit"),
         "pin_checkout_commit": _git("rev-parse", "HEAD", cwd=REPO / "vllm"),
+        "expectation": (
+            "original：installed == checkout == manifest.pre（未部署）"
+            if arm == "original" else
+            "patched-*：installed == checkout == manifest.post（两副本都是部署目标）"
+        ),
         "edited": {},
         "added": {},
     }
     for rel in edited:
         rule = manifest["edits"][rel]
-        installed = _sha_or_none(INSTALLED_VLLM / rel)
-        pin = _sha_or_none(PIN_VLLM / rel)
-        patch_tree = _sha_or_none(PATCH_ROOT / "patched" / rel)
+        pre, post = rule.get("pre_sha256"), rule.get("post_sha256")
+        installed = _sha_or_none(installed_root / rel)
+        checkout = _sha_or_none(pin_root / rel)
+        patch_tree = _sha_or_none(patch_root / "patched" / rel)
+        expectation = pre if arm == "original" else post
         evidence["edited"][rel] = {
             "installed_sha256": installed,
-            "pin_checkout_sha256": pin,
+            "checkout_sha256": checkout,
             "patch_tree_sha256": patch_tree,
-            "manifest_pre_sha256": rule.get("pre_sha256"),
-            "manifest_post_sha256": rule.get("post_sha256"),
+            "manifest_pre_sha256": pre,
+            "manifest_post_sha256": post,
+            "expected_for_arm": expectation,
+            "checkout_checked": True,
         }
-        if patch_tree != rule.get("post_sha256"):
+        if patch_tree != post:
             raise RuntimeError(
-                f"校准: 补丁 manifest 与补丁树不一致（{rel}: manifest post={rule.get('post_sha256')} "
-                f"tree={patch_tree}）—— 先重新生成补丁 manifest 再运行"
-            )
-        if pin != rule.get("pre_sha256"):
-            raise RuntimeError(
-                f"校准: pin checkout 与 manifest 声明的 pre 状态不一致（{rel}: pin={pin} "
-                f"manifest pre={rule.get('pre_sha256')}）"
+                f"校准: 补丁 manifest 与补丁树不一致（{rel}: manifest post={post} tree={patch_tree}）"
+                "—— 先重新生成补丁 manifest 再运行"
             )
         if arm == "original":
-            if installed != pin:
+            if installed != pre or checkout != pre:
                 raise RuntimeError(
-                    f"校准: original 臂要求 {rel} 与 pin checkout **逐字节一致**"
-                    f"（installed={installed} pin={pin}）—— 当前安装副本不是未部署的原版"
+                    f"校准: original 臂要求未部署状态（{rel}）：installed={installed} checkout={checkout} "
+                    f"期望双方都 == manifest.pre={pre}"
                 )
         else:
-            if patch_tree is None:
-                raise RuntimeError(f"校准: 补丁树缺少 {rel}（补丁未生成完整）")
-            if installed != patch_tree:
+            if installed != post or checkout != post:
                 raise RuntimeError(
-                    f"校准: patched 臂要求 {rel} 与补丁树一致（installed={installed} patch_tree={patch_tree}）"
+                    f"校准: patched 臂要求 installed 与 checkout **都**为部署后状态（{rel}）："
+                    f"installed={installed} checkout={checkout} 期望双方都 == manifest.post={post}"
                 )
     for rel in added:
-        installed = _sha_or_none(INSTALLED_VLLM / rel)
-        patch_tree = _sha_or_none(PATCH_ROOT / "files/vllm" / rel)
+        installed = _sha_or_none(installed_root / rel)
+        patch_tree = _sha_or_none(patch_root / "files/vllm" / rel)
+        checkout = _sha_or_none(pin_root / rel)
         declared = declared_added.get(rel)
         evidence["added"][rel] = {
             "installed_sha256": installed,
+            "checkout_sha256": checkout,
             "patch_tree_sha256": patch_tree,
             "manifest_sha256": declared,
+            "expected_for_arm": None if arm == "original" else declared,
+            "checkout_checked": True,
         }
         if patch_tree != declared:
             raise RuntimeError(
@@ -303,12 +321,15 @@ def deployment_fingerprint(arm: str) -> dict:
             )
         if arm == "original":
             if installed is not None:
-                raise RuntimeError(f"校准: original 臂要求 {rel} **不存在**（补丁未部署），实际存在")
-        else:
-            if patch_tree is None or installed != patch_tree:
                 raise RuntimeError(
-                    f"校准: patched 臂要求新增文件 {rel} 与补丁树一致"
-                    f"（installed={installed} patch_tree={patch_tree}）"
+                    f"校准: original 臂要求 {rel} **不存在**（补丁未部署）：installed={installed} "
+                    f"checkout={checkout}（期望双方都不存在）"
+                )
+        else:
+            if installed != declared or checkout != declared:
+                raise RuntimeError(
+                    f"校准: patched 臂要求新增文件在两副本都已部署（{rel}）：installed={installed} "
+                    f"checkout={checkout} 期望双方都 == manifest 声明 {declared}"
                 )
     return evidence
 
@@ -2374,7 +2395,8 @@ def main(argv: list[str] | None = None) -> int:
         "head": _git("rev-parse", "HEAD"),
         "git_status_porcelain": _git("status", "--porcelain").splitlines(),
         "pin_commit": _git("rev-parse", "HEAD", cwd=REPO / "vllm"),
-        "deployment": deployment_fingerprint(args.arm),
+        #: 部署态前置校验结果：**起时 manifest 先落盘**，校验在 try 内执行（失败也有 manifest/error.txt 落点）
+        "deployment": None,
         "model": {"snapshot": str(SNAPSHOT), "revision": SNAPSHOT.name},
         "prompt": {
             "prompt_len": len(prompt_ids),
@@ -2403,12 +2425,17 @@ def main(argv: list[str] | None = None) -> int:
 
     exit_code = 1
     try:
+        # 部署态前置校验（起时 manifest 之后的第一个阶段）：任何失败都走统一异常路径
+        # ⇒ 写 manifest（failures/ended_cst/exit_code）+ 写 error.txt（完整 traceback）+ 非零退出。
+        manifest["deployment"] = deployment_fingerprint(args.arm)
+        save_manifest(manifest_path, manifest)
         exit_code = _run(args, manifest, manifest_path, prompt, payload, prompt_ids, extra_args, arm_path)
     except BudgetExceeded as exc:
         manifest.setdefault("notes", []).append(str(exc))
         exit_code = 3
     except Exception as exc:
         manifest.setdefault("errors", []).append(f"{type(exc).__name__}: {exc}")
+        manifest.setdefault("failures", []).append(f"exception:{type(exc).__name__}")
         (out / "error.txt").write_text(traceback.format_exc())
         exit_code = 1
     finally:
