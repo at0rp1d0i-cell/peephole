@@ -198,12 +198,18 @@ class AttnViewEngine:
                     "下不受支持：请使用 --no-async-scheduling（不静默退化为原版读取）"
                 )
 
-    def register_new_requests(self, scheduler_output: Any) -> list[str]:
-        """为本步新调度且携带载荷的请求建协议状态（幂等：已存在则跳过）。"""
+    def register_new_requests(self, scheduler_output: Any, *, alive: set[str] | None = None) -> list[str]:
+        """为本步新调度且携带载荷的请求建协议状态（幂等：已存在则跳过）。
+
+        `alive` 为调度器账本里的存活集合：**不在账本里的请求不登记**（例如本步开始前已取消），
+        避免把已取消请求重新拉起来。
+        """
+        if alive is None:
+            alive = set(self._requests())
         registered: list[str] = []
         for new_req in getattr(scheduler_output, "scheduled_new_reqs", ()) or ():
             req_id = str(new_req.req_id)
-            if req_id in self._configs:
+            if req_id in self._configs or req_id not in alive:
                 continue
             config = self.config_of(new_req)
             if config is None:
@@ -246,8 +252,12 @@ class AttnViewEngine:
 
     # --- 解析本步输出 ------------------------------------------------------- #
 
-    def parse_outputs(self, model_output: Any) -> dict[str, int]:
-        """解析本步采样 token（只解析本请求自己的生成流，C3.7）。返回 req_id -> token 数。"""
+    def parse_outputs(self, model_output: Any, *, allow: set[str] | None = None) -> dict[str, int]:
+        """解析本步采样 token（只解析本请求自己的生成流，C3.7）。返回 req_id -> token 数。
+
+        `allow`：允许被解析的请求集合。**执行中被取消/中止的请求必须在集合之外** ——
+        它们本步的采样结果不进入解析与 trace（合同 C6.4 的清理要求）。
+        """
         sampled = getattr(model_output, "sampled_token_ids", None)
         req_ids = list(getattr(model_output, "req_ids", ()) or ())
         index_of = getattr(model_output, "req_id_to_index", None) or {}
@@ -256,6 +266,8 @@ class AttnViewEngine:
             return parsed
         for req_id in req_ids:
             if req_id not in self._configs:
+                continue
+            if allow is not None and req_id not in allow:
                 continue
             row = index_of.get(req_id)
             if row is None or row >= len(sampled):
@@ -379,18 +391,70 @@ class AttnViewEngine:
         setattr(scheduler_output, "da_step_plans", self._pending)
         return self._pending
 
-    def on_step_outputs(self, scheduler_output: Any, model_output: Any, engine_core_outputs: Any) -> None:
-        """解析与清理（**不**构造计划；计划在下一步 `attach_plans` 里按调度结果构造）。
+    @staticmethod
+    def _finish_items(engine_core_outputs: Any) -> dict[str, Any]:
+        """本步**正常终结**的请求 -> finish_reason（被取消的请求不会出现在这里）。"""
+        items: dict[str, Any] = {}
+        for outputs in (engine_core_outputs or {}).values():
+            for item in getattr(outputs, "outputs", ()) or ():
+                req_id = str(getattr(item, "request_id", ""))
+                reason = getattr(item, "finish_reason", None)
+                if req_id and reason is not None:
+                    items[req_id] = reason
+        return items
 
-        调用位置固定在 `EngineCore.step()` 内、`scheduler.update_from_output` **之后**、
-        下一次 `schedule()` **之前**：此刻已终结/取消的请求已从调度器移除（不会被同一步输出
-        重建），且本步输出已并入账本。
+    def _drop_gone(self, *, alive: set[str], finished_now: Mapping[str, Any], preempted: set[str]) -> dict[str, list[str]]:
+        """处理"账本里已消失、本步也没有正常终结项"的请求：**不解析**、直接释放并记 trace。
+
+        这类请求是执行中被取消/中止（`_process_aborts_queue` 之后 `update_from_output` 会跳过、
+        不产出 finish 项），也可能是被抢占（本阶段不支持 → 记 trace，驱动侧据此停该用例）。
         """
-        self.register_new_requests(scheduler_output)
+        dropped = {"cancelled": [], "preempted": []}
+        for req_id in list(self._configs):
+            if req_id in alive or req_id in finished_now:
+                continue
+            kind = "preempted" if req_id in preempted else "cancelled"
+            state = None
+            try:
+                state = self.registry.get(req_id)
+            except KeyError:
+                pass
+            self.traces.append(
+                {
+                    "req_id": req_id,
+                    "note": f"{kind}_during_step",
+                    "generated_tokens_before_drop": state.generated_tokens if state else None,
+                    "mode_before_drop": state.mode if state else None,
+                    "unsupported": kind == "preempted",
+                }
+            )
+            self.release(req_id)
+            dropped[kind].append(req_id)
+        return dropped
+
+    def on_step_outputs(self, scheduler_output: Any, model_output: Any, engine_core_outputs: Any) -> dict[str, Any]:
+        """一步的解析与清理（**不**构造计划；计划在 `attach_plans` 里按调度结果构造）。
+
+        顺序与判据（依 pin 的调度器语义）：
+
+        1. 先丢弃 `SchedulerOutput.finished_req_ids`（这是**上一步**终结集合的快照 ——
+           `Scheduler.schedule()` 在返回前已把 `self.finished_req_ids` 清空，`scheduler.py:1495`）；
+        2. 核对调度器账本（`scheduler.requests`，`_free_request` 会 `del`，`:2512`）后**再登记**新请求 ——
+           不在账本里的不登记；
+        3. 账本里消失**且**本步无正常终结项的请求 = 执行中被取消/中止 → **不解析**、释放并记 trace；
+        4. 只解析「仍存活」或「本步正常终结」的请求（正常终结的 stop token 仍应进入解析与 trace）；
+        5. 释放本步正常终结者。
+        """
+        alive = set(self._requests())
+        finished_now = self._finish_items(engine_core_outputs)
         self.drop_finished(getattr(scheduler_output, "finished_req_ids", ()) or ())
-        parsed = self.parse_outputs(model_output)
+        self.register_new_requests(scheduler_output, alive=alive)
+        preempted = {str(r) for r in (getattr(scheduler_output, "preempted_req_ids", None) or ())}
+        dropped = self._drop_gone(alive=alive, finished_now=finished_now, preempted=preempted)
+        parsed = self.parse_outputs(model_output, allow=alive | set(finished_now))
         self._record_traces_for(parsed)
         self.release_finished_in_step(engine_core_outputs)
+        return {"parsed": parsed, "cancelled": dropped["cancelled"], "preempted": dropped["preempted"]}
 
     # --- trace ------------------------------------------------------------- #
 

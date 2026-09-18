@@ -100,11 +100,12 @@ class FakeScheduler:
         self.requests[req_id].num_computed_tokens += num_scheduled
 
 
-def scheduler_output(new_reqs=(), finished=(), scheduled=None):
+def scheduler_output(new_reqs=(), finished=(), scheduled=None, preempted=()):
     return SimpleNamespace(
         scheduled_new_reqs=list(new_reqs),
         finished_req_ids=set(finished),
         num_scheduled_tokens=dict(scheduled or {}),
+        preempted_req_ids=set(preempted),
     )
 
 
@@ -164,7 +165,9 @@ class RegistrationTest(EngineTestBase):
         self.assertEqual(engine.registry.active_ids(), ("r1",))
 
     def test_payload_with_geometry_or_wrong_protocol_is_rejected(self) -> None:
-        engine = self.make_engine()
+        # 两个请求都在调度器账本里（存活性过滤发生在载荷校验之前，见 register_new_requests）
+        scheduler = FakeScheduler(requests={"r1": request_state(), "r2": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
         with self.assertRaises(AttnViewConfigError):
             engine.register_new_requests(scheduler_output([new_req("r1", payload(kernel_block_size=B))]))
         with self.assertRaises(AttnViewConfigError):
@@ -356,6 +359,84 @@ class EngineConfigGateTest(EngineTestBase):
                                          token_text_of=lambda token_id: "a")
         self.assertEqual(engine.register_new_requests(
             scheduler_output([new_req("r1", payload())])), ["r1"])
+
+
+class AbortDuringStepTest(EngineTestBase):
+    """执行中取消/抢占的 CPU 轨迹：schedule → 执行中 abort → 输出回收。
+
+    pin 语义（本类另有源码锚定测试）：`Scheduler.schedule()` 返回前已把 `self.finished_req_ids`
+    清空（`scheduler.py:1495`），所以当前 `SchedulerOutput.finished_req_ids` 是**上一步**的快照；
+    执行中取消的请求由 `_process_aborts_queue` 处理，`update_from_output` 会跳过它（`:1880`）且
+    **不产出 finish 项**，`_free_request` 会 `del self.requests[...]`（`:2512`）。
+    """
+
+    def _engine_with_parsed_g0(self):
+        scheduler = FakeScheduler(blocks=[list(FA_BLOCKS[:9])] * 4, requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        engine.register_new_requests(scheduler_output([new_req("r1", payload())]))
+        engine.parse_outputs(model_output())  # g0 → local
+        return engine, scheduler
+
+    def test_aborted_during_step_is_not_parsed_and_released(self) -> None:
+        engine, scheduler = self._engine_with_parsed_g0()
+        steps_before = engine.registry.get("r1").generated_tokens
+        scheduler.requests.pop("r1")  # 镜像 _free_request 的 `del self.requests[...]`
+        so = scheduler_output(scheduled={"r1": 1})
+        result = engine.on_step_outputs(
+            so,
+            model_output(sampled=((2,),)),  # 执行中确实采样出了一个 token
+            empty_outputs(),                # 但被取消 → 没有 finish 项
+        )
+        self.assertEqual(result["cancelled"], ["r1"])
+        self.assertEqual(result["parsed"], {}, "被取消请求的采样 token 不得进入解析")
+        self.assertEqual(list(engine.registry.active_ids()), [], "状态必须释放")
+        note = [t for t in engine.traces if t.get("note", "").endswith("_during_step")]
+        self.assertEqual(len(note), 1)
+        self.assertEqual(note[0]["note"], "cancelled_during_step")
+        self.assertEqual(note[0]["generated_tokens_before_drop"], steps_before)
+        self.assertIsNone(engine.attach_plans(so), "不得为已取消请求产出计划")
+
+    def test_normal_stop_token_is_parsed_then_released(self) -> None:
+        engine, scheduler = self._engine_with_parsed_g0()
+        scheduler.requests.pop("r1")  # 正常终结同样会从账本移除
+        so = scheduler_output(scheduled={"r1": 1})
+        result = engine.on_step_outputs(
+            so,
+            model_output(sampled=((3,),)),
+            engine_outputs(finish_reason="stop"),  # 但这一步**有** finish 项 → 正常终结
+        )
+        self.assertEqual(result["parsed"], {"r1": 1}, "正常终结的 stop token 仍须解析")
+        self.assertEqual(result["cancelled"], [])
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertTrue(any("finished:stop" in t.get("note", "") for t in engine.traces))
+
+    def test_aborted_before_registration_is_not_registered(self) -> None:
+        scheduler = FakeScheduler(requests={})  # 账本里没有它（例如调度前已取消）
+        engine = self.make_engine(scheduler=scheduler)
+        registered = engine.register_new_requests(
+            scheduler_output([new_req("r1", payload())]), alive=set(scheduler.requests)
+        )
+        self.assertEqual(registered, [])
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertEqual(engine.config_of(new_req("r1", payload())) is not None, True)
+
+    def test_preempted_during_step_is_flagged_unsupported(self) -> None:
+        engine, scheduler = self._engine_with_parsed_g0()
+        scheduler.requests.pop("r1")
+        so = scheduler_output(preempted={"r1"})
+        result = engine.on_step_outputs(so, model_output(sampled=((2,),)), empty_outputs())
+        self.assertEqual(result["preempted"], ["r1"])
+        self.assertEqual(result["parsed"], {})
+        note = [t for t in engine.traces if t.get("note") == "preempted_during_step"]
+        self.assertEqual(len(note), 1)
+        self.assertTrue(note[0]["unsupported"], "抢占属本阶段不支持路径 → 必须显式标记")
+
+    def test_abort_signals_are_anchored_to_pin_source(self) -> None:
+        source = (REPO / "vllm/vllm/v1/core/sched/scheduler.py").read_text()
+        self.assertIn("self.finished_req_ids = set()", source, "schedule 返回前会清空上一步终结集合")
+        self.assertIn("del self.requests[request.request_id]", source, "账本移除 = 请求已消失")
+        self.assertIn("if request is None or request.is_finished():", source,
+                      "被取消请求在 update_from_output 被跳过、不产 finish 项")
 
 
 class TokenizerWiringTest(EngineTestBase):

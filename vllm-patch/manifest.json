@@ -1,5 +1,5 @@
 {
-  "generated_cst": "2026-09-18 12:22:37 +0800",
+  "generated_cst": "2026-09-18 13:16:44 +0800",
   "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
   "edits": {
     "v1/core/sched/output.py": {
@@ -60,7 +60,7 @@
     {
       "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
       "dest": "v1/engine/attnview_engine.py",
-      "sha256": "b2506e6e8e8b7490fa99fc8b719fda0b5aa0aedb97fc45f89c6aac50fdf9ca23"
+      "sha256": "0a6992fc1c081187c51c5ba6588182fc6e0b2da18d6f653f9d851f9d2cf15374"
     }
   ],
   "package_files": [
