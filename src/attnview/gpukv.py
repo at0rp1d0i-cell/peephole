@@ -1,17 +1,18 @@
-"""阶段 04：读取视图的 CPU 侧 metadata 转换与校验（纯函数，不依赖 torch/vLLM）。
+"""阶段 04 候选侧：读取视图的 metadata 转换与校验（纯函数，不依赖 torch/vLLM）。
 
-职责边界：把"模式给出的可见范围（逻辑块集合）"转成 FA2 分页调用需要的 `block_table`
-与 `seqused_k`，并给出尾长、下一写入 slot 等可核对字段。不做数值计算，也不接触 GPU。
+输入是阶段 03 已验收的 `ReadView`（`attnview.readview`），输出是 FA2 分页调用需要的
+**无 `-1`** 读取表与有效长度。候选执行路径只做这一件事：把视图的可见块映射成物理块表，
+不 gather、不复制 KV。
 
-关键语义（与阶段 04 工作单一致）：
+不变量（全部硬校验，违反即抛错，不静默降级）：
 
-* 读取按**块粒度**生效：模式 span 向外对齐到整块。
-* `seqused_k` 是**前缀语义**：kernel 依次读表内各物理块，读满 `seqused_k` 个 token 即停。
-  由于有效计数随块号前缀单调，保留集合里"部分有效且不是最后一块"不可能出现：块 i 不满整块
-  意味着序列在块 i 内结束，其后所有块计数为 0，会被 ``dropped_empty_blocks`` 丢弃并如实报告。
-  因此表内除最后一块外必为整块，前缀读取与保留集合逐 slot 一致。
-* 有效读取表中不得出现 `-1`；表宽 = ``ceil(seqused_k / block_size)``。
-* 下一 token 的写入 slot 只由**原始序列位置**决定，与读取视图无关。
+* 视图给出的有效前缀里不得出现 `-1`（`-1` 只允许出现在阶段 03 的尾部填充区）。
+* 物理块 ID 非负且互不重复；逻辑可见块升序唯一。
+* 每个可见块必须**含至少一个已写位置**（否则读取会读入未写槽）——误用输入在转换边界报错，
+  不用"静默丢弃"掩盖坏 span。
+* 当前 token 位置（`attention_kv_len - 1`）必须在可见集合内：本阶段只承诺
+  query_len=1 且保留当前 token 的因果 decode。
+* 前缀语义：可见块中除最大块外必须整块有效，否则 kernel 会把块内未写槽读进来。
 """
 
 from __future__ import annotations
@@ -25,13 +26,15 @@ class GpuKvError(ValueError):
 
 @dataclass(frozen=True)
 class ReadTable:
-    """一次分页读取的 CPU 侧描述。"""
+    """一次分页读取的候选侧描述。"""
 
     physical_blocks: tuple[int, ...]  # 表宽 = len()；不含 -1
-    seqused_k: int  # 后端实际应看到的有效 K 长度
-    effective_per_block: tuple[int, ...]  # 每个保留块的有效 token 数
-    tail_len: int  # 最后保留块的有效尾长
-    dropped_empty_blocks: tuple[int, ...]  # 无有效 token 因而未进表的保留块
+    visible_blocks: tuple[int, ...]  # 对应逻辑块
+    effective_per_block: tuple[int, ...]
+    seqused_k: int
+    tail_len: int
+    attention_kv_len: int
+    next_write_position: int
 
     @property
     def width(self) -> int:
@@ -41,9 +44,15 @@ class ReadTable:
     def effective_len(self) -> int:
         return self.seqused_k
 
+    def padded_row(self, width: int) -> list[int]:
+        """补到指定宽度：用自身最后一块重复填充，**不使用 -1**。"""
+        if width < self.width:
+            raise GpuKvError(f"目标宽度 {width} 小于表宽 {self.width}")
+        return list(self.physical_blocks) + [self.physical_blocks[-1]] * (width - self.width)
 
-def validate_mapping(logical_to_physical: tuple[int, ...] | list[int]) -> tuple[int, ...]:
-    """校验逻辑→物理块映射：非负、不重复。返回不可变副本。"""
+
+def validate_mapping(logical_to_physical) -> tuple[int, ...]:
+    """校验逻辑→物理块映射：非负、不重复。"""
     mapping = tuple(int(x) for x in logical_to_physical)
     if not mapping:
         raise GpuKvError("逻辑→物理映射为空")
@@ -51,82 +60,12 @@ def validate_mapping(logical_to_physical: tuple[int, ...] | list[int]) -> tuple[
         if physical < 0:
             raise GpuKvError(f"逻辑块 {logical} 的物理 ID 为负：{physical}")
     if len(set(mapping)) != len(mapping):
-        raise GpuKvError("逻辑→物理映射存在重复物理块（同一物理块被两个逻辑块引用）")
+        raise GpuKvError("逻辑→物理映射存在重复物理块")
     return mapping
 
 
-def valid_count(block_index: int, seq_len: int, block_size: int) -> int:
-    """逻辑块 ``block_index`` 中已写入的真实 token 数（0 表示尚未写入）。"""
-    if block_index < 0:
-        raise GpuKvError(f"逻辑块索引为负：{block_index}")
-    if block_size <= 0:
-        raise GpuKvError(f"块大小非法：{block_size}")
-    if seq_len < 0:
-        raise GpuKvError(f"序列长度为负：{seq_len}")
-    return max(0, min(block_size, seq_len - block_index * block_size))
-
-
-def normalize_retained_blocks(raw, num_logical_blocks: int) -> tuple[int, ...]:
-    """规范化模式给出的保留块：去重 + 按逻辑升序（乱序/重复引用交给这里处理）。"""
-    if num_logical_blocks <= 0:
-        raise GpuKvError("逻辑块数量非法")
-    seen: set[int] = set()
-    for item in raw:
-        index = int(item)
-        if index < 0:
-            raise GpuKvError(f"保留块索引为负：{index}")
-        if index >= num_logical_blocks:
-            raise GpuKvError(f"保留块索引越界：{index} >= {num_logical_blocks}")
-        seen.add(index)
-    if not seen:
-        raise GpuKvError("保留块集合为空：读取视图至少要保留当前块")
-    return tuple(sorted(seen))
-
-
-def build_read_table(
-    retained_blocks,
-    logical_to_physical,
-    seq_len: int,
-    block_size: int,
-) -> ReadTable:
-    """由规范化保留块构造分页读取表与有效长度。"""
-    mapping = validate_mapping(logical_to_physical)
-    blocks = tuple(int(x) for x in retained_blocks)
-    if not blocks:
-        raise GpuKvError("保留块集合为空")
-    if tuple(sorted(set(blocks))) != blocks:
-        raise GpuKvError("保留块必须先经 normalize_retained_blocks 规范化（去重升序）")
-
-    counts: list[int] = []
-    dropped: list[int] = []
-    keep: list[int] = []
-    for index in blocks:
-        if index >= len(mapping):
-            raise GpuKvError(f"保留块 {index} 超出逻辑块数 {len(mapping)}")
-        count = valid_count(index, seq_len, block_size)
-        if count == 0:
-            dropped.append(index)
-            continue
-        keep.append(index)
-        counts.append(count)
-    if not keep:
-        raise GpuKvError("所有保留块都没有有效 token：读取视图为空")
-
-    seqused_k = sum(counts)
-    width = -(-seqused_k // block_size)  # ceil
-    if width > len(keep):
-        raise GpuKvError(f"表宽 {width} 超过保留块数 {len(keep)}：有效计数与块数不一致")
-    return ReadTable(
-        physical_blocks=tuple(mapping[index] for index in keep),
-        seqused_k=seqused_k,
-        effective_per_block=tuple(counts),
-        tail_len=counts[-1],
-        dropped_empty_blocks=tuple(dropped),
-    )
-
-
 def canonical_slot(position: int, block_size: int, logical_to_physical) -> int:
-    """原始逻辑位置在物理缓存中的唯一 slot。"""
+    """原始逻辑位置在物理缓存中的 slot（写入路径用）。"""
     mapping = validate_mapping(logical_to_physical)
     if position < 0:
         raise GpuKvError(f"位置为负：{position}")
@@ -137,10 +76,7 @@ def canonical_slot(position: int, block_size: int, logical_to_physical) -> int:
 
 
 def next_write_slot(seq_len: int, block_size: int, logical_to_physical):
-    """下一 token 的 canonical 写入位置：返回 (逻辑块, 块内偏移, 物理 slot)。
-
-    只取决于原始序列长度，不随读取视图改变。
-    """
+    """下一 token 的 canonical 写入位置：(逻辑块, 块内偏移, 物理 slot)。"""
     mapping = validate_mapping(logical_to_physical)
     if seq_len < 0:
         raise GpuKvError(f"序列长度为负：{seq_len}")
@@ -148,3 +84,78 @@ def next_write_slot(seq_len: int, block_size: int, logical_to_physical):
     if logical >= len(mapping):
         raise GpuKvError(f"序列长度 {seq_len} 已超出缓存容量 {len(mapping) * block_size}")
     return logical, offset, mapping[logical] * block_size + offset
+
+
+def read_table_from_read_view(view, logical_to_physical) -> ReadTable:
+    """阶段 03 `ReadView` → 无 `-1` 的读取表与有效长度。
+
+    只用视图已经算好的可见块与可见 span（数据面），并对前缀语义、当前 token 可见性做硬校验。
+    """
+    mapping = validate_mapping(logical_to_physical)
+    block_size = int(view.kernel_block_size)
+    kv_len = int(view.attention_kv_len)
+    if block_size <= 0 or kv_len <= 0:
+        raise GpuKvError(f"block_size/kv_len 非法：{block_size}/{kv_len}")
+
+    visible_blocks = tuple(int(b) for b in view.visible_blocks)
+    if not visible_blocks:
+        raise GpuKvError("可见块集合为空")
+    if tuple(sorted(set(visible_blocks))) != visible_blocks:
+        raise GpuKvError("可见块必须升序且唯一")
+    valid_prefix = tuple(view.physical_block_ids[: int(view.valid_counts)])
+    if len(valid_prefix) != len(visible_blocks):
+        raise GpuKvError(
+            f"可见块数 {len(visible_blocks)} 与物理表有效前缀 {len(valid_prefix)} 不一致"
+        )
+    if any(pid == -1 for pid in valid_prefix):
+        raise GpuKvError("物理表有效前缀出现 -1（-1 只能出现在尾部填充）")
+    if len(set(valid_prefix)) != len(valid_prefix):
+        raise GpuKvError("物理表有效前缀存在重复物理块")
+    for block, pid in zip(visible_blocks, valid_prefix):
+        if block >= len(mapping):
+            raise GpuKvError(f"可见块 {block} 超出逻辑块数 {len(mapping)}")
+        if pid != mapping[block]:
+            raise GpuKvError(
+                f"可见块 {block} 的物理 ID {pid} 与 canonical 映射 {mapping[block]} 不一致"
+            )
+        if block * block_size >= kv_len:
+            raise GpuKvError(
+                f"可见块 {block} 不含任何已写位置（kv_len={kv_len}）：误用 span 必须在转换边界报错"
+            )
+
+    counts = []
+    for block in visible_blocks:
+        low, high = block * block_size, min((block + 1) * block_size, kv_len)
+        covered = 0
+        for start, end in view.visible_spans:
+            lo, hi = max(start, low), min(end, high)
+            if hi > lo:
+                covered += hi - lo
+        counts.append(covered)
+    tail_block = visible_blocks[-1]
+    for block, count in zip(visible_blocks[:-1], counts[:-1]):
+        if count != block_size:
+            raise GpuKvError(
+                f"可见块 {block} 只有 {count}/{block_size} 个已覆盖位置且不是最大可见块："
+                "分页前缀语义会读入未写槽"
+            )
+    if counts[-1] == 0:
+        raise GpuKvError(f"最大可见块 {tail_block} 无覆盖位置")
+
+    current_position = kv_len - 1
+    if current_position // block_size not in visible_blocks:
+        raise GpuKvError(
+            f"当前 token 位置 {current_position}（块 {current_position // block_size}）不可见："
+            "阶段 04 只承诺 query_len=1 且保留当前 token 的因果 decode"
+        )
+
+    seqused_k = sum(counts)
+    return ReadTable(
+        physical_blocks=tuple(valid_prefix),
+        visible_blocks=visible_blocks,
+        effective_per_block=tuple(counts),
+        seqused_k=seqused_k,
+        tail_len=counts[-1],
+        attention_kv_len=kv_len,
+        next_write_position=int(view.next_write_position),
+    )

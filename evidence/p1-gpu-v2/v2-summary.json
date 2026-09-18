@@ -1,0 +1,6831 @@
+{
+  "config": "configs/p1-gpu/read-view-check-v2.json",
+  "config_sha256": "990b3510df3ce45824400beb6b8744aedccb632a1a9f6abe223f6c6e511fa5d8",
+  "torch": "2.13.0+cu130",
+  "vllm_entry": "vllm.vllm_flash_attn.flash_attn_varlen_func",
+  "fa_version": 2,
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "capability": [
+    12,
+    0
+  ],
+  "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+  "seed": [
+    0,
+    1,
+    2
+  ],
+  "criteria_total": 738,
+  "criteria_failed": 0,
+  "ok": true,
+  "reasons": [],
+  "records": [
+    {
+      "id": "trajectory_resident",
+      "seed": 0,
+      "kind": "trajectory",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "8657d386d3bb02a042881c2e8d6bdfea",
+      "cache_v_digest": "2d0361266af090920ddff1fc1310a805",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 6272,
+          "width": 8,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            6272
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 6272,
+          "oracle_seqused_k": 6272,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0002478957176208496,
+            "rms": 4.305297351967588e-05,
+            "max_abs_ref": 0.0911186933517456,
+            "worst_index": [
+              2,
+              166
+            ],
+            "worst_candidate": 0.0732421875,
+            "worst_reference": 0.07349008321762085,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]；seqused 候选=6272 oracle=6272；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6272
+              ]
+            ],
+            "valid_counts": 8,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        },
+        {
+          "label": "step1",
+          "mode": "focus",
+          "refs": [
+            1
+          ],
+          "kv_len": 6273,
+          "current_position": 6272,
+          "seqused_k": 2353,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              2,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            2353
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 2353,
+          "oracle_seqused_k": 2353,
+          "oracle_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "candidate_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "numeric": {
+            "max_abs": 0.0003515705466270447,
+            "rms": 7.107962913896627e-05,
+            "max_abs_ref": 0.12256764620542526,
+            "worst_index": [
+              0,
+              127
+            ],
+            "worst_candidate": -0.06689453125,
+            "worst_reference": -0.06654296070337296,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.384185791015625e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 2353
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 7, 8] oracle块=[0, 1, 7, 8]；seqused 候选=2353 oracle=2353；写入 slot 候选=(8, 1, 2353) oracle=(8, 1, 2353)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2352
+            ],
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                5488,
+                6273
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 6273
+          },
+          "append": {
+            "expected_slot": 2352,
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          }
+        },
+        {
+          "label": "step2",
+          "mode": "focus",
+          "refs": [
+            1,
+            3
+          ],
+          "kv_len": 6274,
+          "current_position": 6273,
+          "seqused_k": 3922,
+          "width": 6,
+          "block_table": [
+            [
+              7,
+              2,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            3922
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            2
+          ],
+          "tail_len": 2,
+          "oracle_positions": 3922,
+          "oracle_seqused_k": 3922,
+          "oracle_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "candidate_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "numeric": {
+            "max_abs": 0.0002517998218536377,
+            "rms": 5.400424846433782e-05,
+            "max_abs_ref": 0.10897263884544373,
+            "worst_index": [
+              1,
+              238
+            ],
+            "worst_candidate": -0.064453125,
+            "worst_reference": -0.06420132517814636,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.8533319234848022e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 6,
+            "seqused_k": 3922
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 5, 6, 7, 8] oracle块=[0, 1, 5, 6, 7, 8]；seqused 候选=3922 oracle=3922；写入 slot 候选=(8, 2, 2354) oracle=(8, 2, 2354)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2353
+            ],
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                3920,
+                6274
+              ]
+            ],
+            "valid_counts": 6,
+            "max_width": 12,
+            "tail_block_valid_len": 2,
+            "next_write_position": 6274
+          },
+          "append": {
+            "expected_slot": 2353,
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          }
+        },
+        {
+          "label": "step3",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6275,
+          "current_position": 6274,
+          "seqused_k": 1571,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1571
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            3
+          ],
+          "tail_len": 3,
+          "oracle_positions": 1571,
+          "oracle_seqused_k": 1571,
+          "oracle_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "candidate_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "numeric": {
+            "max_abs": 0.0004152655601501465,
+            "rms": 8.628133142829596e-05,
+            "max_abs_ref": 0.15461978316307068,
+            "worst_index": [
+              7,
+              230
+            ],
+            "worst_candidate": 0.1298828125,
+            "worst_reference": 0.12946754693984985,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.086162567138672e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1571
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1571 oracle=1571；写入 slot 候选=(8, 3, 2355) oracle=(8, 3, 2355)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2354
+            ],
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6275
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 3,
+            "next_write_position": 6275
+          },
+          "append": {
+            "expected_slot": 2354,
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          }
+        },
+        {
+          "label": "step4",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6276,
+          "current_position": 6275,
+          "seqused_k": 1572,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1572
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            4
+          ],
+          "tail_len": 4,
+          "oracle_positions": 1572,
+          "oracle_seqused_k": 1572,
+          "oracle_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "candidate_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "numeric": {
+            "max_abs": 0.00045287609100341797,
+            "rms": 8.554657879420286e-05,
+            "max_abs_ref": 0.15505212545394897,
+            "worst_index": [
+              21,
+              53
+            ],
+            "worst_candidate": -0.12890625,
+            "worst_reference": -0.12845337390899658,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.7881393432617188e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1572
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1572 oracle=1572；写入 slot 候选=(8, 4, 2356) oracle=(8, 4, 2356)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2355
+            ],
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6276
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 4,
+            "next_write_position": 6276
+          },
+          "append": {
+            "expected_slot": 2355,
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          }
+        },
+        {
+          "label": "step5",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6277,
+          "current_position": 6276,
+          "seqused_k": 1573,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1573
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 1573,
+          "oracle_seqused_k": 1573,
+          "oracle_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "candidate_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "numeric": {
+            "max_abs": 0.0005100667476654053,
+            "rms": 8.542605550981799e-05,
+            "max_abs_ref": 0.15611334145069122,
+            "worst_index": [
+              10,
+              207
+            ],
+            "worst_candidate": -0.154296875,
+            "worst_reference": -0.1537868082523346,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.7881393432617188e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1573
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1573 oracle=1573；写入 slot 候选=(8, 5, 2357) oracle=(8, 5, 2357)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2356
+            ],
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6277
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 6277
+          },
+          "append": {
+            "expected_slot": 2356,
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          }
+        },
+        {
+          "label": "step6",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6278,
+          "current_position": 6277,
+          "seqused_k": 1574,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1574
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            6
+          ],
+          "tail_len": 6,
+          "oracle_positions": 1574,
+          "oracle_seqused_k": 1574,
+          "oracle_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "candidate_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "numeric": {
+            "max_abs": 0.0004386603832244873,
+            "rms": 8.501341395216728e-05,
+            "max_abs_ref": 0.15529704093933105,
+            "worst_index": [
+              7,
+              230
+            ],
+            "worst_candidate": 0.1298828125,
+            "worst_reference": 0.1294441521167755,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1574
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1574 oracle=1574；写入 slot 候选=(8, 6, 2358) oracle=(8, 6, 2358)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2357
+            ],
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6278
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 6,
+            "next_write_position": 6278
+          },
+          "append": {
+            "expected_slot": 2357,
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          }
+        },
+        {
+          "label": "step7",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6279,
+          "current_position": 6278,
+          "seqused_k": 1575,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1575
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            7
+          ],
+          "tail_len": 7,
+          "oracle_positions": 1575,
+          "oracle_seqused_k": 1575,
+          "oracle_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "candidate_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "numeric": {
+            "max_abs": 0.0004799067974090576,
+            "rms": 8.587297045498862e-05,
+            "max_abs_ref": 0.1550414264202118,
+            "worst_index": [
+              7,
+              230
+            ],
+            "worst_candidate": 0.1298828125,
+            "worst_reference": 0.12940290570259094,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1575
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1575 oracle=1575；写入 slot 候选=(8, 7, 2359) oracle=(8, 7, 2359)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2358
+            ],
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6279
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 7,
+            "next_write_position": 6279
+          },
+          "append": {
+            "expected_slot": 2358,
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          }
+        },
+        {
+          "label": "step8",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6280,
+          "current_position": 6279,
+          "seqused_k": 6280,
+          "width": 9,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            6280
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            8
+          ],
+          "tail_len": 8,
+          "oracle_positions": 6280,
+          "oracle_seqused_k": 6280,
+          "oracle_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "candidate_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "numeric": {
+            "max_abs": 0.00024465471506118774,
+            "rms": 4.351118911164113e-05,
+            "max_abs_ref": 0.09172523021697998,
+            "worst_index": [
+              15,
+              233
+            ],
+            "worst_candidate": -0.06298828125,
+            "worst_reference": -0.06274362653493881,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 9,
+            "seqused_k": 6280
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7, 8] oracle块=[0, 1, 2, 3, 4, 5, 6, 7, 8]；seqused 候选=6280 oracle=6280；写入 slot 候选=(8, 8, 2360) oracle=(8, 8, 2360)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2359
+            ],
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6280
+              ]
+            ],
+            "valid_counts": 9,
+            "max_width": 12,
+            "tail_block_valid_len": 8,
+            "next_write_position": 6280
+          },
+          "append": {
+            "expected_slot": 2359,
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "focus_current_block",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "8657d386d3bb02a042881c2e8d6bdfea",
+      "cache_v_digest": "2cd561e1821f3b3f50cc747ae9edb7aa",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "focus",
+          "refs": [
+            3
+          ],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 3136,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            3136
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 3136,
+          "oracle_seqused_k": 3136,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0003045573830604553,
+            "rms": 6.099209831589313e-05,
+            "max_abs_ref": 0.12397066503763199,
+            "worst_index": [
+              5,
+              176
+            ],
+            "worst_candidate": -0.06298828125,
+            "worst_reference": -0.06329283863306046,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.384185791015625e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 3136
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6, 7] oracle块=[0, 5, 6, 7]；seqused 候选=3136 oracle=3136；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                6272
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "local_excludes_document",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "8657d386d3bb02a042881c2e8d6bdfea",
+      "cache_v_digest": "2cd561e1821f3b3f50cc747ae9edb7aa",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0005049854516983032,
+            "rms": 8.692576768574924e-05,
+            "max_abs_ref": 0.14656759798526764,
+            "worst_index": [
+              13,
+              51
+            ],
+            "worst_candidate": 0.12890625,
+            "worst_reference": 0.1284012645483017,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_1",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tail1",
+      "prompt_len": 4705,
+      "distribution": "normal",
+      "fill_verified_positions": 4705,
+      "cache_k_digest": "7736ccd019e0ab960b44f3f3c4ffb1c3",
+      "cache_v_digest": "94697e7b1557d3db580f011a805b0b2b",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 4705,
+          "current_position": 4704,
+          "seqused_k": 1569,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              9,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1569
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 1569,
+          "oracle_seqused_k": 1569,
+          "oracle_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "candidate_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "numeric": {
+            "max_abs": 0.0005205273628234863,
+            "rms": 8.571112427336252e-05,
+            "max_abs_ref": 0.1784554272890091,
+            "worst_index": [
+              2,
+              180
+            ],
+            "worst_candidate": -0.125,
+            "worst_reference": -0.1255205273628235,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1569
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6] oracle块=[0, 5, 6]；seqused 候选=1569 oracle=1569；写入 slot 候选=(6, 1, 785) oracle=(6, 1, 785)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                4705
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 4705
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b_minus_1",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb1",
+      "prompt_len": 5487,
+      "distribution": "normal",
+      "fill_verified_positions": 5487,
+      "cache_k_digest": "b0cb6a061b26599fbffb5432a6b27cf6",
+      "cache_v_digest": "0603cf40cfd7f05f847b6ab5e79ee0b8",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5487,
+          "current_position": 5486,
+          "seqused_k": 1567,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1567
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            783
+          ],
+          "tail_len": 783,
+          "oracle_positions": 1567,
+          "oracle_seqused_k": 1567,
+          "oracle_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "candidate_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "numeric": {
+            "max_abs": 0.00045649707317352295,
+            "rms": 8.720094853452712e-05,
+            "max_abs_ref": 0.17145787179470062,
+            "worst_index": [
+              23,
+              37
+            ],
+            "worst_candidate": -0.1630859375,
+            "worst_reference": -0.16354243457317352,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.8998980522155762e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1567
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1567 oracle=1567；写入 slot 候选=(6, 783, 1567) oracle=(6, 783, 1567)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5487
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 783,
+            "next_write_position": 5487
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb",
+      "prompt_len": 5488,
+      "distribution": "normal",
+      "fill_verified_positions": 5488,
+      "cache_k_digest": "9695a4eca88bdbfcd7e8bbf6f22dc83a",
+      "cache_v_digest": "3af47171e0e70065ec9ca8660982cd52",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5488,
+          "current_position": 5487,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "candidate_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "numeric": {
+            "max_abs": 0.0005789697170257568,
+            "rms": 8.677578089635254e-05,
+            "max_abs_ref": 0.1703508496284485,
+            "worst_index": [
+              23,
+              219
+            ],
+            "worst_candidate": -0.1376953125,
+            "worst_reference": -0.13827428221702576,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1568 oracle=1568；写入 slot 候选=(7, 0, 6272) oracle=(7, 0, 6272)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5488
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 5488
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "sensitive_counterexample",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "sensitive_amplified",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "68a39435cf30df2c4fe7db9a1b0b132d",
+      "cache_v_digest": "03b18acbf654bfe4f69a93a274dfcc35",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0005049854516983032,
+            "rms": 8.692576768574924e-05,
+            "max_abs_ref": 0.14656759798526764,
+            "worst_index": [
+              13,
+              51
+            ],
+            "worst_candidate": 0.12890625,
+            "worst_reference": 0.1284012645483017,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "sensitivity_masked_vs_full",
+          "ok": true,
+          "detail": "masked 与 full 输出最大差 15.03906（门限 0.15）"
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "b2_rows",
+      "seed": 0,
+      "kind": "batch2",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "8657d386d3bb02a042881c2e8d6bdfea",
+      "cache_v_digest": "2cd561e1821f3b3f50cc747ae9edb7aa",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "row0",
+          "mode": "global",
+          "kv_len": 6272,
+          "seqused_k": 6272,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "oracle_seqused_k": 6272,
+          "numeric": {
+            "max_abs": 0.00025394558906555176,
+            "rms": 4.299197153504465e-05,
+            "max_abs_ref": 0.07275526225566864,
+            "worst_index": [
+              5,
+              64
+            ],
+            "worst_candidate": -0.06298828125,
+            "worst_reference": -0.06273433566093445,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.1606683731079102e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.00048828125
+        },
+        {
+          "label": "row1",
+          "mode": "local",
+          "kv_len": 6272,
+          "seqused_k": 1568,
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "oracle_seqused_k": 1568,
+          "numeric": {
+            "max_abs": 0.0005049854516983032,
+            "rms": 8.692576768574924e-05,
+            "max_abs_ref": 0.14656759798526764,
+            "worst_index": [
+              13,
+              51
+            ],
+            "worst_candidate": 0.12890625,
+            "worst_reference": 0.1284012645483017,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.0
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "row_isolation",
+          "ok": true,
+          "detail": "逐行单独调用与批量输出的最大偏差=[0.00048828125, 0.0]（容差 0.015）"
+        }
+      ],
+      "kv_integrity": {
+        "k_unchanged": true,
+        "v_unchanged": true,
+        "expected_slots": null
+      },
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "block16_control",
+      "seed": 0,
+      "kind": "single",
+      "block_size": 16,
+      "layout": "control16",
+      "prompt_len": 53,
+      "distribution": "normal",
+      "fill_verified_positions": 53,
+      "cache_k_digest": "d605594e24eb0205719092d09678464d",
+      "cache_v_digest": "2a464564f80ad6f538145a0b7b1373c0",
+      "data_ptr": {
+        "k": 140363880726528,
+        "v": 140363881119744
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 53,
+          "current_position": 52,
+          "seqused_k": 37,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              0
+            ]
+          ],
+          "backend_seqused_k": [
+            37
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            3
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            0
+          ],
+          "effective_per_block": [
+            16,
+            16,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 37,
+          "oracle_seqused_k": 37,
+          "oracle_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "candidate_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "numeric": {
+            "max_abs": 0.0036176443099975586,
+            "rms": 0.0005086445960341147,
+            "max_abs_ref": 1.1947907209396362,
+            "worst_index": [
+              2,
+              94
+            ],
+            "worst_candidate": 1.0078125,
+            "worst_reference": 1.0041948556900024,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 4.172325134277344e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 37
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 3] oracle块=[0, 2, 3]；seqused 候选=37 oracle=37；写入 slot 候选=(3, 5, 5) oracle=(3, 5, 5)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                16
+              ],
+              [
+                32,
+                53
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 53
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "arbitrary_subset_supplement",
+      "seed": 0,
+      "kind": "arbitrary",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "8657d386d3bb02a042881c2e8d6bdfea",
+      "cache_v_digest": "2cd561e1821f3b3f50cc747ae9edb7aa",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 2352,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            2352
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 2352,
+          "oracle_seqused_k": 2352,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0003235042095184326,
+            "rms": 7.191807063185373e-05,
+            "max_abs_ref": 0.13606569170951843,
+            "worst_index": [
+              9,
+              26
+            ],
+            "worst_candidate": 0.1357421875,
+            "worst_reference": 0.13606569170951843,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.7881393432617188e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 2352
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 7] oracle块=[0, 2, 7]；seqused 候选=2352 oracle=2352；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "trajectory_resident",
+      "seed": 1,
+      "kind": "trajectory",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
+      "cache_v_digest": "664dd10b68aa9fb5c900ab4354e4a01b",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 6272,
+          "width": 8,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            6272
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 6272,
+          "oracle_seqused_k": 6272,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0002490878105163574,
+            "rms": 4.3588285706725615e-05,
+            "max_abs_ref": 0.07939975708723068,
+            "worst_index": [
+              23,
+              155
+            ],
+            "worst_candidate": -0.07080078125,
+            "worst_reference": -0.07055169343948364,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.3096799850463867e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]；seqused 候选=6272 oracle=6272；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6272
+              ]
+            ],
+            "valid_counts": 8,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        },
+        {
+          "label": "step1",
+          "mode": "focus",
+          "refs": [
+            1
+          ],
+          "kv_len": 6273,
+          "current_position": 6272,
+          "seqused_k": 2353,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              2,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            2353
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 2353,
+          "oracle_seqused_k": 2353,
+          "oracle_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "candidate_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "numeric": {
+            "max_abs": 0.0003288090229034424,
+            "rms": 7.088388248555954e-05,
+            "max_abs_ref": 0.13673345744609833,
+            "worst_index": [
+              7,
+              244
+            ],
+            "worst_candidate": 0.13671875,
+            "worst_reference": 0.13638994097709656,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 2353
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 7, 8] oracle块=[0, 1, 7, 8]；seqused 候选=2353 oracle=2353；写入 slot 候选=(8, 1, 2353) oracle=(8, 1, 2353)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2352
+            ],
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                5488,
+                6273
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 6273
+          },
+          "append": {
+            "expected_slot": 2352,
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          }
+        },
+        {
+          "label": "step2",
+          "mode": "focus",
+          "refs": [
+            1,
+            3
+          ],
+          "kv_len": 6274,
+          "current_position": 6273,
+          "seqused_k": 3922,
+          "width": 6,
+          "block_table": [
+            [
+              7,
+              2,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            3922
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            2
+          ],
+          "tail_len": 2,
+          "oracle_positions": 3922,
+          "oracle_seqused_k": 3922,
+          "oracle_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "candidate_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "numeric": {
+            "max_abs": 0.0002877563238143921,
+            "rms": 5.493640220951075e-05,
+            "max_abs_ref": 0.09601651132106781,
+            "worst_index": [
+              6,
+              254
+            ],
+            "worst_candidate": -0.072265625,
+            "worst_reference": -0.07197786867618561,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.1606683731079102e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 6,
+            "seqused_k": 3922
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 5, 6, 7, 8] oracle块=[0, 1, 5, 6, 7, 8]；seqused 候选=3922 oracle=3922；写入 slot 候选=(8, 2, 2354) oracle=(8, 2, 2354)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2353
+            ],
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                3920,
+                6274
+              ]
+            ],
+            "valid_counts": 6,
+            "max_width": 12,
+            "tail_block_valid_len": 2,
+            "next_write_position": 6274
+          },
+          "append": {
+            "expected_slot": 2353,
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          }
+        },
+        {
+          "label": "step3",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6275,
+          "current_position": 6274,
+          "seqused_k": 1571,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1571
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            3
+          ],
+          "tail_len": 3,
+          "oracle_positions": 1571,
+          "oracle_seqused_k": 1571,
+          "oracle_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "candidate_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "numeric": {
+            "max_abs": 0.0005647540092468262,
+            "rms": 8.598177124748522e-05,
+            "max_abs_ref": 0.15157034993171692,
+            "worst_index": [
+              11,
+              111
+            ],
+            "worst_candidate": 0.1376953125,
+            "worst_reference": 0.13713055849075317,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1571
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1571 oracle=1571；写入 slot 候选=(8, 3, 2355) oracle=(8, 3, 2355)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2354
+            ],
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6275
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 3,
+            "next_write_position": 6275
+          },
+          "append": {
+            "expected_slot": 2354,
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          }
+        },
+        {
+          "label": "step4",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6276,
+          "current_position": 6275,
+          "seqused_k": 1572,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1572
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            4
+          ],
+          "tail_len": 4,
+          "oracle_positions": 1572,
+          "oracle_seqused_k": 1572,
+          "oracle_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "candidate_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "numeric": {
+            "max_abs": 0.00046890974044799805,
+            "rms": 8.614295427985876e-05,
+            "max_abs_ref": 0.15271592140197754,
+            "worst_index": [
+              4,
+              229
+            ],
+            "worst_candidate": -0.142578125,
+            "worst_reference": -0.142109215259552,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 3.129243850708008e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1572
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1572 oracle=1572；写入 slot 候选=(8, 4, 2356) oracle=(8, 4, 2356)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2355
+            ],
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6276
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 4,
+            "next_write_position": 6276
+          },
+          "append": {
+            "expected_slot": 2355,
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          }
+        },
+        {
+          "label": "step5",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6277,
+          "current_position": 6276,
+          "seqused_k": 1573,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1573
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 1573,
+          "oracle_seqused_k": 1573,
+          "oracle_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "candidate_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "numeric": {
+            "max_abs": 0.0005572289228439331,
+            "rms": 8.566964883966161e-05,
+            "max_abs_ref": 0.15276041626930237,
+            "worst_index": [
+              0,
+              141
+            ],
+            "worst_candidate": 0.1318359375,
+            "worst_reference": 0.13127870857715607,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.3096799850463867e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1573
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1573 oracle=1573；写入 slot 候选=(8, 5, 2357) oracle=(8, 5, 2357)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2356
+            ],
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6277
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 6277
+          },
+          "append": {
+            "expected_slot": 2356,
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          }
+        },
+        {
+          "label": "step6",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6278,
+          "current_position": 6277,
+          "seqused_k": 1574,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1574
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            6
+          ],
+          "tail_len": 6,
+          "oracle_positions": 1574,
+          "oracle_seqused_k": 1574,
+          "oracle_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "candidate_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "numeric": {
+            "max_abs": 0.00041522085666656494,
+            "rms": 8.460256277976258e-05,
+            "max_abs_ref": 0.1536201536655426,
+            "worst_index": [
+              2,
+              46
+            ],
+            "worst_candidate": -0.13671875,
+            "worst_reference": -0.13713397085666656,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.0116567611694336e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1574
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1574 oracle=1574；写入 slot 候选=(8, 6, 2358) oracle=(8, 6, 2358)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2357
+            ],
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6278
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 6,
+            "next_write_position": 6278
+          },
+          "append": {
+            "expected_slot": 2357,
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          }
+        },
+        {
+          "label": "step7",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6279,
+          "current_position": 6278,
+          "seqused_k": 1575,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1575
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            7
+          ],
+          "tail_len": 7,
+          "oracle_positions": 1575,
+          "oracle_seqused_k": 1575,
+          "oracle_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "candidate_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "numeric": {
+            "max_abs": 0.0005859583616256714,
+            "rms": 8.509233958938219e-05,
+            "max_abs_ref": 0.1535213440656662,
+            "worst_index": [
+              11,
+              111
+            ],
+            "worst_candidate": 0.13671875,
+            "worst_reference": 0.13613279163837433,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1575
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1575 oracle=1575；写入 slot 候选=(8, 7, 2359) oracle=(8, 7, 2359)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2358
+            ],
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6279
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 7,
+            "next_write_position": 6279
+          },
+          "append": {
+            "expected_slot": 2358,
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          }
+        },
+        {
+          "label": "step8",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6280,
+          "current_position": 6279,
+          "seqused_k": 6280,
+          "width": 9,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            6280
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            8
+          ],
+          "tail_len": 8,
+          "oracle_positions": 6280,
+          "oracle_seqused_k": 6280,
+          "oracle_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "candidate_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "numeric": {
+            "max_abs": 0.00027716904878616333,
+            "rms": 4.391203317381542e-05,
+            "max_abs_ref": 0.07993603497743607,
+            "worst_index": [
+              14,
+              106
+            ],
+            "worst_candidate": 0.06298828125,
+            "worst_reference": 0.06326545029878616,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 9,
+            "seqused_k": 6280
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7, 8] oracle块=[0, 1, 2, 3, 4, 5, 6, 7, 8]；seqused 候选=6280 oracle=6280；写入 slot 候选=(8, 8, 2360) oracle=(8, 8, 2360)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2359
+            ],
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6280
+              ]
+            ],
+            "valid_counts": 9,
+            "max_width": 12,
+            "tail_block_valid_len": 8,
+            "next_write_position": 6280
+          },
+          "append": {
+            "expected_slot": 2359,
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "focus_current_block",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
+      "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "focus",
+          "refs": [
+            3
+          ],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 3136,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            3136
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 3136,
+          "oracle_seqused_k": 3136,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.00033051520586013794,
+            "rms": 6.127824575923339e-05,
+            "max_abs_ref": 0.11484066396951675,
+            "worst_index": [
+              22,
+              71
+            ],
+            "worst_candidate": 0.06494140625,
+            "worst_reference": 0.06461089104413986,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.3096799850463867e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 3136
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6, 7] oracle块=[0, 5, 6, 7]；seqused 候选=3136 oracle=3136；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                6272
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "local_excludes_document",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
+      "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0005313009023666382,
+            "rms": 8.686409241215788e-05,
+            "max_abs_ref": 0.14817118644714355,
+            "worst_index": [
+              13,
+              126
+            ],
+            "worst_candidate": 0.1318359375,
+            "worst_reference": 0.13236723840236664,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_1",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tail1",
+      "prompt_len": 4705,
+      "distribution": "normal",
+      "fill_verified_positions": 4705,
+      "cache_k_digest": "db8df370df8c5c14bea29c2f81b439ae",
+      "cache_v_digest": "d61928c446ef5e5822c9223cb71459bb",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 4705,
+          "current_position": 4704,
+          "seqused_k": 1569,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              9,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1569
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 1569,
+          "oracle_seqused_k": 1569,
+          "oracle_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "candidate_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "numeric": {
+            "max_abs": 0.0005479156970977783,
+            "rms": 8.605284220164066e-05,
+            "max_abs_ref": 0.1810358166694641,
+            "worst_index": [
+              0,
+              223
+            ],
+            "worst_candidate": -0.1318359375,
+            "worst_reference": -0.13128802180290222,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.3096799850463867e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1569
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6] oracle块=[0, 5, 6]；seqused 候选=1569 oracle=1569；写入 slot 候选=(6, 1, 785) oracle=(6, 1, 785)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                4705
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 4705
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b_minus_1",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb1",
+      "prompt_len": 5487,
+      "distribution": "normal",
+      "fill_verified_positions": 5487,
+      "cache_k_digest": "6c18f20297863e5bb2065b262a32314b",
+      "cache_v_digest": "57fec5f8a02f092182186678c5060107",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5487,
+          "current_position": 5486,
+          "seqused_k": 1567,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1567
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            783
+          ],
+          "tail_len": 783,
+          "oracle_positions": 1567,
+          "oracle_seqused_k": 1567,
+          "oracle_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "candidate_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "numeric": {
+            "max_abs": 0.0004042088985443115,
+            "rms": 8.617354530819048e-05,
+            "max_abs_ref": 0.16882488131523132,
+            "worst_index": [
+              19,
+              48
+            ],
+            "worst_candidate": 0.134765625,
+            "worst_reference": 0.1343614161014557,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.086162567138672e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1567
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1567 oracle=1567；写入 slot 候选=(6, 783, 1567) oracle=(6, 783, 1567)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5487
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 783,
+            "next_write_position": 5487
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb",
+      "prompt_len": 5488,
+      "distribution": "normal",
+      "fill_verified_positions": 5488,
+      "cache_k_digest": "c53d30e80f59fbfc60b96519b989bc19",
+      "cache_v_digest": "98dbe9367c506a6f34336027a727bd4b",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5488,
+          "current_position": 5487,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "candidate_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "numeric": {
+            "max_abs": 0.0005249828100204468,
+            "rms": 8.68827151081898e-05,
+            "max_abs_ref": 0.1748107522726059,
+            "worst_index": [
+              17,
+              70
+            ],
+            "worst_candidate": -0.150390625,
+            "worst_reference": -0.15091560781002045,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.4586915969848633e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1568 oracle=1568；写入 slot 候选=(7, 0, 6272) oracle=(7, 0, 6272)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5488
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 5488
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "sensitive_counterexample",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "sensitive_amplified",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "0c8e9f343703ce5068e8d7f53d149980",
+      "cache_v_digest": "a06fdb166d3ab5f8fd629c61f42a2db4",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0005313009023666382,
+            "rms": 8.686409241215788e-05,
+            "max_abs_ref": 0.14817118644714355,
+            "worst_index": [
+              13,
+              126
+            ],
+            "worst_candidate": 0.1318359375,
+            "worst_reference": 0.13236723840236664,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "sensitivity_masked_vs_full",
+          "ok": true,
+          "detail": "masked 与 full 输出最大差 14.74243（门限 0.15）"
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "b2_rows",
+      "seed": 1,
+      "kind": "batch2",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
+      "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "row0",
+          "mode": "global",
+          "kv_len": 6272,
+          "seqused_k": 6272,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "oracle_seqused_k": 6272,
+          "numeric": {
+            "max_abs": 0.00027820467948913574,
+            "rms": 4.4540652612596095e-05,
+            "max_abs_ref": 0.0761641189455986,
+            "worst_index": [
+              3,
+              76
+            ],
+            "worst_candidate": 0.06298828125,
+            "worst_reference": 0.06326648592948914,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.384185791015625e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.00048828125
+        },
+        {
+          "label": "row1",
+          "mode": "local",
+          "kv_len": 6272,
+          "seqused_k": 1568,
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "oracle_seqused_k": 1568,
+          "numeric": {
+            "max_abs": 0.0005313009023666382,
+            "rms": 8.686409241215788e-05,
+            "max_abs_ref": 0.14817118644714355,
+            "worst_index": [
+              13,
+              126
+            ],
+            "worst_candidate": 0.1318359375,
+            "worst_reference": 0.13236723840236664,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.0
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "row_isolation",
+          "ok": true,
+          "detail": "逐行单独调用与批量输出的最大偏差=[0.00048828125, 0.0]（容差 0.015）"
+        }
+      ],
+      "kv_integrity": {
+        "k_unchanged": true,
+        "v_unchanged": true,
+        "expected_slots": null
+      },
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "block16_control",
+      "seed": 1,
+      "kind": "single",
+      "block_size": 16,
+      "layout": "control16",
+      "prompt_len": 53,
+      "distribution": "normal",
+      "fill_verified_positions": 53,
+      "cache_k_digest": "9496f39889fde248cb9971c34e72615b",
+      "cache_v_digest": "60f8d7a36a2f8804733a98e48165439d",
+      "data_ptr": {
+        "k": 140363880726528,
+        "v": 140363881119744
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 53,
+          "current_position": 52,
+          "seqused_k": 37,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              0
+            ]
+          ],
+          "backend_seqused_k": [
+            37
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            3
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            0
+          ],
+          "effective_per_block": [
+            16,
+            16,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 37,
+          "oracle_seqused_k": 37,
+          "oracle_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "candidate_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "numeric": {
+            "max_abs": 0.00287628173828125,
+            "rms": 0.0005264309491297703,
+            "max_abs_ref": 1.3591922521591187,
+            "worst_index": [
+              6,
+              115
+            ],
+            "worst_candidate": 1.2109375,
+            "worst_reference": 1.2138137817382812,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 3.5762786865234375e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 37
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 3] oracle块=[0, 2, 3]；seqused 候选=37 oracle=37；写入 slot 候选=(3, 5, 5) oracle=(3, 5, 5)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                16
+              ],
+              [
+                32,
+                53
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 53
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "arbitrary_subset_supplement",
+      "seed": 1,
+      "kind": "arbitrary",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
+      "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 2352,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            2352
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 2352,
+          "oracle_seqused_k": 2352,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0003401637077331543,
+            "rms": 6.982560116988991e-05,
+            "max_abs_ref": 0.12895049154758453,
+            "worst_index": [
+              13,
+              116
+            ],
+            "worst_candidate": 0.08935546875,
+            "worst_reference": 0.08901530504226685,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.4586915969848633e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 2352
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 7] oracle块=[0, 2, 7]；seqused 候选=2352 oracle=2352；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "trajectory_resident",
+      "seed": 2,
+      "kind": "trajectory",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "c1ee617fbbc06573df979f57b7c89508",
+      "cache_v_digest": "f82696285b5dcdceb79a7a9aae2a9b5d",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 6272,
+          "width": 8,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            6272
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 6272,
+          "oracle_seqused_k": 6272,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.00024065375328063965,
+            "rms": 4.291142603708272e-05,
+            "max_abs_ref": 0.07300153374671936,
+            "worst_index": [
+              3,
+              158
+            ],
+            "worst_candidate": -0.0732421875,
+            "worst_reference": -0.07300153374671936,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.0116567611694336e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]；seqused 候选=6272 oracle=6272；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6272
+              ]
+            ],
+            "valid_counts": 8,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        },
+        {
+          "label": "step1",
+          "mode": "focus",
+          "refs": [
+            1
+          ],
+          "kv_len": 6273,
+          "current_position": 6272,
+          "seqused_k": 2353,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              2,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            2353
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 2353,
+          "oracle_seqused_k": 2353,
+          "oracle_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "candidate_write_slot": [
+            8,
+            1,
+            2353
+          ],
+          "numeric": {
+            "max_abs": 0.0004927366971969604,
+            "rms": 6.90832328963147e-05,
+            "max_abs_ref": 0.1330656260251999,
+            "worst_index": [
+              4,
+              236
+            ],
+            "worst_candidate": -0.126953125,
+            "worst_reference": -0.12646038830280304,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.7881393432617188e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 2353
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 7, 8] oracle块=[0, 1, 7, 8]；seqused 候选=2353 oracle=2353；写入 slot 候选=(8, 1, 2353) oracle=(8, 1, 2353)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2352
+            ],
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                5488,
+                6273
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 6273
+          },
+          "append": {
+            "expected_slot": 2352,
+            "k_changed_slots": [
+              2352
+            ],
+            "v_changed_slots": [
+              2352
+            ]
+          }
+        },
+        {
+          "label": "step2",
+          "mode": "focus",
+          "refs": [
+            1,
+            3
+          ],
+          "kv_len": 6274,
+          "current_position": 6273,
+          "seqused_k": 3922,
+          "width": 6,
+          "block_table": [
+            [
+              7,
+              2,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            3922
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            2
+          ],
+          "tail_len": 2,
+          "oracle_positions": 3922,
+          "oracle_seqused_k": 3922,
+          "oracle_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "candidate_write_slot": [
+            8,
+            2,
+            2354
+          ],
+          "numeric": {
+            "max_abs": 0.0002483874559402466,
+            "rms": 5.443417843172801e-05,
+            "max_abs_ref": 0.10431254655122757,
+            "worst_index": [
+              20,
+              195
+            ],
+            "worst_candidate": 0.07373046875,
+            "worst_reference": 0.07397885620594025,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.0116567611694336e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 6,
+            "seqused_k": 3922
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 5, 6, 7, 8] oracle块=[0, 1, 5, 6, 7, 8]；seqused 候选=3922 oracle=3922；写入 slot 候选=(8, 2, 2354) oracle=(8, 2, 2354)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2353
+            ],
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                1568
+              ],
+              [
+                3920,
+                6274
+              ]
+            ],
+            "valid_counts": 6,
+            "max_width": 12,
+            "tail_block_valid_len": 2,
+            "next_write_position": 6274
+          },
+          "append": {
+            "expected_slot": 2353,
+            "k_changed_slots": [
+              2353
+            ],
+            "v_changed_slots": [
+              2353
+            ]
+          }
+        },
+        {
+          "label": "step3",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6275,
+          "current_position": 6274,
+          "seqused_k": 1571,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1571
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            3
+          ],
+          "tail_len": 3,
+          "oracle_positions": 1571,
+          "oracle_seqused_k": 1571,
+          "oracle_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "candidate_write_slot": [
+            8,
+            3,
+            2355
+          ],
+          "numeric": {
+            "max_abs": 0.0005395263433456421,
+            "rms": 8.738009922283544e-05,
+            "max_abs_ref": 0.18364888429641724,
+            "worst_index": [
+              7,
+              226
+            ],
+            "worst_candidate": 0.1279296875,
+            "worst_reference": 0.12739016115665436,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1571
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1571 oracle=1571；写入 slot 候选=(8, 3, 2355) oracle=(8, 3, 2355)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2354
+            ],
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6275
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 3,
+            "next_write_position": 6275
+          },
+          "append": {
+            "expected_slot": 2354,
+            "k_changed_slots": [
+              2354
+            ],
+            "v_changed_slots": [
+              2354
+            ]
+          }
+        },
+        {
+          "label": "step4",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6276,
+          "current_position": 6275,
+          "seqused_k": 1572,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1572
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            4
+          ],
+          "tail_len": 4,
+          "oracle_positions": 1572,
+          "oracle_seqused_k": 1572,
+          "oracle_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "candidate_write_slot": [
+            8,
+            4,
+            2356
+          ],
+          "numeric": {
+            "max_abs": 0.0005220323801040649,
+            "rms": 8.724724935417735e-05,
+            "max_abs_ref": 0.1834746152162552,
+            "worst_index": [
+              7,
+              226
+            ],
+            "worst_candidate": 0.1279296875,
+            "worst_reference": 0.12740765511989594,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.086162567138672e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1572
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1572 oracle=1572；写入 slot 候选=(8, 4, 2356) oracle=(8, 4, 2356)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2355
+            ],
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6276
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 4,
+            "next_write_position": 6276
+          },
+          "append": {
+            "expected_slot": 2355,
+            "k_changed_slots": [
+              2355
+            ],
+            "v_changed_slots": [
+              2355
+            ]
+          }
+        },
+        {
+          "label": "step5",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6277,
+          "current_position": 6276,
+          "seqused_k": 1573,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1573
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 1573,
+          "oracle_seqused_k": 1573,
+          "oracle_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "candidate_write_slot": [
+            8,
+            5,
+            2357
+          ],
+          "numeric": {
+            "max_abs": 0.0006069093942642212,
+            "rms": 8.564439771122093e-05,
+            "max_abs_ref": 0.182940274477005,
+            "worst_index": [
+              18,
+              187
+            ],
+            "worst_candidate": 0.14453125,
+            "worst_reference": 0.14392434060573578,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.682209014892578e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1573
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1573 oracle=1573；写入 slot 候选=(8, 5, 2357) oracle=(8, 5, 2357)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2356
+            ],
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6277
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 6277
+          },
+          "append": {
+            "expected_slot": 2356,
+            "k_changed_slots": [
+              2356
+            ],
+            "v_changed_slots": [
+              2356
+            ]
+          }
+        },
+        {
+          "label": "step6",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6278,
+          "current_position": 6277,
+          "seqused_k": 1574,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1574
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            6
+          ],
+          "tail_len": 6,
+          "oracle_positions": 1574,
+          "oracle_seqused_k": 1574,
+          "oracle_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "candidate_write_slot": [
+            8,
+            6,
+            2358
+          ],
+          "numeric": {
+            "max_abs": 0.00047121942043304443,
+            "rms": 8.55151273320424e-05,
+            "max_abs_ref": 0.18241989612579346,
+            "worst_index": [
+              18,
+              187
+            ],
+            "worst_candidate": 0.1474609375,
+            "worst_reference": 0.14698971807956696,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.682209014892578e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1574
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1574 oracle=1574；写入 slot 候选=(8, 6, 2358) oracle=(8, 6, 2358)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2357
+            ],
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6278
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 6,
+            "next_write_position": 6278
+          },
+          "append": {
+            "expected_slot": 2357,
+            "k_changed_slots": [
+              2357
+            ],
+            "v_changed_slots": [
+              2357
+            ]
+          }
+        },
+        {
+          "label": "step7",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6279,
+          "current_position": 6278,
+          "seqused_k": 1575,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            1575
+          ],
+          "visible_blocks": [
+            0,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            7
+          ],
+          "tail_len": 7,
+          "oracle_positions": 1575,
+          "oracle_seqused_k": 1575,
+          "oracle_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "candidate_write_slot": [
+            8,
+            7,
+            2359
+          ],
+          "numeric": {
+            "max_abs": 0.0005415976047515869,
+            "rms": 8.516859022406966e-05,
+            "max_abs_ref": 0.1822739541530609,
+            "worst_index": [
+              18,
+              187
+            ],
+            "worst_candidate": 0.1474609375,
+            "worst_reference": 0.1469193398952484,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.980232238769531e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1575
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7, 8] oracle块=[0, 7, 8]；seqused 候选=1575 oracle=1575；写入 slot 候选=(8, 7, 2359) oracle=(8, 7, 2359)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2358
+            ],
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6279
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 7,
+            "next_write_position": 6279
+          },
+          "append": {
+            "expected_slot": 2358,
+            "k_changed_slots": [
+              2358
+            ],
+            "v_changed_slots": [
+              2358
+            ]
+          }
+        },
+        {
+          "label": "step8",
+          "mode": "global",
+          "refs": [],
+          "kv_len": 6280,
+          "current_position": 6279,
+          "seqused_k": 6280,
+          "width": 9,
+          "block_table": [
+            [
+              7,
+              2,
+              11,
+              0,
+              5,
+              9,
+              1,
+              8,
+              3
+            ]
+          ],
+          "backend_seqused_k": [
+            6280
+          ],
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8,
+            3
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            784,
+            8
+          ],
+          "tail_len": 8,
+          "oracle_positions": 6280,
+          "oracle_seqused_k": 6280,
+          "oracle_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "candidate_write_slot": [
+            8,
+            8,
+            2360
+          ],
+          "numeric": {
+            "max_abs": 0.000222720205783844,
+            "rms": 4.339334041706672e-05,
+            "max_abs_ref": 0.07387223839759827,
+            "worst_index": [
+              20,
+              109
+            ],
+            "worst_candidate": -0.0693359375,
+            "worst_reference": -0.06911321729421616,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 9,
+            "seqused_k": 6280
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7, 8] oracle块=[0, 1, 2, 3, 4, 5, 6, 7, 8]；seqused 候选=6280 oracle=6280；写入 slot 候选=(8, 8, 2360) oracle=(8, 8, 2360)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": [
+              2359
+            ],
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                6280
+              ]
+            ],
+            "valid_counts": 9,
+            "max_width": 12,
+            "tail_block_valid_len": 8,
+            "next_write_position": 6280
+          },
+          "append": {
+            "expected_slot": 2359,
+            "k_changed_slots": [
+              2359
+            ],
+            "v_changed_slots": [
+              2359
+            ]
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "focus_current_block",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "c1ee617fbbc06573df979f57b7c89508",
+      "cache_v_digest": "92c75434a0ec12b8913aabdad523094a",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "focus",
+          "refs": [
+            3
+          ],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 3136,
+          "width": 4,
+          "block_table": [
+            [
+              7,
+              9,
+              1,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            3136
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 3136,
+          "oracle_seqused_k": 3136,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.00030628591775894165,
+            "rms": 6.234703182796495e-05,
+            "max_abs_ref": 0.10610369592905045,
+            "worst_index": [
+              2,
+              215
+            ],
+            "worst_candidate": 0.0654296875,
+            "worst_reference": 0.06573597341775894,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.644956111907959e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 4,
+            "seqused_k": 3136
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6, 7] oracle块=[0, 5, 6, 7]；seqused 候选=3136 oracle=3136；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                6272
+              ]
+            ],
+            "valid_counts": 4,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "local_excludes_document",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "c1ee617fbbc06573df979f57b7c89508",
+      "cache_v_digest": "92c75434a0ec12b8913aabdad523094a",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.00039121508598327637,
+            "rms": 8.682970431088327e-05,
+            "max_abs_ref": 0.1836635172367096,
+            "worst_index": [
+              9,
+              127
+            ],
+            "worst_candidate": 0.0849609375,
+            "worst_reference": 0.08456972241401672,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_1",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tail1",
+      "prompt_len": 4705,
+      "distribution": "normal",
+      "fill_verified_positions": 4705,
+      "cache_k_digest": "c8ecec1c0a5aa2e389bdd7a10e6d608d",
+      "cache_v_digest": "9d7dc7f9c8d63e69d5d201fda05adc31",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 4705,
+          "current_position": 4704,
+          "seqused_k": 1569,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              9,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1569
+          ],
+          "visible_blocks": [
+            0,
+            5,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            9,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            1
+          ],
+          "tail_len": 1,
+          "oracle_positions": 1569,
+          "oracle_seqused_k": 1569,
+          "oracle_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "candidate_write_slot": [
+            6,
+            1,
+            785
+          ],
+          "numeric": {
+            "max_abs": 0.0004392862319946289,
+            "rms": 8.687247644217478e-05,
+            "max_abs_ref": 0.180249884724617,
+            "worst_index": [
+              10,
+              109
+            ],
+            "worst_candidate": 0.15234375,
+            "worst_reference": 0.15278303623199463,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.9371509552001953e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 1569
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 5, 6] oracle块=[0, 5, 6]；seqused 候选=1569 oracle=1569；写入 slot 候选=(6, 1, 785) oracle=(6, 1, 785)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                3920,
+                4705
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 1,
+            "next_write_position": 4705
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b_minus_1",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb1",
+      "prompt_len": 5487,
+      "distribution": "normal",
+      "fill_verified_positions": 5487,
+      "cache_k_digest": "4b70cc63115cc9c6465faed5b1a00d47",
+      "cache_v_digest": "e6465dd74da7f6cbc81f159b991f6fa2",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5487,
+          "current_position": 5486,
+          "seqused_k": 1567,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1567
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            783
+          ],
+          "tail_len": 783,
+          "oracle_positions": 1567,
+          "oracle_seqused_k": 1567,
+          "oracle_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "candidate_write_slot": [
+            6,
+            783,
+            1567
+          ],
+          "numeric": {
+            "max_abs": 0.0004903674125671387,
+            "rms": 8.517827772536433e-05,
+            "max_abs_ref": 0.17468541860580444,
+            "worst_index": [
+              10,
+              178
+            ],
+            "worst_candidate": 0.169921875,
+            "worst_reference": 0.17041224241256714,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.862645149230957e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1567
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1567 oracle=1567；写入 slot 候选=(6, 783, 1567) oracle=(6, 783, 1567)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5487
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 783,
+            "next_write_position": 5487
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "tail_b",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "tailb",
+      "prompt_len": 5488,
+      "distribution": "normal",
+      "fill_verified_positions": 5488,
+      "cache_k_digest": "0c8d43719e95acc8960e66a02993e60a",
+      "cache_v_digest": "8a6cd153bfc12eeed9b610fd7924c7b8",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 5488,
+          "current_position": 5487,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              1
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            6
+          ],
+          "physical_blocks": [
+            7,
+            1
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "candidate_write_slot": [
+            7,
+            0,
+            6272
+          ],
+          "numeric": {
+            "max_abs": 0.0005324631929397583,
+            "rms": 8.688565920415531e-05,
+            "max_abs_ref": 0.18012133240699768,
+            "worst_index": [
+              4,
+              143
+            ],
+            "worst_candidate": 0.126953125,
+            "worst_reference": 0.12642066180706024,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.2351741790771484e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 6] oracle块=[0, 6]；seqused 候选=1568 oracle=1568；写入 slot 候选=(7, 0, 6272) oracle=(7, 0, 6272)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                4704,
+                5488
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 5488
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "sensitive_counterexample",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "sensitive_amplified",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "e1b49352b005b6b33876a8118da6c6d7",
+      "cache_v_digest": "d902dc37fa86a9fdcc08b57d440fa349",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 1568,
+          "width": 2,
+          "block_table": [
+            [
+              7,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            1568
+          ],
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 1568,
+          "oracle_seqused_k": 1568,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.00039121508598327637,
+            "rms": 8.682970431088327e-05,
+            "max_abs_ref": 0.1836635172367096,
+            "worst_index": [
+              9,
+              127
+            ],
+            "worst_candidate": 0.0849609375,
+            "worst_reference": 0.08456972241401672,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]；seqused 候选=1568 oracle=1568；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                784
+              ],
+              [
+                5488,
+                6272
+              ]
+            ],
+            "valid_counts": 2,
+            "max_width": 12,
+            "tail_block_valid_len": 784,
+            "next_write_position": 6272
+          }
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "sensitivity_masked_vs_full",
+          "ok": true,
+          "detail": "masked 与 full 输出最大差 15.46643（门限 0.15）"
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "b2_rows",
+      "seed": 2,
+      "kind": "batch2",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "c1ee617fbbc06573df979f57b7c89508",
+      "cache_v_digest": "92c75434a0ec12b8913aabdad523094a",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "row0",
+          "mode": "global",
+          "kv_len": 6272,
+          "seqused_k": 6272,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            2,
+            11,
+            0,
+            5,
+            9,
+            1,
+            8
+          ],
+          "oracle_seqused_k": 6272,
+          "numeric": {
+            "max_abs": 0.00025540590286254883,
+            "rms": 4.523450154716184e-05,
+            "max_abs_ref": 0.07594887167215347,
+            "worst_index": [
+              11,
+              191
+            ],
+            "worst_candidate": 0.0673828125,
+            "worst_reference": 0.06763821840286255,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 1.7136335372924805e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 8,
+            "seqused_k": 6272
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 1, 2, 3, 4, 5, 6, 7] oracle块=[0, 1, 2, 3, 4, 5, 6, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.00048828125
+        },
+        {
+          "label": "row1",
+          "mode": "local",
+          "kv_len": 6272,
+          "seqused_k": 1568,
+          "visible_blocks": [
+            0,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            8
+          ],
+          "oracle_seqused_k": 1568,
+          "numeric": {
+            "max_abs": 0.00039121508598327637,
+            "rms": 8.682970431088327e-05,
+            "max_abs_ref": 0.1836635172367096,
+            "worst_index": [
+              9,
+              127
+            ],
+            "worst_candidate": 0.0849609375,
+            "worst_reference": 0.08456972241401672,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.5331974029541016e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 2,
+            "seqused_k": 1568
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 7] oracle块=[0, 7]"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "row_isolation_max_abs": 0.0
+        }
+      ],
+      "extra_criteria": [
+        {
+          "name": "row_isolation",
+          "ok": true,
+          "detail": "逐行单独调用与批量输出的最大偏差=[0.00048828125, 0.0]（容差 0.015）"
+        }
+      ],
+      "kv_integrity": {
+        "k_unchanged": true,
+        "v_unchanged": true,
+        "expected_slots": null
+      },
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "block16_control",
+      "seed": 2,
+      "kind": "single",
+      "block_size": 16,
+      "layout": "control16",
+      "prompt_len": 53,
+      "distribution": "normal",
+      "fill_verified_positions": 53,
+      "cache_k_digest": "62a25589148ced4b84dc17dc931c8cde",
+      "cache_v_digest": "7c3f045d27c17245f2e12f8a1d0bec18",
+      "data_ptr": {
+        "k": 140363880726528,
+        "v": 140363881119744
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 53,
+          "current_position": 52,
+          "seqused_k": 37,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              0
+            ]
+          ],
+          "backend_seqused_k": [
+            37
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            3
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            0
+          ],
+          "effective_per_block": [
+            16,
+            16,
+            5
+          ],
+          "tail_len": 5,
+          "oracle_positions": 37,
+          "oracle_seqused_k": 37,
+          "oracle_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "candidate_write_slot": [
+            3,
+            5,
+            5
+          ],
+          "numeric": {
+            "max_abs": 0.0032806396484375,
+            "rms": 0.0005093952292436228,
+            "max_abs_ref": 0.9256742596626282,
+            "worst_index": [
+              16,
+              195
+            ],
+            "worst_candidate": -0.51171875,
+            "worst_reference": -0.5084381103515625,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.980232238769531e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 37
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 3] oracle块=[0, 2, 3]；seqused 候选=37 oracle=37；写入 slot 候选=(3, 5, 5) oracle=(3, 5, 5)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          },
+          "read_view": {
+            "visible_spans": [
+              [
+                0,
+                16
+              ],
+              [
+                32,
+                53
+              ]
+            ],
+            "valid_counts": 3,
+            "max_width": 12,
+            "tail_block_valid_len": 5,
+            "next_write_position": 53
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    },
+    {
+      "id": "arbitrary_subset_supplement",
+      "seed": 2,
+      "kind": "arbitrary",
+      "block_size": 784,
+      "layout": "A",
+      "prompt_len": 6272,
+      "distribution": "normal",
+      "fill_verified_positions": 6272,
+      "cache_k_digest": "c1ee617fbbc06573df979f57b7c89508",
+      "cache_v_digest": "92c75434a0ec12b8913aabdad523094a",
+      "data_ptr": {
+        "k": 140364576980992,
+        "v": 140363859755008
+      },
+      "measurements": [
+        {
+          "label": "step0",
+          "mode": "local",
+          "refs": [],
+          "kv_len": 6272,
+          "current_position": 6271,
+          "seqused_k": 2352,
+          "width": 3,
+          "block_table": [
+            [
+              7,
+              11,
+              8
+            ]
+          ],
+          "backend_seqused_k": [
+            2352
+          ],
+          "visible_blocks": [
+            0,
+            2,
+            7
+          ],
+          "physical_blocks": [
+            7,
+            11,
+            8
+          ],
+          "effective_per_block": [
+            784,
+            784,
+            784
+          ],
+          "tail_len": 784,
+          "oracle_positions": 2352,
+          "oracle_seqused_k": 2352,
+          "oracle_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "candidate_write_slot": [
+            8,
+            0,
+            2352
+          ],
+          "numeric": {
+            "max_abs": 0.0004101693630218506,
+            "rms": 7.063606542735182e-05,
+            "max_abs_ref": 0.15666016936302185,
+            "worst_index": [
+              8,
+              149
+            ],
+            "worst_candidate": 0.15625,
+            "worst_reference": 0.15666016936302185,
+            "within_tolerance": true,
+            "failure": null
+          },
+          "oracle_selfcheck": {
+            "max_diff": 2.682209014892578e-07,
+            "limit": 1e-05
+          },
+          "read_table": {
+            "has_minus_one": false,
+            "width_ok": true,
+            "physical_nonneg": true,
+            "width": 3,
+            "seqused_k": 2352
+          },
+          "data_plane": {
+            "blocks_match": true,
+            "physical_match": true,
+            "seqused_match": true,
+            "write_slot_match": true,
+            "current_block_retained": true,
+            "details": "候选块=[0, 2, 7] oracle块=[0, 2, 7]；seqused 候选=2352 oracle=2352；写入 slot 候选=(8, 0, 2352) oracle=(8, 0, 2352)"
+          },
+          "kv_integrity": {
+            "k_unchanged": true,
+            "v_unchanged": true,
+            "expected_slots": null,
+            "k_changed_slots": null,
+            "v_changed_slots": null
+          },
+          "residency": {
+            "data_ptr_stable": true
+          }
+        }
+      ],
+      "peak_memory_mib": 156.21
+    }
+  ]
+}
