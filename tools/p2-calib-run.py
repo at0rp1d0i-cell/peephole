@@ -1155,6 +1155,28 @@ def protocol_state(llm, req_id: str) -> dict:
     }
 
 
+def protocol_mode(llm, req_id: str) -> dict:
+    """该请求当前的**真实协议模式**（engine 侧 `ProtocolRegistry` 状态对象的 `.mode`）。
+
+    取不到即明确标注不可观察（不构造、不推断）。用途：判断某步是否属于"协议模式非 global、
+    执行被 `enforce_global` 覆写"的情形（`attnview_engine.py:541-553`）。
+    """
+    engine = getattr(llm, "llm_engine", None)
+    core = _engine_core(engine)
+    attnview = getattr(core, "attnview", None)
+    registry = getattr(attnview, "registry", None)
+    if registry is None or not hasattr(registry, "get"):
+        return {"observable": False, "reason": "宿主侧取不到 engine 的 attnview.registry"}
+    try:
+        state = registry.get(str(req_id))
+    except Exception as exc:
+        return {"observable": False, "reason": f"registry 无 {req_id} 的状态：{type(exc).__name__}"}
+    mode = getattr(state, "mode", None)
+    if mode is None:
+        return {"observable": False, "reason": "状态对象没有 mode 字段"}
+    return {"observable": True, "mode": str(mode)}
+
+
 def dump_engine_traces(llm, path: Path) -> dict:
     """把 engine 侧逐步 trace（解析序号 / enforce_global 标记）落盘；不可观察则记录原因。"""
     engine = getattr(llm, "llm_engine", None)
@@ -1561,6 +1583,7 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
             def probe_b(step_index: int) -> None:
                 probes_b[str(step_index)] = {
                     "state": protocol_state(llm, internal("new")),
+                    "mode": protocol_mode(llm, internal("new")),  # 真实协议模式（逐 step）
                     "worker_req_ids": worker_req_ids(llm),
                 }
 
@@ -1587,17 +1610,49 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
                     any(state.get("config_enforce_global") is True for state in observable),
                     f"B 的请求级配置 enforce_global={[s.get('config_enforce_global') for s in observable]}",
                 )
+                # 只有"协议模式**非 global** 且执行被 enforce_global 覆写"的步才留下 mark
+                # （`attnview_engine.py:126,541-553`）。若 B 全程模式本来就是 global（例如 `<global>`
+                # 尚未闭合），`marks=[]` 是**正确**结果 ⇒ 不得无条件要求非空。判定用的模式来自**真实状态**
+                # （engine 侧 registry 的 `.mode`，逐 step 探针），不构造、不推进请求。
                 marks = [
                     mark
                     for state in observable
                     for mark in state.get("enforce_global_steps", ())
                     if str(mark.get("req_id")) == internal("new")
                 ]
-                log.check(
-                    "new_req_enforce_global_step_recorded",
-                    bool(marks),
-                    f"B 的执行视图被强制 global 的步记录：{marks[:2]}",
-                )
+                modes = {step: entry["mode"] for step, entry in probes_b.items()}
+                observed_modes = [entry["mode"] for entry in modes.values() if entry.get("observable")]
+                non_global_steps = [
+                    step for step, entry in modes.items()
+                    if entry.get("observable") and str(entry.get("mode")).lower() != "global"
+                ]
+                result["observations"]["new_req_modes"] = modes
+                if non_global_steps:
+                    bad_marks = [
+                        mark for mark in marks
+                        if str(mark.get("applied_view")).lower() != "global"
+                        or str(mark.get("protocol_mode", "")).lower() == "global"
+                    ]
+                    log.check(
+                        "new_req_enforce_global_step_recorded",
+                        bool(marks) and not bad_marks,
+                        f"存在协议模式非 global 的步 {non_global_steps}（真实模式 {observed_modes}）⇒ 必须有"
+                        f" applied_view=global 且 protocol_mode 非 global 的 mark；实际 marks={marks[:2]} "
+                        f"不合规项={bad_marks[:2]}",
+                    )
+                elif observed_modes:
+                    log.check(
+                        "new_req_enforce_global_step_recorded",
+                        True,
+                        f"B 全程协议模式为 global（真实模式 {observed_modes}）⇒ 无覆写 mark 属正确结果"
+                        f"（marks={marks[:2]}）；该检查只在出现非 global 步时要求 mark",
+                    )
+                else:
+                    log.check(
+                        "new_req_enforce_global_step_recorded",
+                        False,
+                        f"无法从真实状态观察到 B 的协议模式（{modes}）⇒ 不得据此断言 marks 是否应存在",
+                    )
             else:
                 log.check(
                     "new_req_state_unobservable_documented",

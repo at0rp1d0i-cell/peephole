@@ -1470,6 +1470,153 @@ class PinLikeEngine:
         return len(self.requests)
 
 
+class PatchedLikeEngine(PinLikeEngine):
+    """patched 臂形态的假引擎：有 engine 侧协议状态（registry/config/detok）+ 真实模式可观察。
+
+    `modes` 为逐 step 的协议模式序列（按 B 请求的步序给出；不足时沿用最后一个）；
+    `marks` 为是否在某步追加 `enforce_global` 覆盖记录。状态对象暴露 `.mode`（与
+    `RequestProtocolState.mode` 同形）。
+    """
+
+    def __init__(self, *, modes=("global",), marks: bool = False, with_mark_record: bool = True) -> None:
+        super().__init__()
+        self.attnview = SimpleNamespace(
+            registry=SimpleNamespace(active_ids=lambda: tuple(sorted(self.attnview._states)),
+                                     get=self._state),
+            _configs={},
+            _detokenizers={},
+            enforce_global_steps=[],
+            traces=[],
+            _states={},
+            pending_plans=lambda: None,
+            dump_traces=lambda path: Path(path).write_text("[]"),
+        )
+        self.engine_core.attnview = self.attnview  # `_engine_core` 解析到的是 InprocClient.engine_core
+        self._modes = list(modes)
+        self._marks = marks
+        self._with_mark_record = with_mark_record
+        self._b_steps = 0
+
+    def _state(self, req_id):
+        if req_id not in self.attnview._states:
+            raise KeyError(req_id)
+        return self.attnview._states[req_id]
+
+    def add_request(self, request_id, prompt, params) -> str:
+        internal = super().add_request(request_id, prompt, params)
+        if getattr(params, "extra_args", None):
+            enforce = bool(params.extra_args["attnview"].get("enforce_global"))
+            self.attnview._configs[internal] = SimpleNamespace(enforce_global=enforce)
+            self.attnview._detokenizers[internal] = object()
+            self.attnview._states[internal] = SimpleNamespace(mode="global")
+        return internal
+
+    def _release_gone(self) -> None:
+        """镜像真实 release：已不在调度账本里的内部 id，其协议状态一并释放。"""
+        for internal in list(self.attnview._configs):
+            if internal not in self.requests:
+                self.attnview._configs.pop(internal, None)
+                self.attnview._detokenizers.pop(internal, None)
+                self.attnview._states.pop(internal, None)
+
+    def abort_request(self, request_ids, internal: bool = False) -> None:
+        super().abort_request(request_ids, internal=internal)
+        self._release_gone()
+
+    def step(self):
+        outputs = super().step()
+        self._release_gone()
+        for out in outputs:  # 按宿主输出（外部 id）定位内部状态，推进真实模式序列
+            internal = self.external_to_internal.get(str(out.request_id))
+            if internal is None or internal not in self.attnview._states:
+                continue
+            if not self.attnview._configs:
+                continue
+            index = min(self._b_steps, len(self._modes) - 1)
+            mode = self._modes[index]
+            self._b_steps += 1
+            state = self.attnview._states[internal]
+            state.mode = mode
+            if mode != "global" and self._marks:
+                self.attnview.enforce_global_steps.append({
+                    "req_id": internal,
+                    "note": "enforce_global",
+                    "protocol_mode": mode,
+                    "applied_view": "global",
+                    "effect_step": self._b_steps,
+                })
+            elif mode != "global" and not self._marks and self._with_mark_record:
+                pass  # 缺 mark 的情形（反例用）
+        return outputs
+
+
+class EnforceGlobalMarkTest(unittest.TestCase):
+    """`new_req_enforce_global_step_recorded` 必须**按真实协议模式条件**判定：
+
+    只有"协议模式非 global 且执行被 enforce_global 覆写"的步才应有 mark（`attnview_engine.py:126,541-553`）；
+    全程 global（例如 `<global>` 尚未闭合）时 marks=[] 属正确结果。
+    """
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_marks", REPO / "tools/p2-calib-run.py")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _cleanup(self, engine) -> dict:
+        llm = SimpleNamespace(llm_engine=engine)
+        return self.driver.run_cleanup_check(
+            llm, [1, 2, 3], payload={"protocol": "v1.0", "prompt_len": 3, "enforce_global": True},
+            patched=True, out_dir=self.dir)
+
+    def _check(self, result: dict, name: str) -> dict:
+        return next(c for c in result["checks"] if c["check"] == name)
+
+    def test_natural_global_mode_needs_no_mark(self) -> None:
+        """① B 全程协议模式 global、enforce_global=True、marks=[] ⇒ **通过**。"""
+        engine = PatchedLikeEngine(modes=("global",), marks=False)
+        result = self._cleanup(engine)
+        check = self._check(result, "new_req_enforce_global_step_recorded")
+        self.assertTrue(check["ok"], check["detail"])
+        self.assertIn("全程协议模式为 global", check["detail"])
+        self.assertIn("无覆写 mark 属正确结果", check["detail"])
+        # 防回退：无条件要求 marks 非空 ⇒ 本场景会被误判失败
+        self.assertEqual(engine.attnview.enforce_global_steps, [])
+        self.assertFalse(bool(engine.attnview.enforce_global_steps),
+                         "无条件要求 marks 非空在 global 自然态必然误报 ⇒ 不得采用该写法")
+
+    def test_non_global_mode_requires_mark(self) -> None:
+        """② 某步协议模式 local 且被 enforce_global 覆写 ⇒ 必须有 mark；缺则失败。"""
+        engine = PatchedLikeEngine(modes=("global", "local"), marks=True)
+        result = self._cleanup(engine)
+        check = self._check(result, "new_req_enforce_global_step_recorded")
+        self.assertTrue(check["ok"], check["detail"])
+        self.assertIn("真实模式", check["detail"])
+        self.assertTrue(engine.attnview.enforce_global_steps, "该场景确实产生了覆盖记录")
+
+        missing = PatchedLikeEngine(modes=("global", "local"), marks=False)
+        result2 = self._cleanup(missing)
+        check2 = self._check(result2, "new_req_enforce_global_step_recorded")
+        self.assertFalse(check2["ok"], "非 global 步缺 mark 必须失败")
+        self.assertIn("必须有", check2["detail"])
+        self.assertFalse(result2["ok"])
+
+    def test_unobservable_mode_is_failure_not_silent_pass(self) -> None:
+        """模式不可观察时不得静默当成功（不能据此断言 marks 是否应存在）。"""
+        engine = PatchedLikeEngine(modes=("global",), marks=False)
+
+        def _no_mode(req_id):
+            raise KeyError(req_id)  # registry 永不暴露状态 ⇒ 模式不可观察（其余 attnview 证据仍可观察）
+
+        engine.attnview.registry.get = _no_mode
+        result = self._cleanup(engine)
+        check = self._check(result, "new_req_enforce_global_step_recorded")
+        self.assertFalse(check["ok"])
+        self.assertIn("无法从真实状态观察到", check["detail"])
+
+
 class NoopEngine:
     """对 add_request/step/abort 都无动作的引擎：清理验收必须 `ok=False`（旧实现返回 ok=True）。
 
