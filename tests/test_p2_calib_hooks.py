@@ -300,28 +300,92 @@ class LayerCaptureTest(unittest.TestCase):
         import numpy as np
 
         data = np.load(target)
+        # prefill 步（step 0）才可做完整全局参考 ⇒ 导出可参考键；decode 步用 decode_ 前缀单列
         self.assertIn("k_prefill_L0", data)
         self.assertIn("v_prefill_L0", data)
-        self.assertIn("q_step1_L0", data)
-        self.assertIn("out_step1_L0", data)
-        for key in ("scale", "num_heads", "num_kv_heads", "head_dim", "prompt_len"):
+        self.assertIn("q_step0_L0", data, "prefill 步的 query 必须导出（decode 步历史 KV 不全，不可参考）")
+        self.assertIn("out_step0_L0", data)
+        self.assertIn("positions_step0", data, "绝对位置是 oracle 的必需键")
+        self.assertIn("decode_q_step1_L0", data)
+        self.assertIn("decode_out_step1_L0", data)
+        self.assertNotIn("q_step1_L0", data, "decode 步不得冒充可完整参考的步")
+        for key in ("scale", "scale_source", "num_heads", "num_kv_heads", "head_dim", "prompt_len", "layer_name_L0"):
             self.assertIn(key, data, f"oracle 合同要求元数据 {key}")
         self.assertEqual(tuple(data["k_prefill_L0"].shape), (2, 3, 4))  # [kv_heads, prompt_len, head_dim]
+        self.assertEqual(tuple(data["positions_step0"].shape), (3,))
 
-    def test_find_fa_layers_fails_loudly_without_flash_impl(self) -> None:
+    def test_find_fa_layers_uses_runner_attn_groups_layer_names(self) -> None:
+        """真实层级是嵌套的（`language_model.model.layers.*.self_attn.attn`），
+        层集合事实来自 runner.attn_groups 的 `layer_names` —— 不能靠硬编码 `.layers`。"""
+        from vllm.v1.kv_cache_interface import FullAttentionSpec, MambaSpec
+
+        class FakeFlashAttentionImpl:
+            @staticmethod
+            def forward(layer, query, key, value, kv_cache, attn_metadata, output, **kw):
+                return query
+
+        class FakeAttn(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.impl = FakeFlashAttentionImpl()
+
+        class Holder(torch.nn.Module):
+            pass
+
+        root = Holder()
+        # 嵌套：language_model.model.layers.{0,1}.self_attn.attn（0 = GDN，1 = FA）
+        # 用 ModuleDict/Sequential 造出真实名字
+        layers = torch.nn.ModuleDict()
+        for i in range(2):
+            attn_holder = torch.nn.Module()
+            attn_holder.add_module("attn", FakeAttn())
+            layer = torch.nn.Module()
+            layer.add_module("self_attn", attn_holder)
+            layers[str(i)] = layer
+        inner = torch.nn.Module()
+        inner.add_module("layers", layers)
+        lm = torch.nn.Module()
+        lm.add_module("model", inner)
+        root.add_module("language_model", lm)
+
+        fa_group = SimpleNamespace(
+            kv_cache_spec=FullAttentionSpec(block_size=784, num_kv_heads=4, head_size=128, dtype=torch.bfloat16),
+            layer_names=["language_model.model.layers.1.self_attn.attn"],
+        )
+        gdn_group = SimpleNamespace(
+            kv_cache_spec=MambaSpec(block_size=784, shapes=(), dtypes=()),
+            layer_names=["language_model.model.layers.0.self_attn.attn"],
+        )
+        runner = SimpleNamespace(attn_groups=[[gdn_group], [fa_group]], model=root)
         llm = SimpleNamespace(
             llm_engine=SimpleNamespace(
-                model_executor=SimpleNamespace(
-                    driver_worker=SimpleNamespace(
-                        model_runner=SimpleNamespace(
-                            model=SimpleNamespace(layers=[SimpleNamespace(self_attn=SimpleNamespace(impl=object()))])
-                        )
-                    )
-                )
+                model_executor=SimpleNamespace(driver_worker=SimpleNamespace(model_runner=runner))
             )
         )
-        with self.assertRaises(RuntimeError):
+        model, found = self.driver.find_fa_layers(llm)
+        self.assertIs(model, root)
+        self.assertEqual([name for name, _ in found], ["language_model.model.layers.1.self_attn.attn"],
+                         "必须只挑出 FullAttentionSpec 组里的真实层，且用真实嵌套名解析")
+        self.assertIsInstance(found[0][1], FakeFlashAttentionImpl)
+
+    def test_find_fa_layers_fails_loudly_without_matching_module(self) -> None:
+        from vllm.v1.kv_cache_interface import FullAttentionSpec
+
+        root = torch.nn.Module()
+        root.add_module("layers", torch.nn.Module())
+        group = SimpleNamespace(
+            kv_cache_spec=FullAttentionSpec(block_size=784, num_kv_heads=4, head_size=128, dtype=torch.bfloat16),
+            layer_names=["does.not.exist"],
+        )
+        runner = SimpleNamespace(attn_groups=[[group]], model=root)
+        llm = SimpleNamespace(
+            llm_engine=SimpleNamespace(
+                model_executor=SimpleNamespace(driver_worker=SimpleNamespace(model_runner=runner))
+            )
+        )
+        with self.assertRaises(RuntimeError) as ctx:
             self.driver.find_fa_layers(llm)
+        self.assertIn("named_modules", str(ctx.exception))
 
 
 class WatchdogTest(unittest.TestCase):

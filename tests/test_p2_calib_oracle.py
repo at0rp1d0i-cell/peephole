@@ -63,6 +63,7 @@ def build_arrays(
     k: dict,
     v: dict,
     layer: int = 3,
+    scale_source: str | None = None,
 ) -> dict:
     """按捕获键名约定组装 npz 载荷。
 
@@ -86,6 +87,8 @@ def build_arrays(
     arrays["head_dim"] = np.array(head_dim, dtype=np.int64)
     arrays["layer_index"] = np.array(layer, dtype=np.int64)
     arrays["dtype_name"] = np.array("bfloat16")
+    if scale_source is not None:
+        arrays["scale_source"] = np.array(scale_source)
     return arrays
 
 
@@ -407,21 +410,23 @@ class CliEndToEndTest(unittest.TestCase):
         observed = bf16_round(ref64.float())
 
         with tempfile.TemporaryDirectory() as tmp:
-            capture = write_npz(
-                Path(tmp) / "capture.npz",
-                build_arrays(
-                    prompt_len=prompt_len,
-                    scale=scale,
-                    num_heads=num_heads,
-                    num_kv_heads=num_kv_heads,
-                    head_dim=head_dim,
-                    q={1: q},
-                    out={1: observed},
-                    positions={1: positions},
-                    k={3: k},
-                    v={3: v},
-                ),
+            arrays = build_arrays(
+                prompt_len=prompt_len,
+                scale=scale,
+                num_heads=num_heads,
+                num_kv_heads=num_kv_heads,
+                head_dim=head_dim,
+                q={1: q},
+                out={1: observed},
+                positions={1: positions},
+                k={3: k},
+                v={3: v},
             )
+            # 张量按 FP16 存储 → oracle 必须先升到 FP32；元数据/positions 不在该清单里。
+            for name in list(arrays):
+                if name.startswith(("k_prefill_", "v_prefill_", "q_step", "out_step")):
+                    arrays[name] = arrays[name].astype(np.float16)
+            capture = write_npz(Path(tmp) / "capture.npz", arrays)
             report_path = Path(tmp) / "report.json"
             proc = run_cli(capture, report_path)
             self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -452,8 +457,15 @@ class CliEndToEndTest(unittest.TestCase):
         self.assertEqual(report["per_layer"]["3"]["max_abs_err"]["max"], comparison["max_abs_err"])
         self.assertEqual(report["metadata"]["scale"], scale)
         self.assertEqual(report["metadata"]["scale_source"], "capture")
+        self.assertEqual(report["numerics"]["scale_source"], "capture")
+        self.assertFalse(report["numerics"]["scale_is_approximate"])
         self.assertFalse(report["numerics"]["rope_scale_reapplied"])
         self.assertEqual(report["numerics"]["compute_dtype"], "float32")
+        self.assertEqual(report["numerics"]["dtype_name"], "bfloat16")
+        self.assertEqual(
+            report["numerics"]["upcast_to_float32"],
+            ["k_prefill_L3", "out_step1_L3", "q_step1_L3", "v_prefill_L3"],
+        )
 
 
 if __name__ == "__main__":

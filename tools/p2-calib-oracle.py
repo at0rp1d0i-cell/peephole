@@ -14,6 +14,8 @@
   是 canonical 顺序（绝对位置 0..prompt_len-1）的 prefill K/V。
 * Q 的 norm/RoPE 与 K 的 norm/RoPE 已包含在捕获张量里，`scale` 由捕获文件给出——本 oracle
   **不重复施加 RoPE，也不重算 scale**；`scale` 缺失直接报错，不用 head_dim^-0.5 之类兜底。
+  若捕获自带 `scale_source` 声明且其值为 derived（非运行时真实值），本工具不拒绝，
+  而是把它单列为已知近似来源（报告 `numerics.scale_is_approximate` 与 `warnings`）。
 * 全部计算在 FP32：捕获到的 BF16 张量先 `.float()`（被升位的数组在报告 `numerics.upcast_to_float32`
   里逐个列出，`dtype_name` 记录模型侧精度）；softmax 数值稳定（每行减最大值再归一化）。
 * 因果上界：绝对位置 p 的 query 只使用 key 下标 0..p（含自身）。GQA 按**连续分组**展开：
@@ -137,6 +139,11 @@ def _stored_dtype(raw: dict, name: str) -> str:
     return str(np.asarray(raw[name]).dtype)
 
 
+def _is_tensor_key(name: str) -> bool:
+    """判断 npz 键是否为参与比较的张量（排除元数据/positions）。"""
+    return any(pattern.match(name) for pattern in (_LAYER_K, _LAYER_V, _STEP_Q, _STEP_OUT))
+
+
 def load_capture(path: Path) -> dict:
     """读取并校验捕获 npz；任何缺件/形状/位置问题都以 CaptureError 抛出（退出码 2）。"""
     if not path.is_file():
@@ -179,6 +186,9 @@ def load_capture(path: Path) -> dict:
         "head_dim": head_dim,
         "layer_index": _optional_meta(raw, "layer_index"),
         "dtype_name": _optional_meta(raw, "dtype_name"),
+        # 捕获可声明 scale 的来源（如 impl.scale / derived_head_dim**-0.5）；
+        # 未声明时记 "capture"（值确实取自捕获文件，但来源未进一步声明）。
+        "scale_source": _optional_meta(raw, "scale_source") or "capture",
     }
 
     # --- 每层 K/V：canonical 顺序，形状 [num_kv_heads, prompt_len, head_dim] ---
@@ -404,6 +414,14 @@ def build_report(capture: dict) -> dict:
     steps = capture["steps"]
 
     non_finite: list[dict] = []
+    warnings = list(capture["warnings"])
+    # scale 来源声明为 derived 时（非运行时真实值），它进入全部误差 → 单列为已知近似来源。
+    scale_source = meta["scale_source"]
+    scale_derived = isinstance(scale_source, str) and "derived" in scale_source.lower()
+    if scale_derived:
+        warnings.append(
+            f"scale 来源声明为 {scale_source}（非运行时真实值）：该假设进入本报告全部误差，属已知近似来源"
+        )
     # 捕获级扫描：K/V 全数组（含未被任何 query 用到的尾部）。
     for layer in sorted(layers):
         for kind in ("k", "v"):
@@ -514,16 +532,21 @@ def build_report(capture: dict) -> dict:
             "causal_rule": "绝对位置 p 的 query 只用 key 下标 0..p（含自身），key 取自 canonical prefill 段",
             "rope_scale_reapplied": False,
             "dtype_name": meta["dtype_name"],
+            "scale_source": scale_source,
+            "scale_is_approximate": scale_derived,
             "upcast_to_float32": sorted(
-                name for name, dtype in capture["stored_dtypes"].items() if dtype != COMPUTE_DTYPE
+                name
+                for name, dtype in capture["stored_dtypes"].items()
+                if dtype != COMPUTE_DTYPE and _is_tensor_key(name)
             ),
+            "upcast_note": "按 npz 实际存储 dtype 判定；模型侧原始精度见 dtype_name",
         },
         "comparisons": comparisons,
         "per_layer": per_layer,
         "per_step": per_step,
         "non_finite": non_finite,
         "summary": summary,
-        "warnings": list(capture["warnings"]),
+        "warnings": warnings,
     }
 
 
