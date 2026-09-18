@@ -313,8 +313,9 @@ class FakeFlashAttentionImpl:
 class FakeModel:
     """镜像真实调用形态：每步一次 `forward(positions=...)`，每层一次 `impl.forward`。
 
-    prefill 步 q_len=prompt_len，之后每步 1 个 token；`positions` 是**真实绝对位置**，
-    与 `input_batch.positions` 同源（pin `worker/gpu/model_runner.py:1701-1702`）。
+    - `positions` 与真实入口一致可以是 **2-D 批张量**（本机 original 实测 `(3, 1505)`）或 1-D；
+    - 同时构造与 pin 同形的 `FlashAttentionMetadata` 关键字段（prefill/decode 计数、`seq_lens`、
+      `block_table`），用于真实标记互核与执行视图（canonical/global）证据。
     """
 
     def __init__(self, impls, *, prompt_len: int = 3, num_heads: int = 4, head_dim: int = 8,
@@ -326,15 +327,43 @@ class FakeModel:
         self.head_dim = head_dim
         self.dtype = torch.bfloat16
         self.marker = marker
+        self.last_metadata = None
+        #: 仅供反例：让本步声明的 q_len 与 positions 行宽不一致（真实路径不会出现）
+        self.q_len_override: int | None = None
+
+    def metadata_for(self, positions_row, q_len: int):
+        last = int(positions_row[min(q_len, int(positions_row.shape[0])) - 1])
+        canonical_seq_len = last + 1
+        prefill = int(positions_row[0]) == 0 and canonical_seq_len == self.prompt_len
+        metadata = SimpleNamespace(
+            num_prefill_reqs=1 if prefill else 0,
+            num_decode_reqs=0 if prefill else 1,
+            num_prefill_tokens=q_len if prefill else 0,
+            num_decode_tokens=0 if prefill else q_len,
+            max_query_len=q_len,
+            seq_lens=torch.tensor([canonical_seq_len], dtype=torch.int32),
+            max_seq_len=canonical_seq_len,
+            num_actual_tokens=q_len,
+            block_table=torch.zeros((1, 4), dtype=torch.int32),
+        )
+        if self.marker is not None:  # 反例用：只改相位计数，视图证据仍保持 canonical
+            for field in ("num_prefill_reqs", "num_decode_reqs", "num_prefill_tokens",
+                          "num_decode_tokens", "max_query_len"):
+                if hasattr(self.marker, field):
+                    setattr(metadata, field, getattr(self.marker, field))
+        return metadata
 
     def forward(self, *args, **kwargs):
         positions = kwargs["positions"]
-        q_len = int(positions.shape[0])
+        row = positions[0] if positions.dim() == 2 else positions  # 单活跃请求取第 0 行
+        q_len = int(self.q_len_override or row.shape[0])
         self.calls += 1
+        metadata = self.metadata_for(row, q_len)
+        self.last_metadata = metadata
         q = torch.randn(q_len, self.num_heads, self.head_dim, dtype=self.dtype)
         k = torch.randn(q_len, self.num_heads, self.head_dim, dtype=self.dtype)
         v = torch.randn(q_len, self.num_heads, self.head_dim, dtype=self.dtype)
-        return [layer.self_attn.impl.forward(None, q, k, v, None, self.marker, torch.zeros_like(q))
+        return [layer.self_attn.impl.forward(None, q, k, v, None, metadata, torch.zeros_like(q))
                 for layer in self.layers]
 
 
@@ -469,6 +498,74 @@ class LayerCaptureTest(unittest.TestCase):
         capture = self._armed(model, impls)
         with self.assertRaises(RuntimeError):
             model.forward(positions=torch.tensor([5, 6, 7], dtype=torch.int64))  # prefill 起点 != 0
+
+    def test_batch_2d_positions_take_target_row_slice(self) -> None:
+        """真实入口反例回归：`model_inputs["positions"]` 是 (max_num_reqs, max_num_tokens)=(3, 1505)
+
+        单活跃请求必须取**第 0 行的 q_len 列切片**（第 1/2 行是 padding/陈旧值），并按 prompt 长度核验；
+        decode 步的位置也来自同一行的切片。
+        """
+        prompt_len = 1505
+        impls = [FakeFlashAttentionImpl()]
+        model = FakeModel(impls, prompt_len=prompt_len)
+        capture = self.driver.LayerCapture(
+            expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
+        capture.wrap_impl(0, impls[0])
+        capture.wrap_model(model)
+        capture.arm("r-main", self.dir / "capture", prompt_len=prompt_len)
+
+        rows = torch.zeros(3, prompt_len, dtype=torch.int64)  # 第 1/2 行留 0（padding/陈旧）
+        rows[0] = torch.arange(prompt_len, dtype=torch.int64)
+        model.forward(positions=rows)
+        decode_rows = torch.zeros(3, prompt_len, dtype=torch.int64)
+        decode_rows[0, 0] = prompt_len
+        model.q_len_override = 1  # decode 步只调度 1 个 token（真实路径：本步 q_len=1）
+        model.forward(positions=decode_rows)
+        model.q_len_override = None
+        capture.disarm()
+
+        self.assertEqual(capture.positions[1]["positions_source_shape"], [3, prompt_len],
+                         "必须记录真实来源形状（2-D 批张量）")
+        self.assertEqual(len(capture.positions[1]["positions"]), prompt_len)
+        self.assertEqual(capture.positions[1]["positions"][:3], [0, 1, 2], "取第 0 行而非 padding 行")
+        self.assertEqual(capture.positions[2]["positions"], [prompt_len], "decode 位置同样取第 0 行切片")
+        self.assertEqual(capture.decode_steps(), [1])
+
+    def test_batch_2d_positions_narrow_row_or_3d_is_rejected(self) -> None:
+        """2-D 但行宽不足本步 q_len、或维数既非 1 也非 2 ⇒ 明确报错，不得推断。"""
+        impls = [FakeFlashAttentionImpl()]
+        model = FakeModel(impls, prompt_len=3)
+        capture = self.driver.LayerCapture()
+        capture.wrap_impl(0, impls[0])
+        capture.wrap_model(model)
+        capture.arm("r-main", self.dir / "capture", prompt_len=3)
+        model.q_len_override = 3
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=torch.zeros(3, 2, dtype=torch.int64))  # 行宽 2 < 本步 q_len 3
+        self.assertIn("行宽", str(ctx.exception))
+        model.q_len_override = None
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=torch.zeros(1, 3, 3, dtype=torch.int64))  # 3-D
+        self.assertIn("维数", str(ctx.exception))
+
+    def test_accounting_requires_canonical_global_view(self) -> None:
+        """执行视图必须是 canonical/global：FA metadata 的 seq_lens[0] 必须 == 本步最后位置 + 1。"""
+        impls = [FakeFlashAttentionImpl()]
+        model = FakeModel(impls, prompt_len=3)
+        capture = self._armed(model, impls)
+        model.forward(positions=torch.arange(3, dtype=torch.int64))
+        capture.disarm()
+        ok = self.driver.capture_accounting(capture, [1001], consumption_steps=1)
+        self.assertEqual(ok["problems"], [])
+        self.assertEqual(ok["view_evidence"]["1"]["seq_lens_first"], 3, "canonical 读长度上证据")
+        # 反例：受限读视图（seq_lens 被缩短）⇒ 必须判失败
+        capture.positions[1]["view"]["seq_lens_first"] = 1
+        limited = self.driver.capture_accounting(capture, [1001], consumption_steps=1)
+        self.assertTrue(any("canonical/global" in problem for problem in limited["problems"]))
+        # 反例：视图证据不可观察 ⇒ 不得静默当成功
+        capture.positions[1]["view"] = {"observable": False, "reason": "无 attn_metadata"}
+        blind = self.driver.capture_accounting(capture, [1001], consumption_steps=1)
+        self.assertTrue(any("无法取得 FA metadata 读长度证据" in problem for problem in blind["problems"]))
 
     def test_other_request_window_is_not_captured(self) -> None:
         impls = [FakeFlashAttentionImpl()]
@@ -679,6 +776,62 @@ class DriverGuardTest(unittest.TestCase):
         self.assertIn("不是从 1 连续", problems)
 
 
+class PinIdBoundaryTest(unittest.TestCase):
+    """pin 的 request id 三层边界（真实调用）：
+
+    1. `add_request` 返回**内部 id**（≠ 外部 id，pin `input_processor.py:262-278` 追加 8 位随机后缀）
+       ⇒ 绑定/查询/协议状态一律用内部 id；
+    2. `step()` 返回的 `RequestOutput.request_id` 是**外部 id**（pin `output_processor.py:380-381`）
+       ⇒ 宿主消费计数/轨迹匹配用外部 id；
+    3. `abort_request` 默认按**外部 id** 查 external→internal 映射（pin `llm_engine.py:212`、
+       `output_processor.py:494-524`）；传内部 id 而不加 `internal=True` **不生效**。
+    """
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_ids", REPO / "tools/p2-calib-run.py")
+
+    def test_submit_returns_internal_id_and_output_uses_external(self) -> None:
+        engine = PinLikeEngine()
+        ledger = self.driver.submit_request(engine, "ext-1", [1, 2, 3], SimpleNamespace(max_tokens=1))
+        internal = ledger["internal_id"]
+        self.assertNotEqual(internal, ledger["external_id"], "pin 会追加随机后缀 ⇒ 内部 id ≠ 外部 id")
+        self.assertTrue(ledger["randomized"])
+        self.assertEqual(engine.scheduler_requests(), {internal},
+                         "调度器账本以内部 id 为键（外部 id 不在其中）")
+        outputs = engine.step()
+        self.assertEqual([out.request_id for out in outputs], ["ext-1"],
+                         "宿主输出用外部 id 归属 ⇒ 宿主消费计数按外部 id 匹配")
+        tokens = [int(t) for out in outputs for row in out.outputs for t in row.token_ids]
+        self.assertEqual(tokens, [1001], "宿主侧消费 token 序列按外部 id 归属即可读到")
+
+    def test_abort_by_external_works_and_internal_without_flag_does_not(self) -> None:
+        engine = PinLikeEngine()
+        ledger = self.driver.submit_request(engine, "ext-2", [1, 2, 3], SimpleNamespace(max_tokens=1))
+        internal = ledger["internal_id"]
+        engine.abort_request([internal])  # 与 pin 一致：默认按外部 id 查表 ⇒ 内部 id 命中不了
+        self.assertIn(internal, engine.scheduler_requests(),
+                      "不加 internal=True 传内部 id 不应取消成功（证明驱动必须用外部 id）")
+        engine.abort_request(["ext-2"])  # 驱动采用的形式：默认 external 路径
+        self.assertNotIn(internal, engine.scheduler_requests(), "默认（external）路径应取消同一请求")
+
+    def test_override_trace_semantics_by_arm(self) -> None:
+        """global/disabled 臂：无 override 记录算通过；有记录或"必须有记录"的断言都算失败。"""
+        path = Path(tempfile.mkdtemp()) / "steps.jsonl"
+        report = self.driver.verify_override_trace(path, req_id="r", expect_override_records=False)
+        self.assertEqual(report["problems"], [], "global/disabled 臂允许没有 override 记录")
+        record = {"kind": "override_step", "step": 1, "req_ids": ["r"], "override": {"group_index": 3}}
+        path.write_text(json.dumps(record) + "\n")
+        present = self.driver.verify_override_trace(path, req_id="r", expect_override_records=False)
+        self.assertTrue(any("不应有受限读视图覆写记录" in problem for problem in present["problems"]),
+                        "global 臂出现覆写记录即失败（不得为造 trace 改执行路径）")
+        # 反回退：若把语义写成"必须有 override 记录"，真实 global/disabled 运行会被误判失败
+        wrong = self.driver.verify_override_trace(path, req_id="r", expect_override_records=True)
+        self.assertEqual(wrong["problems"], [])
+        path.unlink()
+        missing = self.driver.verify_override_trace(path, req_id="r", expect_override_records=True)
+        self.assertTrue(missing["problems"], "「必须有 override」在无记录时必然失败 ⇒ 不能用于本阶段三臂")
+
+
 class FakeRequestOutput:
     def __init__(self, request_id: str, tokens: list[int], finished: bool = False) -> None:
         self.request_id = request_id
@@ -686,55 +839,89 @@ class FakeRequestOutput:
         self.finished = finished
 
 
-class ScriptedEngine:
-    """按真实可观察语义脚本化的假引擎：产出 token、abort 从账本移除、正常终结即移除。
+class PinLikeEngine:
+    """按 pin 真实语义脚本化的假引擎（三条边界都模拟）：
 
-    `attnview` 属性**故意缺失**（原版臂形态）：协议状态不可观察，驱动必须明确记录并改用
-    scheduler/未完成计数/worker req_ids 替代证据，而不是静默当成功。
+    - `add_request` 返回**内部 id**（`f"{external}-{8 位十六进制}"`，模拟 `assign_request_id`）；
+    - `step()` 的输出用**外部 id**（模拟 `RequestOutput.request_id`）；
+    - `abort_request` 默认按**外部 id** 查 external→internal 映射（`internal=True` 才按内部 id）；
+    - `scheduler.requests` 以**内部 id** 为键；`attnview` 故意缺失（original 臂形态：协议状态不可观察）。
     """
 
     def __init__(self) -> None:
         self.requests: dict[str, dict] = {}
+        self.external_to_internal: dict[str, str] = {}
+        self.internal_to_external: dict[str, str] = {}
         self.add_calls: list[str] = []
-        self.step_calls = 0
         self.abort_calls: list[list[str]] = []
         self.scheduler = SimpleNamespace(requests=self.requests)
         self.engine_core = SimpleNamespace(scheduler=self.scheduler)
+        self._suffix = 0
 
-    def add_request(self, request_id, prompt, params) -> None:
-        self.add_calls.append(str(request_id))
-        self.requests[str(request_id)] = {"tokens": 0, "max_tokens": int(params.max_tokens)}
+    def scheduler_requests(self) -> set[str]:
+        return set(self.requests)
+
+    def add_request(self, request_id, prompt, params) -> str:
+        external = str(request_id)
+        self._suffix += 1
+        internal = f"{external}-{self._suffix:08x}"  # 模拟 pin 的 8 位随机后缀
+        self.add_calls.append(external)
+        self.external_to_internal[external] = internal
+        self.internal_to_external[internal] = external
+        self.requests[internal] = {
+            "external": external,
+            "max_tokens": int(params.max_tokens),
+            "tokens": 0,
+        }
+        return internal
 
     def step(self):
         outputs = []
-        for req_id, state in list(self.requests.items()):
+        for internal, state in list(self.requests.items()):
             state["tokens"] += 1
             finished = state["tokens"] >= state["max_tokens"]
-            outputs.append(FakeRequestOutput(req_id, [1000 + state["tokens"]], finished=finished))
+            outputs.append(
+                FakeRequestOutput(state["external"], [1000 + state["tokens"]], finished=finished)
+            )
             if finished:
-                del self.requests[req_id]
-        self.step_calls += 1
+                del self.requests[internal]
+                self.external_to_internal.pop(state["external"], None)
+                self.internal_to_external.pop(internal, None)
         return outputs
 
-    def abort_request(self, request_ids) -> None:
+    def abort_request(self, request_ids, internal: bool = False) -> None:
         self.abort_calls.append([str(r) for r in request_ids])
-        for req_id in request_ids:
-            self.requests.pop(str(req_id), None)
+        for request_id in request_ids:
+            request_id = str(request_id)
+            if internal:
+                internal_id = request_id if request_id in self.requests else None
+            else:
+                internal_id = self.external_to_internal.get(request_id)
+            if internal_id is None:
+                continue  # 与 pin 一致：id 体系不匹配 ⇒ 什么都不发生
+            state = self.requests.pop(internal_id, None)
+            if state is not None:
+                self.external_to_internal.pop(state["external"], None)
+                self.internal_to_external.pop(internal_id, None)
 
     def get_num_unfinished_requests(self) -> int:
         return len(self.requests)
 
 
 class NoopEngine:
-    """对 add_request/step/abort 都无动作的引擎：清理验收必须 `ok=False`（旧实现返回 ok=True）。"""
+    """对 add_request/step/abort 都无动作的引擎：清理验收必须 `ok=False`（旧实现返回 ok=True）。
 
-    def add_request(self, request_id, prompt, params) -> None:
-        return None
+    `add_request` 仍返回一个"看起来可用"的内部 id（模拟 API 层不报错），但从不产出 token、
+    也从不登记状态 —— 判据必须落在**可观察效果**上。
+    """
+
+    def add_request(self, request_id, prompt, params) -> str:
+        return f"{request_id}-00000000"
 
     def step(self):
         return []
 
-    def abort_request(self, request_ids) -> None:
+    def abort_request(self, request_ids, internal: bool = False) -> None:
         return None
 
 
@@ -759,7 +946,8 @@ class CleanupCheckTest(unittest.TestCase):
         self.assertIn("cancel_req_produced_token", result["failed_checks"])
 
     def test_scripted_engine_cleanup_passes_with_documented_substitutes(self) -> None:
-        engine = ScriptedEngine()
+        """pin 真实 id 语义下（internal≠external、输出用 external、abort 默认按 external）清理验收必须通过。"""
+        engine = PinLikeEngine()
         llm = SimpleNamespace(llm_engine=engine)
         result = self.driver.run_cleanup_check(
             llm, [1, 2, 3], payload={"protocol": "v1.0", "prompt_len": 3, "enforce_global": True},
@@ -767,6 +955,12 @@ class CleanupCheckTest(unittest.TestCase):
         self.assertEqual(result["failed_checks"], [], f"实际失败项：{result['failed_checks']}")
         self.assertTrue(result["ok"])
         self.assertTrue(engine.abort_calls, "必须真的调用过 abort_request")
+        # abort 用的是**外部 id**（pin 默认路径），而查询/绑定用**内部 id**
+        cancel_label = result["request_ids"]["cancel"]
+        self.assertIn([cancel_label], engine.abort_calls)
+        ids = result["observations"]["ids"]
+        self.assertNotEqual(ids["cancel"]["internal_id"], ids["cancel"]["external_id"])
+        self.assertIn("internal_id", ids["new"])
         # 协议状态不可观察时必须**明确记录**（不得静默当成功）
         state = result["observations"]["cancel_req_state"]
         self.assertFalse(state["observable"])

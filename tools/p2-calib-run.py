@@ -7,16 +7,29 @@
 - `patched-disabled`：已打补丁但请求**无载荷**（插入层不参与，走原版读 metadata）；
 - `patched-global`：已打补丁 + 真实带载荷且 `enforce_global=True`。
 
-钩子绑定流程（本地复核 R1 后收紧）：
+钩子绑定与 id 流程（本地复核 R1/R2 后收紧）：
 
 ① 只设置 `ATTNVIEW_CALIB_ARM=<out>/arm.json`（**不创建文件**，warmup 期间钩子未 armed）
-→ ② `LLM(...)`（内部真实 warmup）→ ③ engine 就绪后**先生成主请求 id**、写 `arm.json`
-（`target_req_id` / `tokens` / `force_log` / `logits_path` / `trace_path`）
-→ ④ `LLMEngine.add_request(request_id, prompt_token_ids, params)` —— `prompt_token_ids` 直接用阶段 03
-`render_arm` 的最终 token_ids（**不重新 tokenize**）→ ⑤ `engine.step()` 驱动到该请求完成（看门狗约束）。
+→ ② `LLM(...)`（内部真实 warmup）→ ③ `LLMEngine.add_request(<外部 id>, prompt_token_ids, params)`
+（`prompt_token_ids` 直接用阶段 03 `render_arm` 的最终 token_ids，**不重新 tokenize**；返回值是**内部 id**）
+→ ④ **首次 `step()` 之前**写 `arm.json`（`target_req_id` = **内部 id**）+ `tokens`/`force_log`/`logits_path`/`trace_path`
+→ ⑤ `engine.step()` 驱动到该请求完成（看门狗约束）。
+
+id 三层语义（pin 事实，混用即错配）：
+
+- **内部 id**（`add_request` 返回值，`input_processor.py:262-278` 追加 8 位随机后缀）：`scheduler.requests`、
+  worker `input_batch.req_ids`、校准钩子绑定（`arm.json.target_req_id`）、engine 侧协议状态；
+- **外部 id**（驱动传入的那个）：宿主侧 `RequestOutput.request_id`（`output_processor.py:380-381`）
+  ⇒ 宿主消费计数与轨迹匹配用它；
+- `abort_request` 默认按**外部 id** 查 external→internal 映射（`llm_engine.py:212`、
+  `output_processor.py:494-524`），因此清理段用外部 id 取消、用内部 id 核对"确实不再 active"。
 
 warmup 请求、未完成 prefill 的丢弃步、cleanup/其它请求都不进入主对照：强制日志只记 `target_req_id`
 的消费步且 `step` 从 1 连续，logits / 层捕获同样只覆盖主请求窗口。
+
+步数/消费账本：消费计数取**宿主观测**（每轮新增 token ≥ 1 的轮数），decode 捕获步数 = 消费计数 − 1，
+prefill/decode 由真实位置与 `attn_metadata` 真实标记判定；本阶段三臂执行视图都必须是 canonical/global
+（FA metadata `seq_lens[0] == 本步最后位置 + 1`），**不应**出现受限读视图覆写 trace。
 
 执行证据：**起时就落** `<out>/manifest.json`（HEAD、源码 dirty、完整安装指纹、生效配置、prompt token ids
 与哈希、起时时间戳），结束（成功/异常/超时）补 `ended_cst` 与 `exit_code`。
@@ -433,6 +446,9 @@ class LayerCapture:
         self.prev_req_ids: dict[int, list[str]] = {}
         self._active = False
         self._step_positions = None
+        self._step_positions_shape: list[int] = []
+        self._step_metadata = None
+        self._step_view: dict = {"observable": False}
 
     # --- arming（由驱动在 engine 就绪后、提交主请求前调用） ------------------ #
 
@@ -488,6 +504,7 @@ class LayerCapture:
     def _begin_step(self, kwargs: dict) -> None:
         self._active = self.armed_req_id is not None
         self._step_positions = None
+        self._step_metadata = None
         if not self._active:
             return
         positions = kwargs.get("positions")
@@ -495,14 +512,34 @@ class LayerCapture:
             raise RuntimeError(
                 "校准: 本步 model inputs 没有 positions（真实绝对位置）—— 拒绝用 range(q_len) 代替"
             )
-        if getattr(positions, "dim", lambda: 0)() != 1:
+        dim = getattr(positions, "dim", lambda: 0)()
+        if dim not in (1, 2):
             raise RuntimeError(
-                f"校准: 本步 positions 形状 {tuple(getattr(positions, 'shape', ()))} 不是一维绝对位置，"
-                "无法作为独立参考"
+                f"校准: 本步 positions 维数 {dim}（形状 {tuple(getattr(positions, 'shape', ()))}）不可用作"
+                "一维/每请求一行的绝对位置 —— 拒绝推断"
             )
-        self._step_positions = positions
         self.request_step += 1
-        self.prev_req_ids[self.request_step] = self._prev_req_ids()
+        prev = self._prev_req_ids()
+        self.prev_req_ids[self.request_step] = prev
+        # 单活跃请求是本阶段的硬前提：2-D 批张量只取第 0 行，多请求会取错行 ⇒ 明确报错。
+        # `prev` 为上一步 `execute_model_state.input_batch.req_ids`（可观察时才有值）：非空且不含目标请求
+        # 即视为批内多请求/绑定错配；不可观察（空）时只记录，不凭空断言。
+        if self.request_step > 1 and prev and prev != [self.armed_req_id]:
+            raise RuntimeError(
+                f"校准: 第 {self.request_step} 步上一步批次的 req_ids={prev} 不是目标请求 "
+                f"{self.armed_req_id!r}（批内多请求/绑定错配）—— 拒绝继续"
+            )
+        if dim == 2:
+            # 真实入口实测：`model_inputs["positions"]` 是 `(max_num_reqs, max_num_tokens)` 批张量
+            # （本机 original 实测 (3, 1505)）。单活跃请求取第 0 行，列切片在 `_end_step` 按 q_len 做。
+            rows, width = int(positions.shape[0]), int(positions.shape[1])
+            if rows < 1 or width < 1:
+                raise RuntimeError(f"校准: 本步 positions 批张量形状 {tuple(positions.shape)} 不可用")
+            self._step_positions = positions[0]
+            self._step_positions_shape = [rows, width]
+        else:
+            self._step_positions = positions
+            self._step_positions_shape = [1, int(positions.shape[0])]
         self.records.setdefault(self.request_step, {})
 
     def _record(self, index: int, query, key, value, out, attn_metadata=None) -> None:
@@ -520,6 +557,7 @@ class LayerCapture:
                     f"校准: 第 {self.request_step} 步各层的 attn_metadata 真实标记不一致："
                     f"{self.markers[self.request_step]} vs {marker}"
                 )
+            self._step_metadata = attn_metadata
         self.records[self.request_step][index] = {
             "q": query.detach().to("cpu", dtype=torch.float32),
             "k": key.detach().to("cpu", dtype=torch.float32),
@@ -543,6 +581,33 @@ class LayerCapture:
         marker["max_query_len"] = int(max_query_len) if max_query_len is not None else None
         return marker
 
+    @staticmethod
+    def _step_view_evidence(attn_metadata) -> dict:
+        """本步 FA metadata 的**读取视图证据**（用于判定执行视图是否就是 canonical/global）。
+
+        `seq_lens` 是 FA 组实际使用的有效读长度：受限读视图会把 `seqused_k` 缩短（adapter 覆写时
+        正是替换 `group_seq_lens`，见 `vllm-patch/.../attn_utils.py:288-292`），因此
+        `seq_lens[0] == 本步最后位置 + 1` 是"未走受限视图"的直接证据。块表同时记录首行前缀
+        （块号单位在本轮未独立核验，故只作记录）。
+        """
+        if attn_metadata is None:
+            return {"observable": False, "reason": "本步没有 attn_metadata（无法给出视图证据）"}
+        evidence: dict = {"observable": True}
+        seq_lens = getattr(attn_metadata, "seq_lens", None)
+        if seq_lens is not None and getattr(seq_lens, "numel", lambda: 0)() > 0:
+            evidence["seq_lens_first"] = int(seq_lens.reshape(-1)[0].detach().to("cpu").item())
+        else:
+            evidence["seq_lens_first"] = None
+        evidence["max_seq_len"] = int(getattr(attn_metadata, "max_seq_len", 0) or 0)
+        evidence["num_actual_tokens"] = int(getattr(attn_metadata, "num_actual_tokens", 0) or 0)
+        table = getattr(attn_metadata, "block_table", None)
+        if table is not None and getattr(table, "numel", lambda: 0)() > 0:
+            evidence["block_table_shape"] = list(table.shape)
+            evidence["block_table_head"] = [
+                int(v) for v in table.reshape(table.shape[0], -1)[0][:16].detach().to("cpu").tolist()
+            ]
+        return evidence
+
     def _end_step(self) -> None:
         if not self._active:
             return
@@ -559,9 +624,11 @@ class LayerCapture:
         raw_len = int(positions_tensor.shape[0])
         if raw_len < q_len:
             raise RuntimeError(
-                f"校准: 第 {step} 步 positions 只有 {raw_len} 个，少于本步 q_len={q_len}"
-                "（位置来源不合格，拒绝推断）"
+                f"校准: 第 {step} 步 positions 行宽只有 {raw_len} 个，少于本步 q_len={q_len}"
+                f"（来源形状 {self._step_positions_shape}，拒绝推断）"
             )
+        view = self._step_view_evidence(self._step_metadata)
+        self._step_metadata = None
         positions = [int(v) for v in positions_tensor[:q_len].detach().to("cpu").tolist()]
         if positions != list(range(positions[0], positions[0] + q_len)):
             raise RuntimeError(
@@ -606,10 +673,12 @@ class LayerCapture:
             "positions": positions,
             "q_len": q_len,
             "positions_raw_len": raw_len,
-            "padding_rows": raw_len - q_len,
+            "positions_source_shape": self._step_positions_shape,
+            "tail_columns_ignored": raw_len - q_len,
             "phase": phase,
             "phase_source": phase_source,
             "marker": marker,
+            "view": view,
         }
         if self.stream_dir is not None:
             self.flush(self.stream_dir)
@@ -948,6 +1017,83 @@ def worker_req_ids(llm) -> list[str] | None:
 # --------------------------------------------------------------------------- #
 
 
+def canonical_blocks(engine, req_id: str) -> dict:
+    """engine 侧 canonical 块表（pin `v1/core/kv_cache_manager.py:696` 的 `get_block_ids`）。
+
+    取不到即明确标注不可观察（不静默当成功）；本项用于与 worker 侧 FA metadata 的块表**交叉核对**。
+    """
+    core = _engine_core(engine)
+    manager = getattr(getattr(core, "scheduler", None), "kv_cache_manager", None)
+    if manager is None or not hasattr(manager, "get_block_ids"):
+        return {"observable": False, "reason": "宿主侧取不到 scheduler.kv_cache_manager.get_block_ids"}
+    try:
+        groups = [list(group) for group in manager.get_block_ids(req_id)]
+    except Exception as exc:
+        return {"observable": False, "reason": f"{type(exc).__name__}: {exc}"}
+    return {"observable": True, "groups": groups}
+
+
+def block_table_evidence(canonical: dict, capture: "LayerCapture") -> dict:
+    """worker 侧 FA metadata 块表首行前缀 vs engine 侧 canonical 块表（执行视图是否为 global 的旁证）。
+
+    口径：若走受限读视图，`attn_utils.py` 会把 FA 组的 `block_table` 换成"按读视图挑选/压缩"的
+    另一个张量（adapter 自建 buffer），其首行内容不会等于 canonical 组的前缀。块号单位
+    （manager 块 ↔ kernel 块）在本轮未独立核验，故本项**只记录**，硬判据仍是 `seq_lens`。
+    """
+    if not canonical.get("observable"):
+        return {"observable": False, "reason": canonical.get("reason"), "note": "仅记录：块表旁证不可得"}
+    candidates = [list(group) for group in canonical.get("groups", [])]
+    per_step: dict = {}
+    for step in sorted(capture.positions):
+        head = capture.positions[step]["view"].get("block_table_head")
+        if head is None:
+            per_step[str(step)] = {"block_table_head": None, "note": "本步没有块表记录"}
+            continue
+        matches = [
+            index for index, group in enumerate(candidates)
+            if group and head[: len(group)] == group[: len(head)]
+        ]
+        per_step[str(step)] = {
+            "block_table_head": head[:8],
+            "canonical_groups": [group[:8] for group in candidates],
+            "matching_group_indices": matches,
+            "prefix_matches_a_canonical_group": bool(matches),
+        }
+    return {
+        "observable": True,
+        "canonical_groups": [group[:8] for group in candidates],
+        "per_step": per_step,
+        "note": "块号单位（manager↔kernel 块）未在本轮独立核验 ⇒ 只作记录；硬判据是 FA metadata 的 seq_lens",
+    }
+
+
+def submit_request(engine, external_id: str, prompt_ids: list[int], params) -> dict:
+    """提交一个请求，返回 id 账本（外部 id / 内部 id）——**两者不可混用**。
+
+    pin 事实（本轮独立复核已确认）：
+
+    - `InputProcessor.assign_request_id`（pin `v1/engine/input_processor.py:262-278`）把外部 id 换成
+      `f"{external_req_id}-{random_uuid():.8}"` 的**内部 id**（原值存 `request.external_req_id`）；
+    - `LLMEngine.add_request`（pin `v1/engine/llm_engine.py:218-296`）**返回内部 id**；
+    - `scheduler.requests` / worker `input_batch.req_ids` / 校准钩子绑定 / engine 侧协议状态
+      （registry/config/detok）一律以**内部 id** 为键；
+    - 宿主侧 `RequestOutput.request_id` 是**外部 id**（pin `v1/engine/output_processor.py:380-381`：
+      "request_id is what was provided externally"），而 `abort_request` 默认按**外部 id** 经
+      `output_processor` 的 external→internal 映射定位（pin `v1/engine/output_processor.py:494-524`，
+      `internal=False` 路径）。
+    """
+    internal_id = engine.add_request(str(external_id), [int(t) for t in prompt_ids], params)
+    if not isinstance(internal_id, str) or not internal_id:
+        raise RuntimeError(
+            "校准: add_request 没有返回内部 request id（pin 约定返回内部 id；拒绝按外部 id 继续）"
+        )
+    return {
+        "external_id": str(external_id),
+        "internal_id": internal_id,
+        "randomized": internal_id != str(external_id),
+    }
+
+
 def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=None) -> dict:
     """用 `engine.step()` 循环驱动**单个**主请求到结束（步数上界显式，超界即报错不继续）。
 
@@ -1086,172 +1232,191 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
         "follow": f"calib-cleanup-follow-{stamp}",
     }
     result["request_ids"] = ids
+    submitted: dict[str, dict] = {}
+    result["observations"]["ids"] = submitted
+
+    def submit(label: str, params_obj) -> dict:
+        """提交并登记 id 账本；返回**内部 id**（scheduler/worker/协议状态都以它为键）。"""
+        ledger = submit_request(engine, ids[label], prompt_ids, params_obj)
+        submitted[label] = ledger
+        return ledger
+
+    def internal(label: str) -> str:
+        return submitted[label]["internal_id"]
 
     with Watchdog(CLEANUP_BUDGET_S, "cleanup", out_dir):
-        # 1) 真实带载荷请求 A：驱动到**确实 forward 并产出 token**
-        engine.add_request(ids["cancel"], prompt_ids, params(8))
-        drove = drive_until_token(engine, ids["cancel"], budget_steps=8)
-        result["observations"]["cancel_req"] = drove
-        log.check(
-            "cancel_req_produced_token",
-            bool(drove["tokens"]),
-            f"A 产出 token={drove['tokens'][:4]}（步数 {drove['steps']}）——未见 token 即失败",
-        )
-        state_a = protocol_state(llm, ids["cancel"])
-        result["observations"]["cancel_req_state"] = state_a
-        if state_a.get("observable"):
+        try:
+            # 1) 真实带载荷请求 A：驱动到**确实 forward 并产出 token**
+            #    （宿主输出按 external id 归属；scheduler/协议状态按 internal id 查询）
+            submit("cancel", params(8))
+            drove = drive_until_token(engine, ids["cancel"], budget_steps=8)
+            result["observations"]["cancel_req"] = drove
             log.check(
-                "cancel_req_payload_state_created",
-                bool(state_a.get("in_registry")) and bool(state_a.get("in_configs")),
-                f"A 的请求级协议状态：registry={state_a.get('registry_ids')} "
-                f"in_configs={state_a.get('in_configs')} in_detok={state_a.get('in_detok')}",
+                "cancel_req_produced_token",
+                bool(drove["tokens"]),
+                f"A 产出 token={drove['tokens'][:4]}（步数 {drove['steps']}）——未见 token 即失败",
             )
-        else:
-            log.check(
-                "cancel_req_state_unobservable_documented",
-                state_a.get("observable") is False,
-                f"协议状态不可从宿主侧观察（已记录）：{state_a.get('reason')}",
-            )
-        before = _scheduler_has(engine, ids["cancel"])
-        result["observations"]["scheduler_has_cancel_before_abort"] = before
-        log.check("cancel_req_active_before_abort", before is True, f"取消前 scheduler.requests 含 A：{before}")
+            state_a = protocol_state(llm, internal("cancel"))
+            result["observations"]["cancel_req_state"] = state_a
+            if state_a.get("observable"):
+                log.check(
+                    "cancel_req_payload_state_created",
+                    bool(state_a.get("in_registry")) and bool(state_a.get("in_configs")),
+                    f"A 的请求级协议状态：registry={state_a.get('registry_ids')} "
+                    f"in_configs={state_a.get('in_configs')} in_detok={state_a.get('in_detok')}",
+                )
+            else:
+                log.check(
+                    "cancel_req_state_unobservable_documented",
+                    state_a.get("observable") is False,
+                    f"协议状态不可从宿主侧观察（已记录）：{state_a.get('reason')}",
+                )
+            before = _scheduler_has(engine, internal("cancel"))
+            result["observations"]["scheduler_has_cancel_before_abort"] = before
+            log.check("cancel_req_active_before_abort", before is True, f"取消前 scheduler.requests 含 A：{before}")
 
-        # 2) 执行中取消
-        engine.abort_request([ids["cancel"]])
-        after = _scheduler_has(engine, ids["cancel"])
-        result["observations"]["scheduler_has_cancel_after_abort"] = after
-        log.check("abort_removed_from_scheduler", after is False, f"abort 后 scheduler.requests 含 A：{after}")
+            # 2) 执行中取消：pin `LLMEngine.abort_request` 默认 `internal=False` ⇒ 传**外部 id**，
+            #    由 output_processor 的 external→internal 映射定位同一请求（pin `llm_engine.py:212`、
+            #    `output_processor.py:494-524`）；随后用**内部 id** 核对它确实不再 active。
+            engine.abort_request([ids["cancel"]])
+            after = _scheduler_has(engine, internal("cancel"))
+            result["observations"]["scheduler_has_cancel_after_abort"] = after
+            log.check("abort_removed_from_scheduler", after is False, f"abort 后 scheduler.requests 含 A：{after}")
 
-        # 3) finished-only 清理轮 + 状态释放
-        rounds = drive_cleanup_rounds(llm, ids["cancel"])
-        result["observations"]["cleanup_rounds"] = rounds
-        log.check(
-            "cancel_req_gone_after_cleanup",
-            rounds["scheduler_has_req"] is False and rounds["unfinished"] in (0, None),
-            f"清理 {rounds['rounds']} 轮后 scheduler_has_req={rounds['scheduler_has_req']} "
-            f"unfinished={rounds['unfinished']}",
-        )
-        state_a2 = protocol_state(llm, ids["cancel"])
-        result["observations"]["cancel_req_state_after_cleanup"] = state_a2
-        if state_a2.get("observable"):
-            leftovers = [
-                key for key in ("in_registry", "in_configs", "in_detok", "in_pending") if state_a2.get(key)
-            ]
+            # 3) finished-only 清理轮 + 状态释放
+            rounds = drive_cleanup_rounds(llm, internal("cancel"))
+            result["observations"]["cleanup_rounds"] = rounds
             log.check(
-                "cancel_req_protocol_state_released",
-                not leftovers,
-                f"清理后仍存在的协议状态字段：{leftovers or '无'}"
-                f"（registry={state_a2.get('registry_ids')}）",
+                "cancel_req_gone_after_cleanup",
+                rounds["scheduler_has_req"] is False and rounds["unfinished"] in (0, None),
+                f"清理 {rounds['rounds']} 轮后 scheduler_has_req={rounds['scheduler_has_req']} "
+                f"unfinished={rounds['unfinished']}",
             )
-        else:
+            state_a2 = protocol_state(llm, internal("cancel"))
+            result["observations"]["cancel_req_state_after_cleanup"] = state_a2
+            if state_a2.get("observable"):
+                leftovers = [
+                    key for key in ("in_registry", "in_configs", "in_detok", "in_pending") if state_a2.get(key)
+                ]
+                log.check(
+                    "cancel_req_protocol_state_released",
+                    not leftovers,
+                    f"清理后仍存在的协议状态字段：{leftovers or '无'}"
+                    f"（registry={state_a2.get('registry_ids')}）",
+                )
+            else:
+                log.check(
+                    "cancel_req_state_release_documented",
+                    rounds["scheduler_has_req"] is False,
+                    "无法从宿主侧观察协议状态（已明确记录）："
+                    f"{state_a2.get('reason')}；以 scheduler.requests/未完成计数释放作为替代证据",
+                )
+            workers = rounds["worker_req_ids"]
+            result["observations"]["worker_req_ids_last_step"] = workers
             log.check(
-                "cancel_req_state_release_documented",
-                rounds["scheduler_has_req"] is False,
-                "无法从宿主侧观察协议状态（已明确记录）："
-                f"{state_a2.get('reason')}；以 scheduler.requests/未完成计数释放作为替代证据",
-            )
-        workers = rounds["worker_req_ids"]
-        result["observations"]["worker_req_ids_last_step"] = workers
-        log.check(
-            "worker_req_ids_release_evidence_recorded",
-            True,
-            "worker 侧 `execute_model_state.input_batch.req_ids` 是**上一次 forward 的快照**"
-            f"（清理轮无调度步即不更新）：last={workers}；真正的 worker 侧释放以随后新请求的"
-            "批次内容为准（见 worker_req_ids_after_new_request）",
-        )
-
-        # 4) 新带载荷请求 B：初始为 global；跑完 prefill + 首个 decode 步（真实标记）后自然结束。
-        #    每个请求**结束再提交下一个**：`max_num_seqs=1` 下并发提交会让后一个请求饿死。
-        probes_b: dict = {}
-
-        def probe_b(step_index: int) -> None:
-            probes_b[str(step_index)] = {
-                "state": protocol_state(llm, ids["new"]),
-                "worker_req_ids": worker_req_ids(llm),
-            }
-
-        engine.add_request(ids["new"], prompt_ids, params(2))
-        drove_b = drive_until_finished(engine, ids["new"], budget_steps=4, on_step=probe_b)
-        result["observations"]["new_req"] = drove_b
-        result["observations"]["new_req_probes"] = probes_b
-        log.check(
-            "new_req_produced_token",
-            len(drove_b["tokens"]) >= 2 and drove_b["finished"],
-            f"B 产出 token={drove_b['tokens'][:4]}（步数 {drove_b['steps']}，finished={drove_b['finished']}）",
-        )
-        probed = [entry["state"] for entry in probes_b.values()]
-        observable = [state for state in probed if state.get("observable")]
-        if observable:
-            log.check(
-                "new_req_payload_state_created",
-                any(state.get("in_configs") for state in observable),
-                f"B 在运行中确有请求级协议状态：{[ {k: s.get(k) for k in ('in_registry', 'in_configs', 'in_detok')} for s in observable ]}",
-            )
-            log.check(
-                "new_req_payload_enforce_global",
-                any(state.get("config_enforce_global") is True for state in observable),
-                f"B 的请求级配置 enforce_global={[s.get('config_enforce_global') for s in observable]}",
-            )
-            marks = [
-                mark
-                for state in observable
-                for mark in state.get("enforce_global_steps", ())
-                if str(mark.get("req_id")) == ids["new"]
-            ]
-            log.check(
-                "new_req_enforce_global_step_recorded",
-                bool(marks),
-                f"B 的执行视图被强制 global 的步记录：{marks[:2]}",
-            )
-        else:
-            log.check(
-                "new_req_state_unobservable_documented",
-                probed and all(state.get("observable") is False for state in probed),
-                "B 的协议状态不可从宿主侧观察（已明确记录）："
-                f"{probed[0].get('reason') if probed else '无探针'}",
-            )
-        batches = [entry["worker_req_ids"] for entry in probes_b.values()]
-        if batches and any(batch is not None for batch in batches):
-            observed_batches = [batch for batch in batches if batch is not None]
-            log.check(
-                "worker_req_ids_after_new_request",
-                all(batch == [ids["new"]] for batch in observed_batches),
-                f"B 的 worker 批次 req_ids={observed_batches}（期望 [{ids['new']}]：已取消的 A 不得再出现）",
-            )
-        else:
-            log.check(
-                "worker_req_ids_after_new_request",
+                "worker_req_ids_release_evidence_recorded",
                 True,
-                "worker 侧批次内容不可从宿主观察（已记录），以 engine 侧状态作为替代证据",
+                "worker 侧 `execute_model_state.input_batch.req_ids` 是**上一次 forward 的快照**"
+                f"（清理轮无调度步即不更新）：last={workers}；真正的 worker 侧释放以随后新请求的"
+                "批次内容为准（见 worker_req_ids_after_new_request）",
             )
-        log.check(
-            "new_req_released_after_finish",
-            _scheduler_has(engine, ids["new"]) is False,
-            f"B 正常结束后 scheduler.requests 含 B：{_scheduler_has(engine, ids['new'])}",
-        )
 
-        # 5) 正常结束路径：同样用带载荷请求，结束后再接一个新请求
-        engine.add_request(ids["normal"], prompt_ids, params(4))
-        drove_c = drive_until_finished(engine, ids["normal"], budget_steps=6)
-        result["observations"]["normal_req"] = drove_c
-        log.check(
-            "normal_req_produced_token_and_finished",
-            bool(drove_c["tokens"]) and drove_c["finished"],
-            f"C 产出 token={drove_c['tokens'][:4]} finished={drove_c['finished']}",
-        )
-        log.check(
-            "normal_req_released_after_finish",
-            _scheduler_has(engine, ids["normal"]) is False,
-            f"正常结束后 scheduler.requests 含 C：{_scheduler_has(engine, ids['normal'])}",
-        )
-        engine.add_request(ids["follow"], prompt_ids, params(2))
-        drove_d = drive_until_finished(engine, ids["follow"], budget_steps=4)
-        result["observations"]["follow_req"] = drove_d
-        log.check(
-            "follow_req_produced_token",
-            len(drove_d["tokens"]) >= 2 and drove_d["finished"],
-            f"D 产出 token={drove_d['tokens'][:4]}（步数 {drove_d['steps']}，finished={drove_d['finished']}）",
-        )
+            # 4) 新带载荷请求 B：初始为 global；跑完 prefill + 首个 decode 步（真实标记）后自然结束。
+            #    每个请求**结束再提交下一个**：`max_num_seqs=1` 下并发提交会让后一个请求饿死。
+            probes_b: dict = {}
+
+            def probe_b(step_index: int) -> None:
+                probes_b[str(step_index)] = {
+                    "state": protocol_state(llm, internal("new")),
+                    "worker_req_ids": worker_req_ids(llm),
+                }
+
+            submit("new", params(2))
+            drove_b = drive_until_finished(engine, ids["new"], budget_steps=4, on_step=probe_b)
+            result["observations"]["new_req"] = drove_b
+            result["observations"]["new_req_probes"] = probes_b
+            log.check(
+                "new_req_produced_token",
+                len(drove_b["tokens"]) >= 2 and drove_b["finished"],
+                f"B 产出 token={drove_b['tokens'][:4]}（步数 {drove_b['steps']}，finished={drove_b['finished']}）",
+            )
+            probed = [entry["state"] for entry in probes_b.values()]
+            observable = [state for state in probed if state.get("observable")]
+            if observable:
+                log.check(
+                    "new_req_payload_state_created",
+                    any(state.get("in_configs") for state in observable),
+                    f"B 在运行中确有请求级协议状态：{[ {k: s.get(k) for k in ('in_registry', 'in_configs', 'in_detok')} for s in observable ]}",
+                )
+                log.check(
+                    "new_req_payload_enforce_global",
+                    any(state.get("config_enforce_global") is True for state in observable),
+                    f"B 的请求级配置 enforce_global={[s.get('config_enforce_global') for s in observable]}",
+                )
+                marks = [
+                    mark
+                    for state in observable
+                    for mark in state.get("enforce_global_steps", ())
+                    if str(mark.get("req_id")) == internal("new")
+                ]
+                log.check(
+                    "new_req_enforce_global_step_recorded",
+                    bool(marks),
+                    f"B 的执行视图被强制 global 的步记录：{marks[:2]}",
+                )
+            else:
+                log.check(
+                    "new_req_state_unobservable_documented",
+                    probed and all(state.get("observable") is False for state in probed),
+                    "B 的协议状态不可从宿主侧观察（已明确记录）："
+                    f"{probed[0].get('reason') if probed else '无探针'}",
+                )
+            batches = [entry["worker_req_ids"] for entry in probes_b.values()]
+            if batches and any(batch is not None for batch in batches):
+                observed_batches = [batch for batch in batches if batch is not None]
+                log.check(
+                    "worker_req_ids_after_new_request",
+                    all(batch == [internal("new")] for batch in observed_batches),
+                    f"B 的 worker 批次 req_ids={observed_batches}（期望 [{internal('new')}]：已取消的 A 不得再出现）",
+                )
+            else:
+                log.check(
+                    "worker_req_ids_after_new_request",
+                    True,
+                    "worker 侧批次内容不可从宿主观察（已记录），以 engine 侧状态作为替代证据",
+                )
+            log.check(
+                "new_req_released_after_finish",
+                _scheduler_has(engine, internal("new")) is False,
+                f"B 正常结束后 scheduler.requests 含 B：{_scheduler_has(engine, internal('new'))}",
+            )
+
+            # 5) 正常结束路径：同样用带载荷请求，结束后再接一个新请求
+            submit("normal", params(4))
+            drove_c = drive_until_finished(engine, ids["normal"], budget_steps=6)
+            result["observations"]["normal_req"] = drove_c
+            log.check(
+                "normal_req_produced_token_and_finished",
+                bool(drove_c["tokens"]) and drove_c["finished"],
+                f"C 产出 token={drove_c['tokens'][:4]} finished={drove_c['finished']}",
+            )
+            log.check(
+                "normal_req_released_after_finish",
+                _scheduler_has(engine, internal("normal")) is False,
+                f"正常结束后 scheduler.requests 含 C：{_scheduler_has(engine, internal('normal'))}",
+            )
+            submit("follow", params(2))
+            drove_d = drive_until_finished(engine, ids["follow"], budget_steps=4)
+            result["observations"]["follow_req"] = drove_d
+            log.check(
+                "follow_req_produced_token",
+                len(drove_d["tokens"]) >= 2 and drove_d["finished"],
+                f"D 产出 token={drove_d['tokens'][:4]}（步数 {drove_d['steps']}，finished={drove_d['finished']}）",
+            )
+            log.check("cleanup_flow_completed", True, "清理段全部步骤执行完毕（无异常中断）")
+        except Exception as exc:  # 引擎 API 异常/替身不实现：判失败，不吞成备注，也不让驱动崩溃
+            log.check("cleanup_flow_completed", False, f"{type(exc).__name__}: {exc}")
+            result["error"] = f"{type(exc).__name__}: {exc}"
 
     result["ok"] = bool(log.checks) and not log.failed
     result["failed_checks"] = log.failed
@@ -1264,17 +1429,21 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
 
 
 def capture_accounting(capture: LayerCapture, tokens: list[int], *, consumption_steps: int | None,
-                       hook_steps: int | None = None, hook_source: str | None = None) -> dict:
-    """按**真实信号**核对捕获步数与消费 token（四臂同一口径）。
+                       hook_steps: int | None = None, hook_source: str | None = None,
+                       require_canonical_view: bool = True) -> dict:
+    """按**真实信号**核对捕获步数、消费 token 与执行视图（四臂同一口径）。
 
     - **消费计数 = 宿主观测**：`engine.step()` 每轮里目标请求新增 token ≥ 1 的轮数
-      （`drive_main_request` 的 `consuming_steps`）。为什么不用 `force_step`：该计数只在适配层
-      **实际替换 token 后**递增，`original` 臂未部署补丁、根本不调用钩子，拿它当通用计数会误判；
+      （`drive_main_request` 的 `consuming_steps`；宿主输出 `RequestOutput.request_id` 是**外部 id**）。
+      为什么不用 `force_step`：该计数只在适配层**实际替换 token 后**递增，`original` 臂未部署补丁、
+      根本不调用钩子，拿它当通用计数会误判；
     - **forced 臂额外交叉核对**：钩子侧计数（`force_step` 终值；无强制轨迹时用 logits 钩子计数）
       必须 == 宿主观测，否则说明钩子与宿主观测分叉 ⇒ 失败；
-    - **相位**：prefill/decode 由真实绝对位置判定，并与 `attn_metadata` 真实标记互核（见 `_end_step`），
-      不用 `q_len > 1` 糊过去；
-    - 失败时把 `prefill 标记 / 消费步数(宿主) / decode 步号列表 / tokens 长度 / 钩子计数` 全写进 manifest。
+    - **相位**：prefill/decode 由真实绝对位置判定，并与 `attn_metadata` 真实标记互核（见 `_end_step`）；
+    - **执行视图**：本阶段三臂都必须是 canonical/global ⇒ FA metadata 的 `seq_lens[0]` 必须等于
+      "本步最后位置 + 1"（受限读视图会缩短 `seqused_k`，adapter 覆写正是替换 `group_seq_lens`）；
+    - 失败时把 `prefill 标记 / 消费步数(宿主) / decode 步号列表 / tokens 长度 / 钩子计数 / 视图证据`
+      全写进 manifest。
     """
     steps = sorted(capture.records)
     phases = {step: capture.positions[step]["phase"] for step in steps if step in capture.positions}
@@ -1294,9 +1463,18 @@ def capture_accounting(capture: LayerCapture, tokens: list[int], *, consumption_
             str(step): {
                 "positions": capture.positions[step]["positions"][:4],
                 "q_len": capture.positions[step]["q_len"],
+                "positions_source_shape": capture.positions[step]["positions_source_shape"],
                 "phase": capture.positions[step]["phase"],
                 "phase_source": capture.positions[step]["phase_source"],
                 "marker": capture.positions[step]["marker"],
+            }
+            for step in steps
+            if step in capture.positions
+        },
+        "view_evidence": {
+            str(step): {
+                "expected_seq_len": capture.positions[step]["positions"][-1] + 1,
+                **capture.positions[step]["view"],
             }
             for step in steps
             if step in capture.positions
@@ -1323,6 +1501,21 @@ def capture_accounting(capture: LayerCapture, tokens: list[int], *, consumption_
                 f"钩子侧计数（{hook_source or '未标注'}）{hook_steps} != 宿主消费步数 {consumption_steps}"
                 "—— 钩子与宿主观测分叉"
             )
+    if require_canonical_view:
+        for step in steps:
+            meta = capture.positions.get(step)
+            if meta is None:
+                continue
+            view = meta["view"]
+            expected = meta["positions"][-1] + 1
+            if not view.get("observable"):
+                problems.append(f"第 {step} 步无法取得 FA metadata 读长度证据：{view.get('reason')}")
+                continue
+            if view.get("seq_lens_first") != expected:
+                problems.append(
+                    f"第 {step} 步 FA 组读长度 seq_lens[0]={view.get('seq_lens_first')} != 本步最后位置+1"
+                    f"（={expected}）：执行视图不是 canonical/global（受限读视图会缩短 seqused_k）"
+                )
     account["problems"] = problems
     return account
 
@@ -1364,18 +1557,25 @@ def verify_force_log(path: Path, *, req_id: str, trajectory_tokens: list[int]) -
     }
 
 
-def verify_trace(path: Path, *, req_id: str, expect_records: bool) -> dict:
-    """worker 侧覆写 trace：主请求的记录、且没有其它 req_id 混入。
+def verify_override_trace(path: Path, *, req_id: str, expect_override_records: bool) -> dict:
+    """受限读视图的覆写 trace（`steps.jsonl`）核对。
 
-    `expect_records=False`（如 patched-disabled 无载荷）时**必须没有**记录：出现记录说明
-    无载荷请求也走了覆写路径。
+    本阶段三条臂的**执行视图都是 global**（`original` 无补丁；`patched-disabled` 请求无载荷 ⇒
+    engine 侧不出计划；`patched-global` 载荷显式 `enforce_global=true` ⇒ engine 侧同样不出计划，见
+    `attnview_engine.py:541-555`），因此 **override 记录本就不应存在**；它只可能由未来的 masked 臂产生。
+
+    - `expect_override_records=False`（当前三臂）：文件缺失或为空都算通过；**出现任何记录即失败**
+      （说明执行路径被改成了受限视图）；
+    - `expect_override_records=True`（留给 masked 臂）：必须有记录、且都属于目标请求、且 override 非 null。
+
+    绝不为"凑出 trace"而人为产出受限计划。
     """
     path = Path(path)
     if not path.exists():
         return {
             "exists": False,
             "records": 0,
-            "problems": [] if not expect_records else ["steps.jsonl 不存在：目标请求没有覆写记录"],
+            "problems": [] if not expect_override_records else ["steps.jsonl 不存在：目标请求没有覆写记录"],
         }
     records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     problems: list[str] = []
@@ -1383,12 +1583,16 @@ def verify_trace(path: Path, *, req_id: str, expect_records: bool) -> dict:
         recorded_ids = [str(x) for x in (record.get("req_ids") or [])]
         if recorded_ids != [str(req_id)]:
             problems.append(f"trace 记录混入其它请求：{recorded_ids}（step={record.get('step')}）")
-    if expect_records and not records:
-        problems.append("steps.jsonl 为空：目标请求没有覆写记录")
-    if expect_records and any(record.get("override") is None for record in records):
-        problems.append("存在 override=None 的 trace 记录：该步并未真正覆写")
-    if not expect_records and records:
-        problems.append(f"无载荷臂不应有覆写 trace，却出现 {len(records)} 条记录")
+    if expect_override_records:
+        if not records:
+            problems.append("steps.jsonl 为空：目标请求没有覆写记录")
+        if any(record.get("override") is None for record in records):
+            problems.append("存在 override=None 的 trace 记录：该步并未真正覆写")
+    elif records:
+        problems.append(
+            f"执行视图为 global 的臂不应有受限读视图覆写记录，却出现 {len(records)} 条"
+            "（不得为造 trace 改执行路径）"
+        )
     return {"exists": True, "records": len(records), "problems": problems}
 
 
@@ -1479,14 +1683,20 @@ def load_trajectory(path: Path, *, prompt_ids: list[int]) -> dict:
             "source_arm": data.get("arm"), "created_cst": data.get("created_cst")}
 
 
-def write_trajectory(path: Path, *, tokens: list[int], prompt_ids: list[int], arm: str, request_id: str,
-                     source: str, logits_sha256: str | None) -> dict:
-    """写强制轨迹（`tokens[step][row]`；单请求每步 1 个 token）。"""
+def write_trajectory(path: Path, *, tokens: list[int], prompt_ids: list[int], arm: str,
+                     request_id: str, internal_request_id: str | None = None, source: str,
+                     logits_sha256: str | None) -> dict:
+    """写强制轨迹（`tokens[step][row]`；单请求每步 1 个 token）。
+
+    `request_id` 记**外部 id**（宿主侧可读），`internal_request_id` 记**内部 id**（钩子绑定所用）；
+    轨迹回放的校验只看 prompt 长度与哈希，与 id 无关。
+    """
     payload = {
         "schema": "attnview.p2-calib-trajectory/v1",
         "tokens": [[[int(t)]] for t in tokens],
         "arm": arm,
         "request_id": request_id,
+        "internal_request_id": internal_request_id,
         "prompt_len": len(prompt_ids),
         "prompt_token_ids_sha256": sha256_token_ids(prompt_ids),
         "model_revision": SNAPSHOT.name,
@@ -1594,12 +1804,17 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         manifest["capture"] = capture.summary()
 
     run_stamp = datetime.now(timezone(timedelta(hours=8))).strftime("%Y%m%d-%H%M%S")
-    main_req_id = f"calib-main-{args.arm}-{run_stamp}"
+    external_main_id = f"calib-main-{args.arm}-{run_stamp}"
+    params = SamplingParams(max_tokens=args.max_tokens, temperature=0.0, seed=SEED, extra_args=extra_args)
 
-    # ③ engine 就绪后：生成主请求 id 并写控制文件（此前钩子必须未 armed）
+    # ④ 直接提交阶段 03 的最终 token_ids（不重新 tokenize）；用返回的**内部 id** 做绑定与查询。
+    #    控制文件必须在**首次 step() 之前**写入（首个消费步就要绑定到正确 id）。
+    ledger = submit_request(engine, external_main_id, prompt_ids, params)
+    internal_main_id = ledger["internal_id"]
+    manifest["ids"] = ledger
     trajectory_steps = trajectory["tokens"] if trajectory is not None else []
     arm_content = {
-        "target_req_id": main_req_id,
+        "target_req_id": internal_main_id,
         "tokens": trajectory_steps,
         "force_log": str(out / "force.jsonl") if trajectory_steps else None,
         "logits_path": str(out / "logits.pt") if patched else None,
@@ -1607,8 +1822,9 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         "note": (
             "original 臂无补丁钩子：logits 由宿主级捕获写入 logits.pt（本文件不被读取）"
             if not patched
-            else "tokens 为同轨迹强制序列（tokens[step][row]）；文件在主请求提交前写入、engine 就绪之后"
+            else "tokens 为同轨迹强制序列（tokens[step][row]）；文件在 add_request 之后、首次 step() 之前写入"
         ),
+        "external_req_id": external_main_id,
     }
     arm_path.write_text(json.dumps(arm_content, ensure_ascii=False, indent=2))
     manifest["arm_file"] = {
@@ -1619,26 +1835,25 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     }
     save_manifest(manifest_path, manifest)
 
-    # ④ 直接提交阶段 03 的最终 token_ids（不重新 tokenize）
-    params = SamplingParams(max_tokens=args.max_tokens, temperature=0.0, seed=SEED, extra_args=extra_args)
     probe: dict = {}
 
     def on_first_step() -> None:
         requests = scheduler_requests(engine) or {}
-        request = requests.get(main_req_id)
+        request = requests.get(internal_main_id)  # 内部 id 才是调度器账本的键
         probe["engine_prompt_ids"] = [int(t) for t in (getattr(request, "prompt_token_ids", ()) or ())]
-        probe["scheduler_has_req"] = _scheduler_has(engine, main_req_id)
-        probe["protocol_state_first_step"] = protocol_state(llm, main_req_id)
+        probe["scheduler_has_internal"] = _scheduler_has(engine, internal_main_id)
+        probe["scheduler_has_external"] = _scheduler_has(engine, external_main_id)
+        probe["protocol_state_first_step"] = protocol_state(llm, internal_main_id)
+        probe["canonical_blocks"] = canonical_blocks(engine, internal_main_id)
 
     host_logits: list = []
-    restore_host = wrap_host_logits(llm, host_logits, req_id=main_req_id) if capture_host else None
+    restore_host = wrap_host_logits(llm, host_logits, req_id=internal_main_id) if capture_host else None
     if capture is not None:
-        capture.arm(main_req_id, out / "capture", prompt_len=len(prompt_ids))
+        capture.arm(internal_main_id, out / "capture", prompt_len=len(prompt_ids))
     try:
         with Watchdog(REQUEST_BUDGET_S, "request", out, manifest_path) as req_watch:
-            # ⑤ engine.step() 驱动到完成（看门狗 + 步数上界）
-            engine.add_request(main_req_id, prompt_ids, params)
-            drove = drive_main_request(engine, main_req_id, max_tokens=args.max_tokens,
+            # ⑤ engine.step() 驱动到完成（看门狗 + 步数上界）；宿主侧输出按**外部 id** 归属
+            drove = drive_main_request(engine, external_main_id, max_tokens=args.max_tokens,
                                        on_first_step=on_first_step)
         request_s = req_watch.elapsed
         if request_s > REQUEST_BUDGET_S:  # 双保险
@@ -1656,6 +1871,12 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         probe.get("engine_prompt_ids") == prompt_ids,
         f"引擎实收 prompt ids 与 render_arm 一致：{probe.get('engine_prompt_ids') == prompt_ids}"
         f"（引擎 {len(probe.get('engine_prompt_ids') or [])} 个 / 渲染 {len(prompt_ids)} 个）",
+    )
+    log.check(
+        "scheduler_keyed_by_internal_id",
+        probe.get("scheduler_has_internal") is True and probe.get("scheduler_has_external") is False,
+        f"scheduler.requests 命中内部 id={probe.get('scheduler_has_internal')}、"
+        f"外部 id={probe.get('scheduler_has_external')}（pin 随机化后外部 id 不应出现在调度器账本）",
     )
     log.check(
         "main_request_produced_tokens",
@@ -1683,18 +1904,29 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
             f"缺层的步：{missing_layers or '无'}（预期全注意力层 {len(capture.layer_names)} 个）",
         )
         log.check(
-            "capture_no_padding_rows",
-            all(meta["padding_rows"] == 0 for meta in capture.positions.values()),
-            f"各步 padding 行数：{ {s: m['padding_rows'] for s, m in sorted(capture.positions.items())} }",
+            "capture_positions_slice_consistent",
+            all(meta["positions"] == list(range(meta["positions"][0], meta["positions"][0] + meta["q_len"]))
+                for meta in capture.positions.values())
+            and all(meta["positions_source_shape"] and meta["positions_source_shape"][-1] >= meta["q_len"]
+                    for meta in capture.positions.values()),
+            "参照切片必须连续且来自真实来源；2-D 批张量的行是**容量**（max_num_tokens），"
+            "行尾多余列不进参考："
+            f"{ {s: {'shape': m['positions_source_shape'], 'q_len': m['q_len'], 'tail_cols': m['tail_columns_ignored']} for s, m in sorted(capture.positions.items())} }",
         )
         manifest["capture"] = capture.summary()
+
+    # worker 侧 FA metadata 块表 vs engine 侧 canonical 块表（执行视图旁证，记录用）
+    if capture is not None:
+        manifest["block_table_evidence"] = block_table_evidence(
+            probe.get("canonical_blocks") or {"observable": False, "reason": "首步探针未取到"}, capture
+        )
 
     # 强制日志 / trace
     host_consuming_steps = int(drove["consuming_steps"])
     hook_steps: int | None = None
     hook_source: str | None = None
     if trajectory is not None:
-        force = verify_force_log(out / "force.jsonl", req_id=main_req_id, trajectory_tokens=trajectory_tokens)
+        force = verify_force_log(out / "force.jsonl", req_id=internal_main_id, trajectory_tokens=trajectory_tokens)
         force["ok"] = force.get("exists") and not force["problems"]
         log.check("force_log_is_target_only", bool(force["ok"]),
                   f"records={force['records']} steps={force.get('steps', [])[:6]}… problems={force['problems']}")
@@ -1709,7 +1941,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     elif out.joinpath("force.jsonl").exists():
         log.check("force_log_absent_without_trajectory", False, "未给轨迹却出现 force.jsonl：钩子绑定越界")
     if patched:
-        trace = verify_trace(out / "steps.jsonl", req_id=main_req_id, expect_records=args.arm == "patched-global")
+        trace = verify_override_trace(out / "steps.jsonl", req_id=internal_main_id, expect_override_records=False)
         trace["ok"] = not trace["problems"]
         log.check("worker_trace_is_target_only", bool(trace["ok"]),
                   f"exists={trace['exists']} records={trace['records']} problems={trace['problems']}")
@@ -1719,7 +1951,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     logits_path = out / "logits.pt"
     if patched:
         records = torch.load(logits_path, weights_only=False) if logits_path.exists() else []
-        report = verify_logits_records(records, req_id=main_req_id, expected_steps=steps, expect_argmax=False)
+        report = verify_logits_records(records, req_id=internal_main_id, expected_steps=steps, expect_argmax=False)
         log.check(
             "worker_logits_target_only",
             logits_path.exists() and not report["problems"],
@@ -1730,7 +1962,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         if hook_steps is None and logits_path.exists():
             hook_steps, hook_source = int(report["records"]), "worker logits 钩子记录数（logits_step 终值）"
     if host_logits:
-        report = verify_logits_records(host_logits, req_id=main_req_id, expected_steps=steps,
+        report = verify_logits_records(host_logits, req_id=internal_main_id, expected_steps=steps,
                                       expect_argmax=not patched)
         argmax_ok = None
         if not patched:
@@ -1801,7 +2033,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
             tokens=tokens,
             prompt_ids=prompt_ids,
             arm=args.arm,
-            request_id=main_req_id,
+            request_id=external_main_id,
+            internal_request_id=internal_main_id,
             source="natural-greedy" if not patched else "forced-replay",
             logits_sha256=sha256_file(logits_path) if logits_path.exists() else None,
         )
@@ -1818,7 +2051,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         (out / "cleanup.json").write_text(json.dumps(cleanup, ensure_ascii=False, indent=2))
 
     # 主请求结束后的引擎侧状态（含 protocol 释放）
-    post_state = protocol_state(llm, main_req_id)
+    post_state = protocol_state(llm, internal_main_id)
     if post_state.get("observable"):
         leftovers = [k for k in ("in_registry", "in_configs", "in_detok", "in_pending") if post_state.get(k)]
         log.check(
@@ -1830,20 +2063,21 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     else:
         log.check(
             "main_req_protocol_release_documented",
-            _scheduler_has(engine, main_req_id) is False,
+            _scheduler_has(engine, internal_main_id) is False,
             "无法从宿主侧观察协议状态（已明确记录）："
             f"{post_state.get('reason')}；以 scheduler.requests 释放作为替代证据",
         )
     manifest["main_request"] = {
-        "request_id": main_req_id,
+        "request_id": external_main_id,
+        "internal_request_id": internal_main_id,
         "prompt_ids_sha256": sha256_token_ids(prompt_ids),
         "steps": steps,
         "tokens": tokens,
         "elapsed_s": request_s,
         "capture_steps": sorted(capture.records) if capture is not None else [],
         "first_step_probe": probe,
-        "scheduler_has_req_after": _scheduler_has(engine, main_req_id),
-        "protocol_state_after": protocol_state(llm, main_req_id),
+        "scheduler_has_req_after": _scheduler_has(engine, internal_main_id),
+        "protocol_state_after": post_state,
     }
     if capture is not None and capture.records:
         dump_capture(capture, out / "capture" / "layers.npz")
