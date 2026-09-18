@@ -1,0 +1,145 @@
+{
+  "schema": "attnview.p1-gpu.read-view-check/2",
+  "stage": "04 (rework, SUP-003-R1)",
+  "supersedes": "configs/p1-gpu/read-view-check.json (commit 9b02471)——该版夹具存在逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回，证据保留在 evidence/p1-gpu/",
+  "work_order": "inbox/SUP-003-R1.md；context/SUP-003-material/docs/stage-04-gpu-read-view.md",
+  "material_snapshot_commit": "0283abce5552cfb6fa3655e540731eef86eef723",
+  "cpu_stage_accepted_commit": "54933ff81517969ffe7674d5842f742c78cdf23b",
+
+  "environment_expected": {
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "capability": [12, 0],
+    "memory_mib": 97887,
+    "driver": "580.142",
+    "python": "3.12.13",
+    "torch": "2.13.0+cu130",
+    "vllm": "0.29.0",
+    "vllm_source_checkout": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+    "attention_entry": "vllm.vllm_flash_attn.flash_attn_varlen_func",
+    "fa_version": 2,
+    "eager": true,
+    "cuda_graph": false,
+    "occupancy_note": "克隆实例实测 memory.used 0 MiB 而 utilization.gpu 100% 且无可见 compute 进程：不据此宣称独占，也不停他人作业；本轮只做正确性小张量验证"
+  },
+
+  "tensor_contract": {
+    "dtype": "bfloat16",
+    "num_heads": 24,
+    "num_kv_heads": 4,
+    "head_dim": 256,
+    "softmax_scale": "head_dim ** -0.5 = 0.0625",
+    "softcap": 0.0,
+    "window_size": null,
+    "causal": true,
+    "query_len": 1,
+    "q_layout": "[batch, num_heads, head_dim]",
+    "kv_cache_layout": "[num_physical_blocks, block_size, num_kv_heads, head_dim]",
+    "block_sizes": {"main": 784, "control_optional": 16},
+    "main_block_size_provenance": "阶段 02 实测 kernel_block_sizes=[784,784,784,784]"
+  },
+
+  "canonical_cache": {
+    "physical_blocks": 12,
+    "block_size": 784,
+    "logical_to_physical": [7, 2, 11, 0, 5, 9, 1, 8, 3, 10, 4, 6],
+    "mapping_note": "非连续、非单调固定置换；logical block i 的全部 slot 落在 physical block logical_to_physical[i]"
+  },
+
+  "fixture_truth": {
+    "construction": "先按逻辑位置 p ∈ [0, kv_len) 生成 K_true/V_true（CPU 种子化生成器，bf16），再按 canonical 映射散布：cache[l2p[p // b], p % b] = truth[p]；其余槽保持哨兵",
+    "independent_verification": [
+      "逐位置核对 physical[l2p[p // b], p % b] == logical[p]（K 与 V 两者，逐位置计数）",
+      "核对每个逻辑块有效尾之后的槽仍为哨兵（K 与 V 两者，逐位置计数）",
+      "核对缓存中不存在任何『被读到但不是真值也不是哨兵』的位置"
+    ],
+    "distribution": {
+      "main": "N(0, 1.0)（普通分布，不做放大；主用例与敏感负对照分开）",
+      "sensitive_amplify": {"blocks": [1, 2, 3, 4, 5, 6], "factor": 5.0, "applies_to": "仅 sensitive_counterexample 用例的被排除块"}
+    },
+    "sentinel": {"unwritten_value": 8.0, "purpose": "未写槽/尾块之后使用大幅哨兵；被读到即显著偏离，用于抓越读"},
+    "seeds": [0, 1, 2],
+    "seed_policy": "每个用例在全部三个种子下运行并逐条保存；不换种子挑通过结果"
+  },
+
+  "reference_oracle": {
+    "module": "src/attnview/gpuoracle.py（不 import 候选 gpukv，不读候选读表）",
+    "derivation": "从语义输入（mode、refs、layout 的 sink/segment/local_window spans、prompt_len、attention_kv_len）独立构造逐位置布尔 mask；独立实现块外扩与因果上界（query_len=1 → 上界 = attention_kv_len-1）；不做 span 代数复用",
+    "positions": "mask 块外扩后 = {p : p // b ∈ visible_blocks, p < attention_kv_len}，升序即后端读取顺序",
+    "attention": "从逻辑真值 K_true/V_true 按上述位置 gather，FP32 显式计算 softmax(q·Kᵀ·scale)·V（逐 head 实现，GQA：q head h → kv head h // (H/KVH)）",
+    "candidate_read_path": "候选必须走完整 KV 常驻 + block_table + seqused_k，不得 gather、不得每步重传",
+    "expectations": "oracle 同时给出期望物理表 [l2p[b] for b in visible_blocks]、期望每块有效计数、期望 seqused_k 与期望写入位置，用于与候选数据面（阶段 03 ReadView）逐项比对"
+  },
+
+  "data_plane": {
+    "source": "阶段 03 `attnview.readview.build_read_view`（TokenLayout/ViewInputs → ReadView）",
+    "conversion": "ReadView.visible_blocks + physical_block_ids[:valid_counts] → 无 -1 读取表；seqused_k = Σ 可见 span 有效长度；填充不做 -1（FA2 不得收到 -1）",
+    "expected_crosschecks": [
+      "候选 visible_blocks == oracle visible_blocks",
+      "候选物理表 == [l2p[b] for b in visible_blocks]",
+      "候选 seqused_k == oracle 逐位置 mask 的有效计数",
+      "候选 next_write_position == oracle 独立计算的下一写入位置",
+      "当前 token 位置（attention_kv_len-1）必须在可见集合内（阶段 04 只承诺 query_len=1 且保留当前 token）"
+    ]
+  },
+
+  "acceptance": {
+    "gate": "所有判据（数值容差、参考自检、读取表有效性（无 -1/宽度一致）、K 与 V 内容不变、追加 slot 纪律、行隔离、数据面交叉核对、敏感度）全部 PASS 才 exit 0；任一 False 即失败",
+    "aggregator": "src/attnview/gpucheck.py（纯函数，CPU 失败注入测试：tests/test_gpucheck.py）",
+    "error_reporting": "保留完整错误信息（不只异常首行），并记录最差偏差位置与数值"
+  },
+
+  "tolerance": {
+    "source": "vllm/tests/kernels/attention/test_flash_attn.py（checkout 98dff2a8，BF16 默认）",
+    "atol": 0.015,
+    "rtol": 0.01,
+    "policy": "与 v1 相同，不放宽、不换种子；同时报告 max_abs/rms/相对偏差"
+  },
+
+  "layouts": {
+    "A": {"prompt_len": 6272, "question_start": 5600, "sink": [0, 16], "segments": [[16, 800], [800, 4700], [4700, 5600]]},
+    "tail1": {"prompt_len": 4705, "question_start": 4200, "sink": [0, 16], "segments": [[16, 2000], [2000, 4200]]},
+    "tailb1": {"prompt_len": 5487, "question_start": 5000, "sink": [0, 16], "segments": [[16, 2000], [2000, 5000]]},
+    "tailb": {"prompt_len": 5488, "question_start": 5000, "sink": [0, 16], "segments": [[16, 2000], [2000, 5000]]},
+    "control16": {"prompt_len": 53, "question_start": 32, "sink": [0, 16], "segments": [[5, 20]], "block_size": 16}
+  },
+
+  "cases": [
+    {"id": "trajectory_resident", "kind": "trajectory", "layout": "A", "block_size": 784,
+     "note": "同一 GPU 缓存上的连续轨迹：真实模式切换 + 有效长度随追加变化 + global 恢复",
+     "steps": [
+       {"step": 0, "mode": "global", "refs": [], "kv_len": 6272, "writes": 0},
+       {"step": 1, "mode": "focus", "refs": [1], "kv_len": 6273, "writes": 1, "expect_blocks": [0, 1, 7, 8]},
+       {"step": 2, "mode": "focus", "refs": [1, 3], "kv_len": 6274, "writes": 1, "expect_blocks": [0, 1, 6, 7, 8]},
+       {"step": 3, "mode": "local", "refs": [], "kv_len": 6275, "writes": 1, "expect_blocks": [0, 7, 8]},
+       {"step": 4, "mode": "local", "refs": [], "kv_len": 6276, "writes": 1},
+       {"step": 5, "mode": "local", "refs": [], "kv_len": 6277, "writes": 1},
+       {"step": 6, "mode": "local", "refs": [], "kv_len": 6278, "writes": 1},
+       {"step": 7, "mode": "local", "refs": [], "kv_len": 6279, "writes": 1},
+       {"step": 8, "mode": "global", "refs": [], "kv_len": 6280, "writes": 1, "note": "恢复完整读取（真实模式切换）"}
+     ]},
+    {"id": "focus_current_block", "kind": "single", "layout": "A", "mode": "focus", "refs": [3], "kv_len": 6272,
+     "note": "focus 多区间（含当前块 7），排除块 1..5"},
+    {"id": "local_excludes_document", "kind": "single", "layout": "A", "mode": "local", "kv_len": 6272,
+     "note": "local 排除文档块 1..6，保留 sink 块 0 与当前块 7"},
+    {"id": "tail_1", "kind": "single", "layout": "tail1", "mode": "local", "kv_len": 4705, "note": "当前块 6 仅 1 个有效 token"},
+    {"id": "tail_b_minus_1", "kind": "single", "layout": "tailb1", "mode": "local", "kv_len": 5487, "note": "当前块尾长 783"},
+    {"id": "tail_b", "kind": "single", "layout": "tailb", "mode": "local", "kv_len": 5488, "note": "当前块尾长 784（整块）"},
+    {"id": "sensitive_counterexample", "kind": "single", "layout": "A", "mode": "local", "kv_len": 6272,
+     "amplify_excluded_blocks": true, "note": "被排除块 1..6 用放大值；masked 与 full 必须可区分（门限 10*atol）"},
+    {"id": "b2_rows", "kind": "batch2", "layout": "A",
+     "rows": [{"mode": "global", "refs": [], "kv_len": 6272}, {"mode": "local", "refs": [], "kv_len": 6272}],
+     "note": "两行不同模式/有效长度/物理 ID，各保留各自当前块；行隔离必须为 0 容差内"},
+    {"id": "block16_control", "kind": "single", "layout": "control16", "mode": "local", "kv_len": 53, "supplement": true,
+     "note": "合成对照（普通分布，不替代 784 主用例）"},
+    {"id": "arbitrary_subset_supplement", "kind": "arbitrary", "layout": "A", "kv_len": 6272,
+     "logical_blocks": [0, 2, 7], "supplement": true,
+     "note": "非协议用例（不来自 ReadView），仅作底层补充；含当前块 7"}
+  ],
+
+  "commands": {
+    "cpu_tests": "bash tools/p1cpu-run-tests.sh",
+    "gpu_check": "source env.sh && python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v2.json",
+    "evidence_dir": "evidence/p1-gpu-v2/",
+    "timeout_s": 1800
+  }
+}
