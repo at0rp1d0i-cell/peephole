@@ -259,7 +259,12 @@ GPUModelRunner.execute_model                         [worker 进程]
 - 不支持配置（异步调度、`max_concurrent_batches != 1`、非 eager、前缀缓存、投机、块粒度不一致）
   在**首次登记 DA 请求**时 `raise UnsupportedConfig`（fail-fast、响亮失败、不静默降级）；
   **普通请求完全不受影响**（原版可复跑，async 调度照常）。
-- 为此 `assert_supported_config` 只放在「出现 DA 请求」的路径上，不放在引擎启动路径上（初稿曾计划放在启动，已改）。
+- 为此检查只放在「出现 DA 请求」的路径上，不放在引擎启动路径上（初稿曾计划放在启动，已改）。
+- **批次队列路径的守卫（本轮补）**：`async_scheduling=True` 时 engine core 走 `step_with_batch_queue()`，
+  本适配层的 `attach_plans`/`on_step_outputs` **根本不会被调用** → 若不额外守卫，DA 请求会**静默退化成原版读取**
+  （既违反 C3.5 又不报错）。因此在 `step_with_batch_queue()` 的 `schedule()` 之后立即调用
+  `AttnViewEngine.refuse_unsupported_step(scheduler_output)`：一旦本步新调度中出现带载荷的内部请求即
+  `raise UnsupportedConfig`（响亮失败，不静默降级）。
 - 数值阈值本阶段**不拍定**：先交付观测/参考与 CPU 门禁，本地复核后再放行原版/global 校准。
 
 ### 13.6 实现交付（本轮新增，均在版本锁定与可撤销前提下）

@@ -1,5 +1,5 @@
 {
-  "generated_cst": "2026-09-18 12:08:20 +0800",
+  "generated_cst": "2026-09-18 12:09:58 +0800",
   "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
   "edits": {
     "v1/core/sched/output.py": {
@@ -9,9 +9,9 @@
       "patched_path": "vllm-patch/patched/v1/core/sched/output.py"
     },
     "v1/engine/core.py": {
-      "replacements": 3,
+      "replacements": 4,
       "pre_sha256": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
-      "post_sha256": "d01dc8e97abf38cbfa5d1454ccdab081f238fb1c1658666af1977457453b028b",
+      "post_sha256": "209b069c37ab1ea46f4cb6a0bcde524a8597b73295fd8161bb562d047a467043",
       "patched_path": "vllm-patch/patched/v1/engine/core.py"
     },
     "v1/worker/gpu/attn_utils.py": {
@@ -60,7 +60,7 @@
     {
       "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
       "dest": "v1/engine/attnview_engine.py",
-      "sha256": "1ad1e2eed18cead0a22b44d99ec2785ee7edb5a215b6445767fcd2436e14fa09"
+      "sha256": "a038a66f28f4c72dea5701007fc7a6a6b119e2304ce10eca40a558399c1c6717"
     }
   ],
   "package_files": [

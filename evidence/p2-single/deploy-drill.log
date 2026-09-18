@@ -1,0 +1,26 @@
+=== 部署/撤销演练 2026-09-18 12:09:30 +0800 ===
+--- 0) 前置状态：checkout 干净、两副本一致 ---
+git status: 0 行; 两副本差异文件: 0
+--- 1) 负例：篡改目标文件后 apply 必须拒绝（未知前置哈希）---
+拒绝部署：/root/autodl-tmp/attnview/vllm/vllm/v1/core/sched/output.py 的当前哈希 5a9f92d9b602 != 期望前置 41cf5780a013（文件已被他人改动或版本不符）
+apply 退出码=4（期望 4）
+篡改已还原: 0 行
+--- 2) apply ---
+部署完成：27 个目标（源码 checkout + site-packages 两处）
+退出码=0
+--- 3) verify ---
+校验：27 个目标，全部一致
+退出码=0
+--- 4) 部署后导入与符号 ---
+adapter.fa_override_for_step: True | engine.AttnViewEngine: True
+build_attn_metadata 新参: True
+SchedulerOutput 是 dataclass: True | 含 da_step_plans: True
+Worker.attnview_geometry: True
+step() 接合: True True
+mamba_hybrid.prepare_attn 新参: True
+退出码=0
+--- 5) revert（恢复原文件 + 删除新增文件 + 校验指纹）---
+撤销完成：27 个目标已恢复/删除，指纹已校验
+退出码=0
+--- 6) 撤销后指纹 ---
+checkout 脏行数=0（期望 0）; 两副本差异=0（期望 0）; attnview 包目录=0（期望 0）; vllm-patch/orig 存在=0（期望 0）

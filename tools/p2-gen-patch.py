@@ -89,6 +89,24 @@ EDITS: list[tuple[str, str, str]] = [
     ),
     (
         "v1/engine/core.py",
+        """            scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
+            with self.log_error_detail(scheduler_output):
+                exec_future = self.model_executor.execute_model(
+                    scheduler_output, non_block=True
+                )
+""",
+        """            scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
+            # attnview: 批次队列路径下本适配层不解析也不下推计划 —— 出现内部请求即拒绝，
+            # 绝不静默退化为原版读取。
+            self.attnview.refuse_unsupported_step(scheduler_output)
+            with self.log_error_detail(scheduler_output):
+                exec_future = self.model_executor.execute_model(
+                    scheduler_output, non_block=True
+                )
+""",
+    ),
+    (
+        "v1/engine/core.py",
         """        scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
         future = self.model_executor.execute_model(scheduler_output, non_block=True)
         grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)

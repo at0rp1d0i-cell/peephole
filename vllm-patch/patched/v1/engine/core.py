@@ -682,6 +682,9 @@ class EngineCore:
         deferred_scheduler_output = None
         if self.scheduler.has_requests():
             scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
+            # attnview: 批次队列路径下本适配层不解析也不下推计划 —— 出现内部请求即拒绝，
+            # 绝不静默退化为原版读取。
+            self.attnview.refuse_unsupported_step(scheduler_output)
             with self.log_error_detail(scheduler_output):
                 exec_future = self.model_executor.execute_model(
                     scheduler_output, non_block=True
