@@ -129,6 +129,49 @@ def plan_payload():
     return plan.as_payload()
 
 
+def summarize_chrome_trace(path: Path) -> dict:
+    """从导出的 chrome trace 汇总设备拷贝与同步事件（纯文件解析，可在 CPU 上回归测试）。
+
+    只认 `cat == 'gpu_memcpy'` 的事件（`args` 里有 `bytes`/`stream`/`correlation`）：
+    FunctionEvent 没有 args 字典，不能用来取值。
+    """
+    events = json.loads(Path(path).read_text()).get("traceEvents", [])
+    summary = {
+        "HtoD": {"count": 0, "bytes": 0, "streams": [], "pinned_to_device": 0},
+        "DtoH": {"count": 0, "bytes": 0, "streams": []},
+        "DtoD": {"count": 0, "bytes": 0, "streams": []},
+        "sync_events": [],
+    }
+    for event in events:
+        name = str(event.get("name", ""))
+        ev_args = event.get("args", {}) or {}
+        if event.get("cat") == "gpu_memcpy":
+            if "HtoD" in name:
+                kind = "HtoD"
+                if "Pinned" in name:
+                    summary["HtoD"]["pinned_to_device"] += 1
+            elif "DtoH" in name:
+                kind = "DtoH"
+            else:
+                kind = "DtoD"
+            summary[kind]["count"] += 1
+            summary[kind]["bytes"] += int(ev_args.get("bytes", 0) or 0)
+            stream = ev_args.get("stream")
+            if stream is not None:
+                summary[kind]["streams"].append(int(stream))
+        elif "Synchronize" in name:
+            summary["sync_events"].append(
+                {
+                    "name": name,
+                    "stream": ev_args.get("stream"),
+                    "correlation": ev_args.get("correlation"),
+                }
+            )
+    for kind in ("HtoD", "DtoH", "DtoD"):
+        summary[kind]["streams"] = sorted(set(summary[kind]["streams"]))
+    return summary
+
+
 def fingerprint(t: torch.Tensor) -> dict:
     return {
         "shape": list(t.shape),
@@ -214,12 +257,13 @@ def main() -> int:
           all(before[k] == fingerprint(t) for k, t in zip(before, group_tables)), None)
 
     # --- 运行期 H2D/同步实测（calibration #2 要求；插桩计数不能替代本项）-------------
+    # 汇总结论**只从导出的 chrome trace 里读**：`prof.events()` 给的是 FunctionEvent，
+    # 没有 Chrome 的 args 字典；`cat == 'gpu_memcpy'` 的事件才带 bytes/stream/correlation。
     import warnings
 
     from torch.profiler import ProfilerActivity, profile
 
     trace_path = args.out.with_suffix(".chrome.json")
-    schema_path = args.out.with_suffix(".events.json")
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -229,49 +273,16 @@ def main() -> int:
             finally:
                 torch.cuda.set_sync_debug_mode("default")
     prof.export_chrome_trace(str(trace_path))
-    # 事件 schema 落盘（本轮 bytes/stream 解析仍为空，先固化真实字段名，下一步按它取值）
-    schema_path.write_text(json.dumps(
-        [
-            {
-                "name": str(getattr(event, "name", ""))[:60],
-                "attrs": sorted(a for a in dir(event) if not a.startswith("_"))[:24],
-                "args": sorted((getattr(event, "args", None) or {}).keys()),
-                "device_type": str(getattr(event, "device_type", "")),
-            }
-            for event in list(prof.events())[:8]
-        ],
-        ensure_ascii=False,
-        indent=2,
-    ))
-    memcpy = {"HtoD": {"count": 0, "bytes": 0}, "DtoH": {"count": 0, "bytes": 0}}
-    streams: set[int] = set()
-    sync_events: list[dict] = []
-    for event in prof.events():
-        name = str(getattr(event, "name", ""))
-        ev_args = getattr(event, "args", None) or {}
-        stream = ev_args.get("stream", getattr(event, "stream", None))
-        if "Memcpy HtoD" in name or "Memcpy DtoH" in name:
-            kind = "HtoD" if "HtoD" in name else "DtoH"
-            memcpy[kind]["count"] += 1
-            memcpy[kind]["bytes"] += int(ev_args.get("bytes", 0) or 0)
-            if stream is not None:
-                streams.add(int(stream))
-        if "Synchronize" in name or "synchronize" in name:
-            sync_events.append({"name": name, "stream": stream,
-                                "correlation": int(ev_args.get("correlation", -1) or -1)})
-    for event in prof.events():
-        ev_args2 = getattr(event, "args", None) or {}
-        external_id = ev_args2.get("External id")
-        if external_id is None:
-            continue
-        for sync_event in sync_events:
-            if sync_event["correlation"] == int(external_id):
-                sync_event["after"] = str(getattr(event, "name", ""))
-    sync_warnings = [str(w.message) for w in caught if "synchron" in str(w.message).lower()]
-    real_syncs = [w for w in sync_warnings if "synchronizing CUDA operation" in w]
-    check("运行期未触发隐式同步告警（torch sync_debug warn；候选段内）", not real_syncs, real_syncs[:3])
-    check("运行期确有 H2D 但无 DtoH（候选只把索引送上去）",
-          memcpy["HtoD"]["count"] > 0 and memcpy["DtoH"]["count"] == 0, memcpy)
+
+    runtime = summarize_chrome_trace(trace_path)
+    sync_warnings = [str(w.message) for w in caught if "synchronizing CUDA operation" in str(w.message)]
+    check("运行期候选段未触发隐式同步告警（torch sync_debug warn）", not sync_warnings, sync_warnings[:3])
+    check("运行期确有 H2D 且携带真实字节/stream（解析自 chrome trace）",
+          runtime["HtoD"]["count"] > 0 and runtime["HtoD"]["bytes"] > 0
+          and len(runtime["HtoD"]["streams"]) >= 1, runtime["HtoD"])
+    check("运行期无 DtoH（候选不把设备数据读回 host）", runtime["DtoH"]["count"] == 0, runtime["DtoH"])
+    check("小 H2D 走 Pinned→Device（异步 staging 生效）",
+          runtime["HtoD"]["pinned_to_device"] == runtime["HtoD"]["count"], runtime["HtoD"])
 
     metering = mod.metering_snapshot()
     report = {
@@ -281,18 +292,14 @@ def main() -> int:
         "stream_after": mod._stream_fingerprint(),
         "metering": metering,
         "runtime": {
-            "memcpy": memcpy,
-            "profiler_stream_ids": sorted(streams),
-            "stream_synchronize_events": sync_events,
+            **runtime,
             "sync_warnings": sync_warnings,
             "chrome_trace": str(trace_path),
-            "event_schema": str(schema_path),
-            "caveat": "sync 判定只看候选段内的隐式同步告警；profiler 自身收尾的 "
-                      "cudaDeviceSynchronize（无 stream、correlation=-1）不计入。"
-                      "bytes/stream 解析仍待按 events schema 修正（当前为 0/[]）。",
-            "note": "运行期实测：profiler CUDA activity（按 args.bytes/args.stream 解析）+ "
-                    "torch sync-debug；stream_synchronize_events 用 External id ↔ correlation 对齐到"
-                    "触发它的 H2D，用于定位同步来源；探针自身的 .to('cpu')/item() 属诊断读取，与候选调用分开。",
+            "note": "运行期实测：拷贝汇总**解析自导出的 chrome trace** 里 `cat=='gpu_memcpy'` 的事件"
+                    "（args.bytes/args.stream/args.correlation）；FunctionEvent 没有 args 字典，不用于取值。"
+                    "同步判定只看候选段（torch sync-debug 告警）；profiler 自身收尾的 "
+                    "cudaDeviceSynchronize 单列在 sync_events 里，不计入候选行为。"
+                    "探针自身的 .to('cpu')/item() 属诊断读取，与候选调用分开。",
         },
         "checks": checks,
         "failed": [c["name"] for c in checks if not c["ok"]],

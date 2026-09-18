@@ -388,6 +388,34 @@ class LayerCaptureTest(unittest.TestCase):
         self.assertIn("named_modules", str(ctx.exception))
 
 
+class ChromeTraceSummaryTest(unittest.TestCase):
+    """用**已提交的真实 trace** 做纯 CPU 回归：拷贝汇总必须从 `cat=='gpu_memcpy'` 读数。"""
+
+    TRACE = REPO / "evidence/p3-calib/metadata-probe-gate4.chrome.json"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.probe = load_module_by_path("attnview_probe_under_test", REPO / "tools/p2-calib-metadata-probe.py")
+
+    def test_summary_reads_bytes_and_stream_from_gpu_memcpy(self) -> None:
+        summary = self.probe.summarize_chrome_trace(self.TRACE)
+        htod = summary["HtoD"]
+        self.assertEqual(htod["count"], 2, "候选段应恰好两次 H2D（索引 40B + 标量 4B）")
+        self.assertEqual(htod["bytes"], 44, "字节数必须来自 args.bytes，而不是 0")
+        self.assertEqual(htod["streams"], [7], "stream 必须来自 args.stream")
+        self.assertEqual(htod["pinned_to_device"], 2, "必须是 Pinned→Device（异步 staging 生效）")
+        self.assertEqual(summary["DtoH"]["count"], 0, "候选不得把设备数据读回 host")
+        self.assertEqual(summary["DtoD"]["count"], 3, "三处设备内拷贝（块表 gather 写回 + 标量行拷贝）")
+        self.assertTrue(any("Synchronize" in e["name"] for e in summary["sync_events"]),
+                        "profiler 自身收尾同步要单列，便于区分于候选行为")
+
+    def test_summary_is_not_fooled_by_non_memcpy_events(self) -> None:
+        """`cpu_op`/`kernel` 等事件没有 bytes/stream，不得被算进拷贝汇总。"""
+        summary = self.probe.summarize_chrome_trace(self.TRACE)
+        total = summary["HtoD"]["count"] + summary["DtoH"]["count"] + summary["DtoD"]["count"]
+        self.assertEqual(total, 5, "只统计 gpu_memcpy（该 trace 共 5 条）")
+
+
 class WatchdogTest(unittest.TestCase):
     """期限必须**真的能中断**：到期先落盘证据再退出（用子进程真实验证，不在本进程里自杀）。"""
 
