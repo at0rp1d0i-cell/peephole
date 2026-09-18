@@ -1,0 +1,20 @@
+{
+  "command": "python3 tools/p1gpu-read-view-check.py --config /root/autodl-tmp/attnview/configs/p1-gpu/read-view-check-v3.json --evidence /root/autodl-tmp/attnview/evidence/p1-gpu-v4",
+  "config": "/root/autodl-tmp/attnview/configs/p1-gpu/read-view-check-v3.json",
+  "config_sha256": "3797326784d336030c8c5c59817b20d0010618a2904407668045dd36adbf96d1",
+  "head_commit": "e9134526d2d07a5c5a2ffec68be8e040258b6e4b",
+  "worktree_clean": false,
+  "worktree_status": "M tools/p1gpu-overread-control.py\n?? evidence/p1-gpu-v4/",
+  "start_time_cst": "2026-09-18 10:08:33 +0800",
+  "end_time_cst": "2026-09-18 10:08:34 +0800",
+  "exit_code": 0,
+  "python": "3.12.13",
+  "torch": "2.13.0+cu130",
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "capability": [
+    12,
+    0
+  ],
+  "script": "p1gpu-overread-control.py",
+  "detected": true
+}

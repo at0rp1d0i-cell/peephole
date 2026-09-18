@@ -623,13 +623,21 @@ def write_manifest(out_dir: Path, config_path: Path, *, start: str, end: str | N
                    exit_code: int | None = None, extra: dict | None = None) -> dict:
     """把"这次运行"的时序与身份写进证据目录：起止时间、HEAD、工作区、配置 SHA256。"""
     head, status = git_facts()
+    # 运行自身产物（证据目录）会让工作区变脏；"代码是否等于 HEAD"要看排除它之后的状态
+    evidence_prefix = str(out_dir.relative_to(ROOT)) + "/"
+    code_dirty = [line for line in status.splitlines()
+                  if line.strip() and not line.split(maxsplit=1)[-1].startswith(evidence_prefix)]
     payload = {
         "command": f"python3 tools/p1gpu-read-view-check.py --config {config_path} --evidence {out_dir}",
+        "code_clean": not code_dirty,
+        "code_dirty_files": code_dirty,
+        "evidence_prefix_excluded": evidence_prefix,
         "config": str(config_path),
         "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
         "head_commit": head,
         "worktree_clean": status == "",
         "worktree_status": status,
+        "worktree_status_note": "worktree_clean 含运行自身产物；判定代码是否等于 HEAD 请用 code_clean",
         "start_time_cst": start,
         "end_time_cst": end,
         "exit_code": exit_code,
