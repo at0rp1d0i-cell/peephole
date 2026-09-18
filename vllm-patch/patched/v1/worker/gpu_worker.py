@@ -1435,9 +1435,7 @@ class Worker(WorkerBase):
         """attnview: 返回运行期 KV 几何，供 EngineCore 一次性核对（不使用默认块大小）。"""
         from vllm.v1.worker.gpu import attnview_adapter
 
-        geometry, group_block_sizes = attnview_adapter.derive_geometry(
-            self.model_runner.vllm_config, self.model_runner.kv_cache_config
-        )
+        geometry, group_block_sizes = attnview_adapter.derive_geometry(self.model_runner)
         return {
             "kernel_block_size": geometry.kernel_block_size,
             "num_kv_groups": geometry.num_kv_groups,
@@ -1445,6 +1443,11 @@ class Worker(WorkerBase):
             "blocks_per_kv_block": geometry.blocks_per_kv_block,
             "max_model_len": geometry.max_model_len,
             "group_block_sizes": group_block_sizes,
+            "flash_attn_version": getattr(
+                getattr(self.model_runner.vllm_config, "attention_config", None),
+                "flash_attn_version",
+                None,
+            ),
         }
 
     def shutdown(self) -> None:

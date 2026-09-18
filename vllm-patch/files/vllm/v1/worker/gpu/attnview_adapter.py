@@ -1,10 +1,11 @@
 """attnview 声明式读取：vLLM **worker 侧** 薄适配层（阶段 05，版本锁定、可撤销）。
 
 职责**且仅此**：
-1. 从运行期 KV 缓存配置读几何（kernel 块大小、组划分、FA 组下标）并拒绝不支持的配置；
+1. 从**运行期 runner 的实际对象**读 KV 几何（manager/kernel 块大小、每组比值、FA 组下标）并**互相核对**；
+   只接受单卡 TP1、真实 `FullAttentionSpec` 目标组与已支持的 FA2 后端；不一致一律显式拒绝，不做推断兜底；
 2. 把 engine 下推的每步计划落位到**全注意力组**的 metadata 输入（构造**新**张量，不改共享对象、
-   不做 host 侧 GPU 读取）；
-3. 计量 H2D 拷贝与设备操作次数（供后续成本测量，**不作性能结论**）。
+   不做 host 侧设备读取）；只支持"批内单活跃请求 + 单 query(decode)"；
+3. 计量本模块**自身**的代码插桩计数（供后续 GPU 侧成本观测做对照，**不作性能结论**）。
 
 协议/视图算术不在这里：见 `attnview.step_plan`（阶段 03 已验收的 `readview`/`gpukv`）。
 engine 侧解析见 `vllm/v1/engine/attnview_engine.py`（跨进程边界：本模块只在 worker 进程使用）。
@@ -17,7 +18,7 @@ from typing import Any, Mapping, Sequence
 
 import torch
 
-from attnview.step_plan import Geometry, StepPlan, check_supported_config
+from attnview.step_plan import Geometry, StepPlan, UnsupportedConfig, check_supported_config
 
 __all__ = [
     "DA_PLAN_FIELD",
@@ -32,13 +33,21 @@ __all__ = [
 #: `SchedulerOutput` 上承载每步计划的可选字段名（唯一入口）。
 DA_PLAN_FIELD = "da_step_plans"
 
+#: 本阶段支持的注意力后端名（FA2 路径；见 pin `v1/attention/backends/flash_attn.py:129`）。
+SUPPORTED_ATTN_BACKENDS = frozenset({"FLASH_ATTN"})
+
+#: 计量口径（**代码插桩范围**，不是运行时成本证据）：
+#: 只统计**本模块内显式写出**的拷贝/索引/填充/标量赋值/CPU 暂存读取次数，
+#: 用来说明"我们主动做了多少次操作"。设备侧真实同步、耗时必须由 GPU 观测（检查点 2/3）；
+#: 任何计数为 0 都**不得**被解释为"零成本"，本模块也不读设备张量（无 `.item()`/`.cpu()` on device）。
 _METERING: dict[str, int] = {
     "h2d_calls": 0,
     "h2d_bytes": 0,
     "device_copy_calls": 0,
     "device_index_select_calls": 0,
     "device_fill_calls": 0,
-    "host_reads_of_device_tensors": 0,
+    "scalar_assignments": 0,
+    "host_reads_of_cpu_staging": 0,
 }
 
 
@@ -56,50 +65,187 @@ def metering_snapshot() -> dict[str, int]:
 # --------------------------------------------------------------------------- #
 
 
-def _is_mamba_spec(spec: Any) -> bool:
-    from vllm.v1.kv_cache_interface import MambaSpec
+def _fa_spec_types() -> tuple[type, type]:
+    """返回 `(FullAttentionSpec, 已知非全注意力 spec 的类型元组)`。"""
+    from vllm.v1.kv_cache_interface import FullAttentionSpec, MambaSpec
 
-    return isinstance(spec, MambaSpec)
+    return FullAttentionSpec, MambaSpec
 
 
-def derive_geometry(vllm_config: Any, kv_cache_config: Any) -> tuple[Geometry, list[int]]:
-    """从**运行期** KV 缓存配置推导几何，返回 `(Geometry, 各组块大小)`。
+def _int_list(value: Any, name: str) -> list[int]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise RuntimeError(f"attnview: {name} 不是序列：{type(value).__name__}")
+    return [int(v) for v in value]
 
-    块大小一律取自各组 `kv_cache_spec.block_size`；不接受调用者传入的值，也不默认 784。
+
+def _backend_name(group: Any) -> str:
+    backend = getattr(group, "backend", None)
+    getter = getattr(backend, "get_name", None)
+    name = getter() if callable(getter) else getattr(backend, "__name__", "")
+    return str(name or "")
+
+
+def derive_geometry(runner: Any) -> tuple[Geometry, list[int]]:
+    """从**运行期 runner 的实际对象**读几何，返回 `(Geometry, 各组 manager 块大小)`。
+
+    来源与互核（任一处不一致即拒绝，不用"相等即推断"的代理值）：
+
+    - manager 块大小：`runner.block_tables.block_sizes` ↔ 各组 `kv_cache_spec.block_size`；
+    - kernel 块大小：`runner.kernel_block_sizes`（`init_attn_backend` 落定）↔
+      `runner.block_tables.kernel_block_sizes`；
+    - 每组比值：`runner.block_tables.blocks_per_kv_block` ↔ `block_sizes // kernel_block_sizes`；
+    - 目标组：`runner.attn_groups` 里**恰好一个** `FullAttentionSpec` 组，且其后端在本阶段支持集内；
+    - 并行度：单卡 TP1（`tensor_parallel_size == 1` 且 `world_size == 1`）。
+
+    例（必须拒绝，不得报告 784/1）：各 manager 块大小 784、kernel 块大小 16、比值 49 ——
+    此时 `Geometry.validate()` 会以 `UnsupportedConfig` 拒绝（逻辑块↔kernel 列换算会改变
+    `seqused_k` 的计量单位）。
     """
+    vllm_config = getattr(runner, "vllm_config", None)
+    kv_cache_config = getattr(runner, "kv_cache_config", None)
+    tables = getattr(runner, "block_tables", None)
+    if vllm_config is None or kv_cache_config is None or tables is None:
+        raise RuntimeError(
+            "attnview: runner 缺少 vllm_config/kv_cache_config/block_tables，无法读实际块几何"
+        )
+
     groups = list(kv_cache_config.kv_cache_groups)
     if not groups:
         raise RuntimeError("attnview: kv_cache_config 没有任何 KV 组")
-    fa_indices = [i for i, g in enumerate(groups) if not _is_mamba_spec(g.kv_cache_spec)]
-    if len(fa_indices) != 1:
+
+    manager_block_sizes = _int_list(getattr(tables, "block_sizes", ()), "block_tables.block_sizes")
+    table_kernel_sizes = _int_list(
+        getattr(tables, "kernel_block_sizes", ()), "block_tables.kernel_block_sizes"
+    )
+    ratios = _int_list(
+        getattr(tables, "blocks_per_kv_block", ()), "block_tables.blocks_per_kv_block"
+    )
+    runner_kernel_sizes = _int_list(
+        getattr(runner, "kernel_block_sizes", ()), "runner.kernel_block_sizes"
+    )
+    n = len(groups)
+    if not (len(manager_block_sizes) == len(table_kernel_sizes) == len(ratios) == len(runner_kernel_sizes) == n):
         raise RuntimeError(
-            f"attnview: 期望恰好 1 个全注意力组，实际 {len(fa_indices)} 个"
+            "attnview: KV 组数与块尺寸向量长度不一致："
+            f"groups={n} manager={manager_block_sizes} table_kernel={table_kernel_sizes} "
+            f"ratios={ratios} runner_kernel={runner_kernel_sizes}"
+        )
+
+    spec_types = _fa_spec_types()
+    fa_indices: list[int] = []
+    for i, group in enumerate(groups):
+        spec = group.kv_cache_spec
+        spec_block = int(getattr(spec, "block_size", -1))
+        if spec_block != manager_block_sizes[i]:
+            raise RuntimeError(
+                f"attnview: 第 {i} 组 manager 块大小不一致：kv_cache_spec={spec_block} "
+                f"block_tables={manager_block_sizes[i]}"
+            )
+        if table_kernel_sizes[i] != runner_kernel_sizes[i]:
+            raise RuntimeError(
+                f"attnview: 第 {i} 组 kernel 块大小不一致：block_tables={table_kernel_sizes[i]} "
+                f"runner={runner_kernel_sizes[i]}"
+            )
+        if table_kernel_sizes[i] <= 0 or manager_block_sizes[i] <= 0:
+            raise RuntimeError(f"attnview: 第 {i} 组块大小非正，无法推导几何")
+        if manager_block_sizes[i] % table_kernel_sizes[i] != 0:
+            raise RuntimeError(
+                f"attnview: 第 {i} 组 manager/kernel 块大小不可整除："
+                f"{manager_block_sizes[i]} / {table_kernel_sizes[i]}"
+            )
+        expected_ratio = manager_block_sizes[i] // table_kernel_sizes[i]
+        if ratios[i] != expected_ratio:
+            raise RuntimeError(
+                f"attnview: 第 {i} 组 blocks_per_kv_block 不一致：{ratios[i]} != "
+                f"{manager_block_sizes[i]}//{table_kernel_sizes[i]}"
+            )
+        if isinstance(spec, spec_types[0]):
+            fa_indices.append(i)
+        elif not isinstance(spec, spec_types[1]):
+            raise UnsupportedConfig(
+                f"attnview: 第 {i} 组的 KV spec 类型 {type(spec).__name__} 不在支持范围"
+                "（只支持 FullAttentionSpec 目标组）"
+            )
+    if len(fa_indices) != 1:
+        raise UnsupportedConfig(
+            f"attnview: 期望恰好 1 个 FullAttentionSpec 全注意力组，实际 {len(fa_indices)} 个"
         )
     fa_index = fa_indices[0]
-    group_block_sizes = [int(getattr(g.kv_cache_spec, "block_size", 0)) for g in groups]
-    kernel_block_size = group_block_sizes[fa_index]
-    if kernel_block_size <= 0:
-        raise RuntimeError("attnview: 无法从全注意力组读出 kernel 块大小")
-    # `blocks_per_kv_block` 在这里是**保守代理**：仅当各组块大小一致时认为是 1，否则置 0
-    # 交给 `Geometry.validate()` 显式拒绝。这不是对 vLLM 内部布局的断言。
-    blocks_per_kv_block = 1 if len(set(group_block_sizes)) == 1 else 0
+
+    # 目标组的后端名必须从 **runner.attn_groups** 取：那是初始化时按 KV 组切好的
+    # `AttentionGroup`（带 `.backend`/`.kv_cache_spec`），而 `kv_cache_config.kv_cache_groups`
+    # 是 `KVCacheGroupSpec`（只有 `layer_names`/`kv_cache_spec`，**没有** backend 字段）。
+    attn_groups = getattr(runner, "attn_groups", None)
+    if not isinstance(attn_groups, (list, tuple)) or len(attn_groups) != n:
+        raise RuntimeError(
+            "attnview: runner.attn_groups 层数与 KV 组数不一致："
+            f"{len(attn_groups) if attn_groups is not None else None} != {n}"
+        )
+    for i, layer_groups in enumerate(attn_groups):
+        if not layer_groups:
+            raise RuntimeError(f"attnview: 第 {i} 个 KV 组在 runner.attn_groups 里为空")
+        spec_block = int(getattr(groups[i].kv_cache_spec, "block_size", -1))
+        for group in layer_groups:
+            backend_name = _backend_name(group)
+            if not backend_name:
+                raise RuntimeError(
+                    f"attnview: 第 {i} 个 KV 组里的 AttentionGroup 没有可读后端名（拒绝按空名放行）"
+                )
+            group_spec = getattr(group, "kv_cache_spec", None)
+            if group_spec is None or int(getattr(group_spec, "block_size", -1)) != spec_block:
+                raise RuntimeError(
+                    f"attnview: 第 {i} 个 KV 组的两层 spec 不一致"
+                    f"（AttentionGroup={type(group_spec).__name__} block="
+                    f"{int(getattr(group_spec, 'block_size', -1))} vs 组 spec block={spec_block}）"
+                )
+    fa_backends = sorted({_backend_name(g) for g in attn_groups[fa_index]})
+    unsupported_backends = [b for b in fa_backends if b not in SUPPORTED_ATTN_BACKENDS]
+    if unsupported_backends:
+        raise UnsupportedConfig(
+            f"attnview: 全注意力组后端 {unsupported_backends} 不在本阶段支持集 "
+            f"{sorted(SUPPORTED_ATTN_BACKENDS)}（只支持 FA2 路径）"
+        )
+    # 后端名 `FLASH_ATTN` **不等于** FA2：pin 里同一实现按 `impl.vllm_flash_attn_version`
+    # 选择 FA2/3/4（`flash_attn.py:879-899`，值由平台能力或 `attention_config.flash_attn_version`
+    # 决定），而 Blackwell 的默认是 FA4 ⇒ 必须要求**显式**声明 FA2（`None` 表示交给平台默认，一律拒绝）。
+    attn_config = getattr(vllm_config, "attention_config", None)
+    fa_version = getattr(attn_config, "flash_attn_version", None)
+    if "FLASH_ATTN" in fa_backends and int(fa_version or 0) != 2:
+        raise UnsupportedConfig(
+            f"attnview: 全注意力组后端为 FLASH_ATTN，但 flash_attn_version={fa_version!r}"
+            "（None = 由平台默认决定，Blackwell 默认 FA4）：本阶段只支持 FA2，"
+            "请显式设置 --attention-config.flash_attn_version=2"
+        )
+
+    parallel_config = getattr(vllm_config, "parallel_config", None)
+    tp_size = int(getattr(parallel_config, "tensor_parallel_size", 1))
+    world_size = int(getattr(parallel_config, "world_size", 1))
+    if tp_size != 1 or world_size != 1:
+        raise UnsupportedConfig(
+            f"attnview: 只支持单卡 TP1，实际 tensor_parallel_size={tp_size} world_size={world_size}"
+        )
+
     geometry = Geometry(
-        kernel_block_size=kernel_block_size,
-        num_kv_groups=len(groups),
+        kernel_block_size=table_kernel_sizes[fa_index],
+        num_kv_groups=n,
         fa_group_index=fa_index,
-        blocks_per_kv_block=blocks_per_kv_block,
+        blocks_per_kv_block=ratios[fa_index],
         max_model_len=int(vllm_config.model_config.max_model_len),
     ).validate()
-    return geometry, group_block_sizes
+    return geometry, manager_block_sizes
 
 
-def assert_supported_config(vllm_config: Any, *, _cache: dict = {}) -> None:
+def assert_supported_config(runner: Any) -> None:
     """拒绝本阶段不支持的运行配置（fail-fast，不静默降级）。
 
-    首次调用即校验；后续复用缓存结果（配置在一次运行内不变）。
+    结果标记**记在该 runner 实例上**（不是模块级共享缓存）：同一进程里的第二个 runner
+    必须各自重新校验，避免"第一个 runner 校验通过后，后续 runner 一律免检"。
     """
-    if _cache.get("checked"):
+    if getattr(runner, "_attnview_config_checked", False):
         return
+    vllm_config = getattr(runner, "vllm_config", None)
+    if vllm_config is None:
+        raise RuntimeError("attnview: runner 上没有 vllm_config，无法校验运行配置")
     scheduler_config = vllm_config.scheduler_config
     compilation = getattr(vllm_config, "compilation_config", None)
     check_supported_config(
@@ -111,7 +257,7 @@ def assert_supported_config(vllm_config: Any, *, _cache: dict = {}) -> None:
         ),
         speculative_config=getattr(vllm_config, "speculative_config", None),
     )
-    _cache["checked"] = True
+    runner._attnview_config_checked = True
 
 
 # --------------------------------------------------------------------------- #
@@ -152,9 +298,9 @@ def _geometry_for(runner: Any) -> Geometry:
     cached = getattr(runner, "_attnview_geometry", None)
     if cached is not None:
         return cached
-    geometry, group_block_sizes = derive_geometry(runner.vllm_config, runner.kv_cache_config)
+    geometry, manager_block_sizes = derive_geometry(runner)
     runner._attnview_geometry = geometry
-    runner._attnview_group_block_sizes = group_block_sizes
+    runner._attnview_group_block_sizes = manager_block_sizes
     return geometry
 
 
@@ -186,24 +332,64 @@ def fa_override_for_step(
     input_batch: Any,
     block_tables: Sequence[torch.Tensor],
 ) -> DaFaOverride | None:
-    """把本步计划落位成全注意力组的读取覆写；无计划时返回 `None`（原版路径）。"""
+    """把本步计划落位成全注意力组的读取覆写；无计划时返回 `None`（原版路径）。
+
+    消费边界（显式核对，不假定上层正确）：
+
+    - 批内**恰好一个**请求（本阶段单活跃请求）；
+    - 该请求本步**恰好 1 个 query token**（decode 步）——prefill 步不出计划，出现即拒绝；
+    - `seq_lens_cpu_upper_bound` 必须存在（FA2 路径具备）；缺失时拒绝，绝不回读设备张量。
+    """
     plans = getattr(scheduler_output, DA_PLAN_FIELD, None)
     if not plans:
         return None
     # 门禁：在任何覆写缓冲分配/落位**之前**校验运行配置（同步调度/eager/关前缀缓存/关投机）。
-    assert_supported_config(runner.vllm_config)
+    assert_supported_config(runner)
     geometry = _geometry_for(runner)
     fa = geometry.fa_group_index
     group_table = block_tables[fa]
-    if int(group_table.shape[0]) != len(input_batch.req_ids):
+
+    req_ids = list(getattr(input_batch, "req_ids", ()) or ())
+    if len(req_ids) != 1:
+        raise UnsupportedConfig(
+            f"attnview: 只支持批内单活跃请求，实际批内 {len(req_ids)} 个请求"
+        )
+    da_req_ids = [r for r in req_ids if r in plans]
+    if len(da_req_ids) != 1:
+        raise UnsupportedConfig(
+            f"attnview: 批内携带读取计划的请求数 {len(da_req_ids)} != 1（拒绝按错误行数落位）"
+        )
+    num_scheduled = getattr(scheduler_output, "num_scheduled_tokens", None) or {}
+    scheduled = int(num_scheduled.get(da_req_ids[0], 0))
+    if scheduled != 1:
+        raise UnsupportedConfig(
+            f"attnview: 只支持单 query(decode) 步，本步 {da_req_ids[0]} 调度 {scheduled} 个 token"
+            "（prefill 步不出计划；出现即为协议/时序冲突）"
+        )
+    if int(group_table.shape[0]) != len(req_ids):
         raise RuntimeError(
             f"attnview: 全注意力组的块表行数 {int(group_table.shape[0])} 与批内请求数 "
-            f"{len(input_batch.req_ids)} 不一致（拒绝按错误行数落位）"
+            f"{len(req_ids)} 不一致（拒绝按错误行数落位）"
         )
     if int(group_table.shape[1]) < geometry.max_width:
         raise RuntimeError(
             f"attnview: 全注意力组块表宽度 {int(group_table.shape[1])} < 运行期 max_width "
             f"{geometry.max_width}（无法表达完整历史视图，拒绝落位）"
+        )
+    if getattr(input_batch, "seq_lens_cpu_upper_bound", None) is None:
+        raise UnsupportedConfig(
+            "attnview: 缺少 seq_lens_cpu_upper_bound（FA2 路径应具备）：拒绝为取上界而回读设备张量"
+        )
+    # `scheduled == 1` **不能**证明是 decode：最后一个 prefill chunk 也可能只调度 1 个 token。
+    # 必须读批内每行的真实 prefill 标记（`InputBatch.is_prefilling_np`）。
+    is_prefilling = getattr(input_batch, "is_prefilling_np", None)
+    if is_prefilling is None:
+        raise UnsupportedConfig("attnview: 缺少 is_prefilling_np，无法区分 decode/prefill（拒绝放行）")
+    da_row = req_ids.index(da_req_ids[0])
+    if bool(is_prefilling[da_row]):
+        raise UnsupportedConfig(
+            f"attnview: {da_req_ids[0]} 本步是 prefill（is_prefilling=True，query 长度可恰为 1）："
+            "本阶段只支持单 query(decode) 步"
         )
     device = group_table.device
     rows = int(group_table.shape[0])
@@ -213,14 +399,14 @@ def fa_override_for_step(
     buffers["block_table"].copy_(group_table[:, : geometry.max_width], non_blocking=True)
     _METERING["device_copy_calls"] += 1
     buffers["seq_lens"].copy_(input_batch.seq_lens[:rows], non_blocking=True)
-    if input_batch.seq_lens_cpu_upper_bound is not None:
-        buffers["seq_lens_cpu"].copy_(input_batch.seq_lens_cpu_upper_bound[:rows])
+    buffers["seq_lens_cpu"].copy_(input_batch.seq_lens_cpu_upper_bound[:rows])
     _METERING["device_copy_calls"] += 1
 
     canonical_row_numbers = runner.block_tables.num_blocks.np[fa]
+    _METERING["host_reads_of_cpu_staging"] += 1
     row_plans: dict[int, StepPlan] = {}
     overridden: list[int] = []
-    for row, req_id in enumerate(input_batch.req_ids):
+    for row, req_id in enumerate(req_ids):
         raw = plans.get(req_id)
         if raw is None:
             continue
@@ -248,18 +434,17 @@ def fa_override_for_step(
         buffers["seq_lens"][row] = plan.seqused_k
         buffers["seq_lens_cpu"][row] = plan.seqused_k
         _METERING["device_copy_calls"] += 1
+        _METERING["scalar_assignments"] += 2
         row_plans[row] = plan
         overridden.append(row)
 
     if not overridden:
         return None
-    # FA 组的 max_seq_len 是**整批**标量：必须并入非 DA 行的 canonical 上界。
-    canonical_upper = int(
-        input_batch.seq_lens_cpu_upper_bound[:rows].max().item()
-        if input_batch.seq_lens_cpu_upper_bound is not None
-        else max(int(buffers["seq_lens_cpu"][r]) for r in range(rows))
-    )
-    max_seq_len = max([canonical_upper] + [row_plans[r].seqused_k for r in overridden])
+    # FA 组的 max_seq_len 是**整批**标量：取**覆写后 CPU 长度向量**的最大值 ——
+    # 非 DA 行已镜像 canonical 长度，DA 行是 seqused_k，因此这个最大值同时覆盖两类行，
+    # 不需要再并入 DA 行原来的 canonical 上界（那会让单请求场景永不缩短，妨碍后续耗时归因）。
+    max_seq_len = int(buffers["seq_lens_cpu"][:rows].max().item())
+    _METERING["host_reads_of_cpu_staging"] += 1
     return DaFaOverride(
         group_index=fa,
         block_table=buffers["block_table"],

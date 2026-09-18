@@ -114,11 +114,24 @@ EDITS: list[tuple[str, str, str]] = [
         grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)
 """,
         """        scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
-        # attnview: 注入本步要落位的读取计划（上一步解析所得）；无计划时为 None，与原版一致。
-        self.attnview.attach_plans(scheduler_output)
+        # attnview: 在执行**之前**处理本步抢占、登记新请求（载荷/布局校验与门禁）、并注入本步读取计划。
+        # 位置必须在 execute_model 之前：配置/布局错误要 fail-fast，且"首步即终结"的请求此刻仍在账本里。
+        self.attnview.on_step_scheduled(scheduler_output)
         future = self.model_executor.execute_model(scheduler_output, non_block=True)
         grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)
 """,
+    ),
+    (
+        "v1/engine/core.py",
+        """    def shutdown(self):
+        logger.debug_once("[shutdown] EngineCore: tearing down local resources")
+        self.structured_output_manager.clear_backend()""",
+        """    def shutdown(self):
+        logger.debug_once("[shutdown] EngineCore: tearing down local resources")
+        # attnview: flush 增量 UTF-8 残留字节并释放请求级协议状态（正常/异常退出都要走到）。
+        if getattr(self, "attnview", None) is not None:
+            self.attnview.shutdown()
+        self.structured_output_manager.clear_backend()""",
     ),
     (
         "v1/engine/core.py",
@@ -241,7 +254,14 @@ EDITS: list[tuple[str, str, str]] = [
         kv_cache_config: KVCacheConfig,
         for_capture: bool = False,
         da_fa_override: Any | None = None,
-    ) -> dict[str, Any]:""",
+    ) -> dict[str, Any]:
+        # attnview: 本阶段只在 MambaHybridModelState（目标模型的真实入口）接线读取覆写；
+        # 纯注意力路径不接受该覆写 —— 出现即显式拒绝，绝不留"接收但不消费"的静默分支。
+        if da_fa_override is not None:
+            raise RuntimeError(
+                "attnview: DefaultModelState 不在本阶段支持范围（目标模型走 MambaHybridModelState）："
+                "拒绝该请求的 DA 读取覆写，不静默吞载荷"
+            )""",
     ),
     # --- 5) model_runner：本步构造覆写并传入（dummy 一律不落位） --------------- #
     (
@@ -303,9 +323,7 @@ from vllm.v1.worker.gpu.block_table import BlockTables""",
         \"\"\"attnview: 返回运行期 KV 几何，供 EngineCore 一次性核对（不使用默认块大小）。\"\"\"
         from vllm.v1.worker.gpu import attnview_adapter
 
-        geometry, group_block_sizes = attnview_adapter.derive_geometry(
-            self.model_runner.vllm_config, self.model_runner.kv_cache_config
-        )
+        geometry, group_block_sizes = attnview_adapter.derive_geometry(self.model_runner)
         return {
             "kernel_block_size": geometry.kernel_block_size,
             "num_kv_groups": geometry.num_kv_groups,
@@ -313,6 +331,11 @@ from vllm.v1.worker.gpu.block_table import BlockTables""",
             "blocks_per_kv_block": geometry.blocks_per_kv_block,
             "max_model_len": geometry.max_model_len,
             "group_block_sizes": group_block_sizes,
+            "flash_attn_version": getattr(
+                getattr(self.model_runner.vllm_config, "attention_config", None),
+                "flash_attn_version",
+                None,
+            ),
         }
 
     def shutdown(self) -> None:""",

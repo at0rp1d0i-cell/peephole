@@ -64,7 +64,7 @@ da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新�
 - 【自读】全树检索：**没有任何消费方**因未知键报错；只有两个 KV connector 读特定键。→ 可用作内部键（设计用 `extra_args["attnview"]`）。
 - 【实测】CPU 往返探针 `tools/p2-probe-params-channel.py` → `evidence/p2-single/params-channel-probe.json`：`SamplingParams` 与 `EngineCoreRequest` 经 `MsgpackEncoder/MsgpackDecoder` 往返后 `extra_args` **逐字段相等、嵌套类型保真**；构造时 `__post_init__` 不改写。附带发现：`MsgpackDecoder(NewRequestData)` 在本环境抛 `NameError: name 'torch' is not defined`（该模块把 `torch.Tensor` 写成字符串前向引用且未在全局导入）；TP=1 的 `UniProcExecutor` 是**同进程直调**（`serial_utils.run_method`），不经过该解码器，故不影响本设计，仅如实记录。
 - **安全边界**：该键由**内部驱动器**设置；公共 API 的 `vllm_xargs` 同样落到 `extra_args`，因此适配层必须**忽略/拒绝**来自 API 层的 `attnview` 键（检查点 2 加一条单测），内部扩展不对外开放。
-- **载荷**（每请求一次）：`{"attnview": {"protocol": "v1.0", "segment_token_spans": [[s,e),...], "scaffold_spans": [[s,e),...], "sink_tokens": 16, "kernel_block_size": <运行期读取>, "enforce_global": false}}`；其中 span 来自阶段 03 的最终 token-span 映射（**不得**用原文字符偏移当 token 下标）。
+- **载荷**（每请求一次）：`{"attnview": {"protocol": "v1.0", "prompt_len": N, "segment_spans": [[s,e),...], "local_window_span": [s,e), "sink_span": [0,16), "enforce_global": false}}`；其中 span 来自阶段 03 的最终 token-span 映射（**不得**用原文字符偏移当 token 下标）。载荷**不得**含任何几何字段（`kernel_block_size` 等一律拒绝，见 `FORBIDDEN_PAYLOAD_KEYS`）。
 
 ## 4. 状态所有权与生命周期（SUP-004 §2.2）
 
@@ -217,11 +217,20 @@ CPU 探针里 `[0,5,6,7]`+`6272` 的组合在 b=784 下**不可能**，只是**�
 
 - 载荷只含协议/布局事实：`protocol`、`prompt_len`、`segment_spans`、`local_window_span`、`sink_span`、`enforce_global`。
   **禁止**出现 `kernel_block_size`/`max_width`/`num_blocks` 等几何字段（实现内 `FORBIDDEN_PAYLOAD_KEYS` 硬拒）。
-- 几何只在 worker 侧从运行期 `KVCacheConfig` 读取（各组 `kv_cache_spec.block_size`），
-  经 `Worker.attnview_geometry()` RPC 让 EngineCore **一次性核对**；`blocks_per_kv_block != 1` 时显式拒绝
+- 几何只在 worker 侧从**运行期 runner 的实际对象**读取并**互相核对**：
+  `runner.block_tables.block_sizes` ↔ 各组 `kv_cache_spec.block_size`（manager 层）；
+  `runner.kernel_block_sizes` ↔ `runner.block_tables.kernel_block_sizes`（kernel 层）；
+  `runner.block_tables.blocks_per_kv_block` ↔ `block_sizes // kernel_block_sizes`。
+  目标组必须是 `runner.attn_groups[fa]` 里的**真实 `FullAttentionSpec`**、后端在本阶段支持集内，
+  且并行度为单卡 TP1。任一处不一致即拒绝；`blocks_per_kv_block != 1` 时显式拒绝（`UnsupportedConfig`）。
+  **后端名 `FLASH_ATTN` 不等于 FA2**：pin 里同一实现按 `impl.vllm_flash_attn_version` 选 FA2/3/4
+  （`flash_attn.py:879-899`，值由平台能力或 `attention_config.flash_attn_version` 决定），
+  Blackwell 的默认是 **FA4** ⇒ 本阶段要求**显式**声明 `attention_config.flash_attn_version == 2`
+  （`None` = 平台默认，一律拒绝）。检查点 2 仍须核对 worker 日志 `Using FlashAttention version 2`。
   （否则 `seqused_k` 的计量单位会变）。**不使用默认 784**。
 - 稳定读数：`BlockTables.num_blocks.np` 是 host 镜像 → 越界检查（可见块 < 已分配块）**不需要**读 GPU 张量；
-  稳态**不做** `.cpu()`/`.item()` 读 canonical 表（计量项 `host_reads_of_device_tensors` 应保持 0）。
+  稳态**不做**设备张量的 `.cpu()`/`.item()` 读；计量项只统计**本模块内的代码插桩次数**
+  （拷贝/索引/填充/标量赋值/CPU 暂存读取），**不是**运行时同步或耗时的证据，计数为 0 也不得解释为"零成本"。
 
 ### 13.3 真实调用链与参数通道（初稿漏 `MambaHybridModelState`）
 
@@ -251,8 +260,9 @@ GPUModelRunner.execute_model                         [worker 进程]
 | dummy / profile / 图捕获 | `dummy_run=True` 一律不落位；`for_cudagraph_capture` 分支不落位；本阶段 eager |
 | warmup | `warmup.py` 手工构造 `NewRequestData` 走真实 `execute_model` → 因**无载荷**（无 `extra_args["attnview"]`）而直通，不创建协议状态 |
 | 普通请求 | 无载荷 → 全程不经过适配层 |
-| 终结 / 取消 / 抢占 | 解析位置固定在 `update_from_output` **之后**、下一次 `schedule()` **之前**；先按 `SchedulerOutput.finished_req_ids`（含抢占）丢弃、再解析、再释放本步刚终结者；清理**幂等**，不会被同一步输出重建 |
-| 异常 | 不隐式回退 global（C6.2）；抢占仍显式不支持（按合同记录并停该用例） |
+| 终结 / 取消 / 抢占 | 登记与计划在 `schedule()` **之后、`execute_model()` 之前**（`on_step_scheduled`）；解析仍在 `update_from_output` **之后**（`on_step_outputs`）。`SchedulerOutput.finished_req_ids` 是**上一步**终结集合的快照（`schedule()` 返回前已清空，`scheduler.py:1495`），所以终结判定以**本步 finish 项 + 账本核对**为准；清理**幂等**，不会被同一步输出重建 |
+| 抢占（本阶段不支持） | `preempted_req_ids` 在**执行前**处理：释放 DA 状态 + 记不支持事件 + 调 `Scheduler.finish_requests(..., FINISHED_ABORTED)` **中止该请求**（不能只写 trace）；无法中止时抛 `UnsupportedConfig` |
+| 异常 | 不隐式回退 global（C6.2）。fail-fast 时**先**中止本步涉及的内部请求再抛错（`schedule()` 已改过调度器状态） |
 
 ### 13.5 支持范围与拒绝方式
 
@@ -371,3 +381,53 @@ GPUModelRunner.execute_model                         [worker 进程]
   并用源码锚定测试断言 pin 里确实有 `self.finished_req_ids = set()`、`del self.requests[...]`、
   `if request is None or request.is_finished():` 三处语义，防止夹具与源码漂移。
 
+### 13.9 R2 返工（2026-09-18，依 `inbox/SUP-004-R2.md`；纯 CPU，未加载模型/GPU）
+
+**(h) 真实抢占必须在执行前拒绝并中止请求。** `_preempt_request`（`scheduler.py:1405-1446`）**不删除**
+`scheduler.requests` —— 只释放块、置 `PREEMPTED`、清 `num_computed_tokens` 并把请求放回 waiting；
+`SchedulerOutput(preempted_req_ids=...)` 在 `:1344` 构造输出时携带本步集合、`:1496` 每步清空。
+因此"账本里还在"**不能**当作"未被抢占"：新增 `on_step_scheduled` 在 `execute_model` **之前**
+调用 `_reject_preempted`，对被抢占的 DA 请求（已登记或本步新调度）释放内部状态、
+写 `preempted_during_step`（`unsupported: true`）trace、并调 `Scheduler.finish_requests(req_id,
+RequestStatus.FINISHED_ABORTED)` **真实中止该请求**，同时记入 `engine.unsupported`；
+拿不到终止 API 时抛 `UnsupportedConfig`（绝不"只写 trace 让驱动猜"）。
+**只中止账本不够**：`SchedulerOutput` 是 `schedule()` 的返回值快照，被抢占的请求可能**同时**出现在本步的
+`scheduled_new_reqs`/`num_scheduled_tokens` 里（pin 存在 reset 后同一步 preempt+resume 的路径），
+所以执行前路径在中止请求后**抛 `UnsupportedConfig` 禁止本步 `execute_model`**（执行后路径仅释放与记录）。
+测试用**真实 `_preempt_request`** 调用（最小宿主提供 `_free_request_blocks`/`waiting`/`encoder_cache_manager`
+等）断言"请求仍在账本里"这一关键事实，并用**真实 patched `EngineCore.step`**（捕获 executor）断言
+"同一 id 同时 preempted 且 scheduled 时 `execute_model` 未被调用"；"删账本再设 preempted"的假组合已删除。
+
+**(i) 登记前置到 schedule 之后、execute 之前。** 原实现只在 `update_from_output` 之后登记：
+首步即终结（EOS / `max_tokens=1`）时请求已被 `_free_request` 删除 ⇒ `parsed={}`、`traces=[]`；
+配置错误也要先白跑一次模型。现在 `on_step_scheduled` 先做门禁与登记（含载荷/布局校验），
+再按本次调度构造计划；`on_step_outputs` 只负责解析与清理。首步终结的请求因此会**解析一次真实采样
+token**并**释放一次**（`_finish_and_release` 会先 `flush()` 增量 UTF-8 解码器，残留字节写入 trace 的
+`leftover_text`，不静默丢弃）。`EngineCore.shutdown()` 已显式接线 `attnview.shutdown()`（flush + 释放）。
+成功终结与取消走**两条路径**：前者由本步 finish 项驱动，后者由账本核对驱动。
+
+**(j) 运行期几何不再是推断。** `derive_geometry(runner)` 读 `block_tables.block_sizes`/
+`kernel_block_sizes`/`blocks_per_kv_block` 与 `runner.kernel_block_sizes` 并互核（含"manager 必须能被
+kernel 整除"）；目标组要求恰好一个**真实 `FullAttentionSpec`**，后端名取自 `runner.attn_groups[fa]`
+里的 `AttentionGroup.backend`（**不是** `KVCacheGroupSpec`——它没有 backend 字段），并要求 TP1。
+split 例（manager 784 / kernel 16 / ratio 49）由 `Geometry.validate()` 以 `UnsupportedConfig` 拒绝，
+不再报告 784/1。`DefaultModelState`（dense 路径）不在本阶段支持范围：收到覆写即**显式拒绝**，
+不留"接收但不消费"的静默分支；目标模型（3×GDN + 1×FA）走 `MambaHybridModelState`，
+覆写照旧转传给 `build_attn_metadata`，GDN canonical 对象不动。消费边界在 worker 侧显式核对：批内单活跃请求、单 query(decode) 步、`seq_lens_cpu_upper_bound` 必须存在。
+**`num_scheduled_tokens == 1` 不能证明是 decode**（最后一个 prefill chunk 也可能只有 1 个 token）⇒
+还须读 `input_batch.is_prefilling_np[行]` 为假；缺少该字段一律拒绝。
+
+**(k) 门禁按实例隔离。** 去掉 `assert_supported_config(..., _cache={})` 的模块级共享缓存，
+改为把校验结果记在**具体 runner 实例**上（`runner._attnview_config_checked`）；测试顺序为
+"合法 A → 非法 B"，**不重载模块**，直接暴露旧缺陷。
+
+**(l) `enforce_global` 显式消费。** 载荷要求强制 global 时：协议解析与 trace **继续**（状态机照常演进），
+但**执行视图**强制 global——本适配层不出受限计划（worker 走原版读 metadata），并在 `enforce_global_steps`
+与 trace 里**单列标记**（`protocol_mode` / `applied_view: "global"`），与"协议模式恰为 global"区分。
+
+**(m) 顺手项。** ① FA 组 `max_seq_len` 取**覆写后 CPU 长度向量**的最大值（非 DA 行已镜像 canonical，
+DA 行是 `seqused_k`，无需再并入原 canonical 上界；单请求压缩视图下确实缩短，便于耗时归因）；
+② metadata 对照改为**真实调用 + 捕获 builder 输入**，按对象身份断言"只有 FA 组换、其它组保持 canonical"
+（`build_attn_metadata` 开头的 `seq_lens[:num_reqs]` 切片会产生新对象，测试按此真实语义断言）；
+③ 计量计数明确为**代码插桩范围**：删除从未更新的 `host_reads_of_device_tensors`，
+新增 `scalar_assignments`/`host_reads_of_cpu_staging`，并在模块文档写明"设备侧同步/耗时须由 GPU 观测"。

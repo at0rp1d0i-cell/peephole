@@ -620,8 +620,9 @@ class EngineCore:
         if not self.scheduler.has_requests():
             return {}, False
         scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
-        # attnview: 注入本步要落位的读取计划（上一步解析所得）；无计划时为 None，与原版一致。
-        self.attnview.attach_plans(scheduler_output)
+        # attnview: 在执行**之前**处理本步抢占、登记新请求（载荷/布局校验与门禁）、并注入本步读取计划。
+        # 位置必须在 execute_model 之前：配置/布局错误要 fail-fast，且"首步即终结"的请求此刻仍在账本里。
+        self.attnview.on_step_scheduled(scheduler_output)
         future = self.model_executor.execute_model(scheduler_output, non_block=True)
         grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)
         with (
@@ -786,6 +787,9 @@ class EngineCore:
 
     def shutdown(self):
         logger.debug_once("[shutdown] EngineCore: tearing down local resources")
+        # attnview: flush 增量 UTF-8 残留字节并释放请求级协议状态（正常/异常退出都要走到）。
+        if getattr(self, "attnview", None) is not None:
+            self.attnview.shutdown()
         self.structured_output_manager.clear_backend()
         if self.model_executor:
             self.model_executor.shutdown()

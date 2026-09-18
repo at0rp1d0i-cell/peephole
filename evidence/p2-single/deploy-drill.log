@@ -1,27 +1,38 @@
-=== 部署/撤销演练（事务化脚本；2026-09-18 13:17:36 +0800；HEAD=2141f9c）===
---- 0) 前置：checkout 脏行=0；两副本差异=0 ---
---- 1) 负例：篡改目标后 apply 必须整体拒绝、不碰任何文件、不留事务记录 ---
+=== 部署/撤销演练（2026-09-18 13:34:29 +0800；HEAD=fc59320；工作区改动未提交）===
+--- 1) 负例：篡改目标后 apply 必须整体拒绝（退出码 4）、不动任何字节 ---
 预检失败：1 项冲突，未修改任何文件
   前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
 apply 退出码=4（期望 4）
-拒绝后事务记录存在=0（期望 0）
+事务记录存在=0（期望 0）
 --- 2) apply / 3) verify ---
 部署完成：27 个目标（源码 checkout + site-packages 两处），事务记录 vllm-patch/deployed.json
 apply 退出码=0
 校验（state=deployed）：27 个目标，全部一致
 verify 退出码=0
---- 4) 部署后符号、接线、门禁与存活守卫 ---
-adapter.fa_override_for_step 内接线门禁: True
-engine.make_token_text_of: True | 登记门禁: True | 存活守卫: True
-引擎侧 on_step_outputs 先查账本: True
-build_attn_metadata(da_fa_override): True
-SchedulerOutput.da_step_plans: True
-core.__init__ 注入 tokenizer 工厂: True | step 接合: True | 批次队列守卫: True
-退出码=0
+--- 4) 部署态接线与边界核验（真实调用）---
+编排早于 execute_model: True
+shutdown 接 attnview.shutdown: True
+抢占：中止 + 抛不支持: False
+adapter 无 _cache，derive_geometry(runner): True
+adapter 核对 FA2 版本与 prefill 边界: True
+hybrid 转传 / default 拒绝: True
 --- 5) revert / 6) 撤销后指纹 ---
-cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/core/sched/__pycache__/output.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/__pycache__/core.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/__pycache__/attn_utils.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/default.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/interface.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/mamba_hybrid.cpython-312.pyc
 cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/__pycache__/attnview_adapter.cpython-312.pyc
 cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/__pycache__/attnview_engine.cpython-312.pyc
-撤销完成：27 个目标已恢复/删除，指纹已校验
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/__init__.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/decode.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/parser.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/readview.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/gpukv.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/state.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/step_plan.cpython-312.pyc
+warning: 包目录仍有非本次文件，已保留：['__pycache__']
+撤销完成：27 个目标已恢复/删除，指纹已校验（1 条告警）
 revert 退出码=0
-checkout 脏行=0（期望 0）；两副本差异=0（期望 0）；包目录残留=0（期望 0）；orig=0（期望 0）；事务记录=0（期望 0）
+checkout 脏行=0（期望 0）；两副本差异=0（期望 0）；orig=0（期望 0）；事务记录=0（期望 0）

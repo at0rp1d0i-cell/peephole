@@ -17,6 +17,7 @@ import json
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -45,7 +46,72 @@ GEOMETRY = {
     "max_model_len": 8192,
     "group_block_sizes": [B, B, B, B],
 }
-TOKEN_TEXT = {1: "<local>", 2: "x", 3: "a"}
+TOKEN_TEXT = {1: "<local>", 2: "x", 3: "a", 4: "\xe4\xb8", 5: "\xad"}
+
+
+def load_module_by_path(name: str, path: Path):
+    """按路径加载模块（避免依赖安装副本是否已部署补丁）。"""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def make_real_request(req_id: str = "r1", *, num_prompt_tokens: int = 8):
+    """构造**真实** `vllm.v1.request.Request`（用于真实 `_preempt_request` 调用）。"""
+    from vllm.sampling_params import SamplingParams
+    from vllm.v1.request import Request, RequestStatus
+
+    request = Request(
+        request_id=req_id,
+        prompt_token_ids=list(range(num_prompt_tokens)),
+        sampling_params=SamplingParams(max_tokens=8),
+        pooling_params=None,
+    )
+    request.status = RequestStatus.RUNNING
+    request.num_computed_tokens = PROMPT_LEN
+    return request
+
+
+class PreemptHost:
+    """真实 `Scheduler._preempt_request` 的最小宿主。
+
+    关键：`_preempt_request`（`scheduler.py:1405-1446`）**不删除** `self.requests` 里的请求，
+    只释放块、置 `PREEMPTED`、清进度并把它放回 waiting —— 所以"账本里还在"不能当作"没被抢占"。
+    """
+
+    def __init__(self, requests=None):
+        self.requests = requests if requests is not None else {}
+        self.waiting_queue: list = []
+        self.waiting = SimpleNamespace(prepend_request=self.waiting_queue.append)
+        #: 记录被真实 `_free_request_blocks` 释放的请求
+        self.freed: list[str] = []
+        self.encoder_cache_manager = SimpleNamespace(free=lambda request: None)
+        self.kv_cache_manager = SimpleNamespace(
+            free=lambda request: self.freed.append(request.request_id)
+        )
+        self.deferred_frees: list = []
+        self._inflight_prefills: set = set()
+        self.reset_preempted_req_ids: set[str] = set()
+        self.log_stats = False
+        self.defer_block_free = False
+        self.processed_step_seq = 0
+        self.sched_step_seq = 0
+
+    def _free_request_blocks(self, request):
+        """真实 `_free_request_blocks`（未绑定形式）：走 `kv_cache_manager.free`。"""
+        from vllm.v1.core.sched.scheduler import Scheduler
+
+        return Scheduler._free_request_blocks(self, request)
+
+    def preempt(self, request) -> None:
+        """调用 pin 的真实方法（未绑定形式，宿主提供所需属性）。"""
+        from vllm.v1.core.sched.scheduler import Scheduler
+
+        Scheduler._preempt_request(self, request, timestamp=0.0)
 
 
 def load_engine_module():
@@ -87,6 +153,23 @@ class FakeScheduler:
         self.blocks = blocks if blocks is not None else [list(FA_BLOCKS)] * 4
         self.requests = requests if requests is not None else {"r1": request_state()}
         self.kv_cache_manager = SimpleNamespace(get_block_ids=lambda req_id: self.blocks)
+        #: 记录经真实终止 API 中止的请求（镜像 `Scheduler.finish_requests` 的调用与返回）
+        self.aborted: list[tuple[str, str]] = []
+
+    def finish_requests(self, request_ids, finished_status):
+        """镜像 `Scheduler.finish_requests`（`scheduler.py:2417`）：接受单个 id 或可迭代，
+        返回被中止的请求、并从排队状态里移除。"""
+        from vllm.v1.request import RequestStatus
+
+        ids = [request_ids] if isinstance(request_ids, str) else list(request_ids)
+        name = RequestStatus(finished_status).name
+        aborted = []
+        for req_id in ids:
+            state = self.requests.pop(req_id, None)
+            if state is not None:
+                aborted.append(state)
+                self.aborted.append((req_id, name))
+        return aborted
 
     def allocate_block(self, block_id: int) -> None:
         for group in self.blocks:
@@ -125,10 +208,22 @@ def empty_outputs():
     return {"c": SimpleNamespace(outputs=[])}
 
 
-def stub_config(model_dir: Path | None = None):
+def stub_config(model_dir: Path | None = None, *, prefix_caching: bool = False,
+                async_scheduling: bool = False, cudagraph_mode=None):
     """与 core.py 同构的最小 vllm_config（真实 tokenizer 走 model_config 的字段）。"""
+    from vllm.config import CUDAGraphMode  # noqa: PLC0415
+
     if model_dir is None:
-        return SimpleNamespace(model_config=None)
+        return SimpleNamespace(
+            model_config=None,
+            scheduler_config=SimpleNamespace(async_scheduling=async_scheduling),
+            max_concurrent_batches=1,
+            compilation_config=SimpleNamespace(
+                cudagraph_mode=CUDAGraphMode.NONE if cudagraph_mode is None else cudagraph_mode
+            ),
+            cache_config=SimpleNamespace(enable_prefix_caching=prefix_caching),
+            speculative_config=None,
+        )
     return SimpleNamespace(
         model_config=SimpleNamespace(
             model=str(model_dir),
@@ -146,13 +241,16 @@ class EngineTestBase(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.mod = load_engine_module()
 
-    def make_engine(self, *, scheduler=None, geometry_fetcher=None, token_text_of="default"):
+    def make_engine(self, *, scheduler=None, geometry_fetcher=None, token_text_of="default",
+                    config=None):
         kwargs = {"geometry_fetcher": geometry_fetcher if geometry_fetcher is not None else (lambda: dict(GEOMETRY))}
         if token_text_of == "default":
             kwargs["token_text_of"] = lambda token_id: TOKEN_TEXT.get(int(token_id), "a")
         elif token_text_of is not None:
             kwargs["token_text_of"] = token_text_of
-        return self.mod.AttnViewEngine(stub_config(), scheduler or FakeScheduler(), **kwargs)
+        return self.mod.AttnViewEngine(
+            stub_config() if config is None else config, scheduler or FakeScheduler(), **kwargs
+        )
 
 
 class RegistrationTest(EngineTestBase):
@@ -420,16 +518,181 @@ class AbortDuringStepTest(EngineTestBase):
         self.assertEqual(list(engine.registry.active_ids()), [])
         self.assertEqual(engine.config_of(new_req("r1", payload())) is not None, True)
 
-    def test_preempted_during_step_is_flagged_unsupported(self) -> None:
+    def test_real_preemption_keeps_request_in_ledger(self) -> None:
+        """真实 `_preempt_request` 调用：请求**仍在** `self.requests` 里（不得靠删账本伪装抢占）。"""
+        request = make_real_request("r1")
+        host = PreemptHost(requests={"r1": request})
+        host.preempt(request)
+        self.assertIn("r1", host.requests, "抢占不删除调度器账本（scheduler.py:1405-1446）")
+        self.assertEqual(host.reset_preempted_req_ids, {"r1"})
+        self.assertEqual(request.num_computed_tokens, 0)
+        self.assertEqual([r.request_id for r in host.waiting_queue], ["r1"])
+        self.assertEqual(host.freed, ["r1"], "真实抢占会释放该请求的 KV 块")
+
+    def test_preempted_request_is_aborted_not_silently_served(self) -> None:
+        """真实抢占路径：释放内部状态 + 通过调度器真实终止 API **中止该请求** + 记不支持事件。"""
         engine, scheduler = self._engine_with_parsed_g0()
-        scheduler.requests.pop("r1")
-        so = scheduler_output(preempted={"r1"})
-        result = engine.on_step_outputs(so, model_output(sampled=((2,),)), empty_outputs())
-        self.assertEqual(result["preempted"], ["r1"])
-        self.assertEqual(result["parsed"], {})
+        request = make_real_request("r1")
+        host = PreemptHost(requests=scheduler.requests)
+        host.preempt(request)
+        self.assertIn("r1", scheduler.requests)  # 真实语义：账本仍在
+        so = scheduler_output(preempted=host.reset_preempted_req_ids, scheduled={"r1": 1})
+        with self.assertRaises(UnsupportedConfig):
+            engine.on_step_scheduled(so)         # 执行前处理抢占：中止 + 抛不支持（禁止 execute）
+        self.assertEqual(scheduler.aborted, [("r1", "FINISHED_ABORTED")], "必须调用真实终止 API")
+        self.assertEqual(list(engine.registry.active_ids()), [], "内部状态必须释放")
+        self.assertEqual(len(engine.unsupported), 1)
+        self.assertEqual(engine.unsupported[0]["kind"], "preempted")
+        self.assertEqual(engine.unsupported[0]["aborted_requests"], 1)
+        # 抛错发生在 attach_plans 之前 ⇒ 本步根本没有计划被注入（字段可能尚未设置）
+        self.assertIsNone(getattr(so, "da_step_plans", None), "被抢占的请求不得再出计划")
+        self.assertIsNone(engine.pending_plans())
         note = [t for t in engine.traces if t.get("note") == "preempted_during_step"]
         self.assertEqual(len(note), 1)
         self.assertTrue(note[0]["unsupported"], "抢占属本阶段不支持路径 → 必须显式标记")
+        # 同一轮的采样 token 也不得进入解析
+        result = engine.on_step_outputs(so, model_output(sampled=((2,),)), empty_outputs())
+        self.assertEqual(result["parsed"], {})
+
+    def test_first_step_finish_is_parsed_and_released(self) -> None:
+        """首步即终结（EOS / max_tokens=1）：登记在 schedule 之后、execute 之前完成，
+        因此本步采样 token 必须被解析一次、并做一次终结释放。"""
+        scheduler = FakeScheduler(requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        so = scheduler_output([new_req("r1", payload())], scheduled={"r1": 1})
+        engine.on_step_scheduled(so)  # 登记发生在执行之前：此刻请求仍在账本里
+        self.assertEqual(list(engine.registry.active_ids()), ["r1"])
+        scheduler.requests.pop("r1")  # 正常终结后 `_free_request` 已把账本项删掉
+        result = engine.on_step_outputs(
+            so, model_output(sampled=((3,),)), engine_outputs(finish_reason="stop")
+        )
+        self.assertEqual(result["parsed"], {"r1": 1}, "正常首步终结的采样 token 必须被解析")
+        self.assertEqual(result["cancelled"], [])
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertTrue(any(t.get("note") == "finished:stop" for t in engine.traces))
+
+    def test_finish_flushes_residual_utf8_bytes(self) -> None:
+        """结束前 flush 增量 UTF-8 解码器：残留的半个多字节序列不能静默丢弃。"""
+        scheduler = FakeScheduler(requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        so = scheduler_output([new_req("r1", payload())], scheduled={"r1": 1})
+        engine.on_step_scheduled(so)
+        scheduler.requests.pop("r1")
+        engine.on_step_outputs(
+            so, model_output(sampled=((4,),)), engine_outputs(finish_reason="stop")  # g0=半个 UTF-8
+        )
+        finished = [t for t in engine.traces if t.get("note") == "finished:stop"]
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(finished[0].get("leftover_text"), "\ufffd", "残留字节必须以替换字符吐出")
+
+    def test_finish_with_completed_utf8_has_no_leftover(self) -> None:
+        scheduler = FakeScheduler(requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        so = scheduler_output([new_req("r1", payload())], scheduled={"r1": 1})
+        engine.on_step_scheduled(so)
+        scheduler.requests.pop("r1")
+        engine.on_step_outputs(
+            so, model_output(sampled=((4, 5),)), engine_outputs(finish_reason="length")
+        )
+        finished = [t for t in engine.traces if t.get("note") == "finished:length"]
+        self.assertEqual(len(finished), 1)
+        self.assertNotIn("leftover_text", finished[0])
+
+    def test_shutdown_flushes_and_releases(self) -> None:
+        engine, _scheduler = self._engine_with_parsed_g0()
+        engine.parse_outputs(model_output(sampled=((4,),)))  # 半个 UTF-8 留在解码器里
+        engine.shutdown()
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertEqual(engine.pending_plans(), None)
+        self.assertTrue(any("shutdown" in n for n in engine.notes))
+
+    def test_fail_fast_after_schedule_aborts_request_first(self) -> None:
+        """配置不支持时 fail-fast，但 `schedule()` 已经改过调度器状态：
+        抛错**之前**必须先把本步涉及的 DA 请求通过真实终止 API 中止掉（不留 running 的已调度请求）。"""
+        scheduler = FakeScheduler(requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler, config=stub_config(prefix_caching=True))
+        with self.assertRaises(UnsupportedConfig):
+            engine.on_step_scheduled(
+                scheduler_output([new_req("r1", payload())], scheduled={"r1": 1})
+            )
+        self.assertEqual(scheduler.aborted, [("r1", "FINISHED_ABORTED")])
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertTrue(any(e["kind"] == "fail_fast_abort" for e in engine.unsupported))
+
+    def test_enforce_global_forces_global_view_and_marks_step(self) -> None:
+        """`enforce_global=true`：协议解析与 trace 持续，但执行视图强制 global（不出受限计划）+ 单列标记。"""
+        scheduler = FakeScheduler(blocks=[list(FA_BLOCKS[:9])] * 4, requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        engine.register_new_requests(
+            scheduler_output([new_req("r1", payload(enforce_global=True))])
+        )
+        engine.parse_outputs(model_output(sampled=((1,),)))  # g0 → local（协议照常演进）
+        self.assertEqual(engine.registry.get("r1").mode, "local")
+        scheduler.schedule("r1", 1)
+        so = scheduler_output(scheduled={"r1": 1})
+        engine.attach_plans(so)
+        self.assertIsNone(so.da_step_plans, "enforce_global ⇒ 不走受限视图（执行视图 = 全局/原版）")
+        self.assertEqual(len(engine.enforce_global_steps), 1)
+        mark = engine.enforce_global_steps[0]
+        self.assertEqual(mark["protocol_mode"], "local")
+        self.assertEqual(mark["applied_view"], "global")
+        self.assertTrue(any(t.get("note") == "enforce_global" for t in engine.traces))
+        # 协议解析持续：g0 已进入状态机的步列表（trace 记录由 on_step_outputs 负责）
+        self.assertEqual(len(engine.registry.get("r1").steps), 1, "协议解析与 trace 必须持续")
+
+    def test_enforce_global_false_keeps_restricted_view(self) -> None:
+        scheduler = FakeScheduler(blocks=[list(FA_BLOCKS[:9])] * 4, requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        engine.register_new_requests(scheduler_output([new_req("r1", payload())]))
+        engine.parse_outputs(model_output(sampled=((1,),)))  # g0 → local
+        scheduler.schedule("r1", 1)
+        plan = engine.attach_plans(scheduler_output(scheduled={"r1": 1}))
+        self.assertIsNotNone(plan, "未开 enforce_global 时仍走受限读取视图")
+        self.assertEqual(engine.enforce_global_steps, [])
+
+    def test_core_step_does_not_execute_when_same_id_is_preempted_and_scheduled(self) -> None:
+        """真实 `EngineCore.step`：同一 id 既 preempted 又在本次 scheduled 快照里时，
+        必须**不调用** `execute_model`（旧快照不得被执行），且请求经真实终止 API 中止。"""
+        scheduler = FakeScheduler(requests={"r1": request_state()})
+        engine = self.make_engine(scheduler=scheduler)
+        engine.register_new_requests(scheduler_output([new_req("r1", payload())]))
+        engine.parse_outputs(model_output(sampled=((1,),)))  # g0 → local（有 DA 状态）
+        request = make_real_request("r1")
+        host_preempt = PreemptHost(requests=scheduler.requests)
+        host_preempt.preempt(request)
+
+        executor_calls: list = []
+        so = scheduler_output(
+            [new_req("r1", payload())],           # 旧快照仍把 r1 排进本步
+            scheduled={"r1": 1},
+            preempted=host_preempt.reset_preempted_req_ids,
+        )
+        core_host = SimpleNamespace(
+            attnview=engine,
+            scheduler=SimpleNamespace(
+                has_requests=lambda: True,
+                schedule=lambda *_a: so,
+                get_grammar_bitmask=lambda *_a: None,
+                update_from_output=lambda *_a: {},
+            ),
+            model_executor=SimpleNamespace(
+                execute_model=lambda *_a, **_k: executor_calls.append("execute")
+            ),
+            _should_throttle_prefills=lambda: False,
+            log_error_detail=lambda *_a: nullcontext(),
+            capture_iteration_details=lambda *_a: nullcontext(),
+            _process_aborts_queue=lambda: None,
+            _attach_iteration_details=lambda *_a: None,
+        )
+        # 必须在**补丁后的** core.py 上跑（安装副本在未部署时是原版，没有该接合点）
+        core_mod = load_module_by_path("attnview_core_under_test", PATCHED_CORE)
+
+        with self.assertRaises(UnsupportedConfig):
+            core_mod.EngineCore.step(core_host)
+        self.assertEqual(executor_calls, [], "被抢占的旧快照绝不能被送进 execute_model")
+        self.assertEqual(scheduler.aborted, [("r1", "FINISHED_ABORTED")])
+        self.assertEqual(list(engine.registry.active_ids()), [])
+        self.assertEqual(engine.unsupported[0]["kind"], "preempted")
 
     def test_abort_signals_are_anchored_to_pin_source(self) -> None:
         source = (REPO / "vllm/vllm/v1/core/sched/scheduler.py").read_text()

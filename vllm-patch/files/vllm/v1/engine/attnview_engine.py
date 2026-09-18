@@ -4,8 +4,11 @@
 1. 启动时拒绝不支持的运行配置（同步调度/eager/关前缀缓存/关投机），fail-fast；
 2. 从请求的 `SamplingParams.extra_args["attnview"]` 建请求级协议状态（复用阶段 03 的
    `ProtocolRegistry` / `RequestProtocolState` / 增量 UTF-8 解码器，不复制第二套）；
-3. 每步输出解析后构造**下一步**的读取计划，并注入下一次 `SchedulerOutput`；
-4. trace 与请求终结清理（含取消/抢占：不隐式回退 global，C6.2）。
+3. `schedule()` 之后、`execute_model()` 之前：核对本步抢占 → 登记（含载荷/布局校验）→ 构造并注入本步读取计划；
+4. 每步输出解析后构造**下一步**的读取计划，并处理终结/取消 trace 与清理（含取消/抢占：不隐式回退 global，C6.2）。
+
+抢占（本阶段不支持）不写"留给驱动判断"的 trace：`_reject_preempted` 会释放内部状态并调用调度器的真实
+终止 API **中止该请求**；无法中止时直接抛 `UnsupportedConfig`（绝不让它继续以 DA 语义被服务）。
 
 跨进程边界：本模块只依赖纯 Python（不 import torch）；worker 侧落位见
 `vllm/v1/worker/gpu/attnview_adapter.py`。视图算术见 `attnview.step_plan`。
@@ -118,6 +121,10 @@ class AttnViewEngine:
         self._config_checked = False
         self.traces: list[dict] = []
         self.notes: list[str] = []
+        #: 运行期遇到的不支持路径（目前只有抢占）：驱动侧据此中止用例。
+        self.unsupported: list[dict] = []
+        #: 载荷 `enforce_global=true` 且协议模式非 global 的步：执行视图被强制为 global。
+        self.enforce_global_steps: list[dict] = []
 
     # --- 几何（一次性，取自 worker 实际配置） ------------------------------ #
 
@@ -198,18 +205,176 @@ class AttnViewEngine:
                     "下不受支持：请使用 --no-async-scheduling（不静默退化为原版读取）"
                 )
 
-    def register_new_requests(self, scheduler_output: Any, *, alive: set[str] | None = None) -> list[str]:
+    # --- 抢占（本阶段不支持：释放 + 中止请求，绝不留给驱动猜） ---------------- #
+
+    @staticmethod
+    def _preempted_ids(scheduler_output: Any) -> set[str]:
+        """本步被抢占的请求 id 集合。
+
+        来源是 `SchedulerOutput.preempted_req_ids`（pin `scheduler.py:1344` 在构造输出时带上
+        `reset_preempted_req_ids`，`:1496` 每步清空）。**必须在 `execute_model` 之前读取**：
+        抢占就发生在本次 `schedule()` 内部（块分配失败时 `_preempt_request`），
+        而被抢占的请求**不会**从 `scheduler.requests` 删除（`scheduler.py:1405-1446`），
+        所以"账本仍在"不能当作"未被抢占"。
+        """
+        raw = getattr(scheduler_output, "preempted_req_ids", None)
+        return {str(r) for r in (raw or ())}
+
+    def _abort_request(self, req_id: str) -> int:
+        """调用调度器的真实终止 API 中止该请求；拿不到 API 时抛不支持（不静默降级）。"""
+        finish = getattr(self._scheduler, "finish_requests", None)
+        if finish is None:
+            raise UnsupportedConfig(
+                f"attnview: {req_id} 被抢占但调度器没有 finish_requests，无法中止该请求"
+                "（拒绝继续以 DA 语义服务）"
+            )
+        from vllm.v1.request import RequestStatus
+
+        aborted = finish(req_id, RequestStatus.FINISHED_ABORTED)
+        return len(aborted or ())
+
+    def _reject_preempted(
+        self, scheduler_output: Any, preempted: set[str], *, raise_on_preemption: bool = True
+    ) -> list[str]:
+        """处理本步被抢占的 DA 请求：释放内部状态、记不支持事件、**中止该请求**。
+
+        覆盖两类：已登记的请求，以及**本步新调度**且带载荷的请求（抢占可与首次调度同处一步）。
+
+        `raise_on_preemption`（执行前路径）：中止请求后**抛 `UnsupportedConfig` 禁止本步 execute**。
+        为什么必须禁止执行：`SchedulerOutput` 是 `schedule()` 的返回值快照，被抢占的请求可能**同时**
+        出现在本步的 `scheduled_new_reqs`/`num_scheduled_tokens` 里（pin 存在 reset 后同一步
+        preempt+resume 的路径），仅中止账本挡不住旧快照被送进 `execute_model`。
+        执行后路径（`on_step_outputs` 的防御性调用）传 `False`：那时本步已经执行完，只需要释放与记录。
+        """
+        payload_new: set[str] = set()
+        for new_req in getattr(scheduler_output, "scheduled_new_reqs", ()) or ():
+            try:
+                if self.config_of(new_req) is not None:
+                    payload_new.add(str(new_req.req_id))
+            except AttnViewConfigError:
+                raise
+        rejected: list[str] = []
+        for req_id in sorted(preempted):
+            if req_id not in self._configs and req_id not in payload_new:
+                continue
+            state = None
+            try:
+                state = self.registry.get(req_id)
+            except KeyError:
+                pass
+            self.traces.append(
+                {
+                    "req_id": req_id,
+                    "note": "preempted_during_step",
+                    "unsupported": True,
+                    "generated_tokens_before_drop": state.generated_tokens if state else None,
+                    "mode_before_drop": state.mode if state else None,
+                }
+            )
+            self.release(req_id)
+            aborted = self._abort_request(req_id)
+            self.unsupported.append(
+                {
+                    "req_id": req_id,
+                    "kind": "preempted",
+                    "action": "abort_request",
+                    "aborted_requests": aborted,
+                }
+            )
+            self.notes.append(f"{req_id}: 本步被抢占（不支持）→ 已释放 DA 状态并中止该请求")
+            rejected.append(req_id)
+        if rejected and raise_on_preemption:
+            raise UnsupportedConfig(
+                f"attnview: 本步抢占 {rejected} 属本阶段不支持路径 —— 已中止该请求并禁止本步执行"
+                "（不得用 schedule() 的旧快照继续 execute）"
+            )
+        return rejected
+
+    def on_step_scheduled(self, scheduler_output: Any) -> dict[str, Any]:
+        """**紧跟 `schedule()` 之后、`execute_model()` 之前**：门禁 → 抢占 → 登记 → 注入计划。
+
+        顺序不可换：
+
+        1. 抢占先处理（`preempted_req_ids` 只在本次 schedule 的返回值里有效）；
+        2. 再登记本步新请求（此时它们在账本里，包含"首步即终结"的请求，确保其采样 token 会被解析）；
+        3. 最后按本次调度的块与进度构造计划（块是本次 schedule 才分配的）。
+        """
+        try:
+            preempted = self._preempted_ids(scheduler_output)
+            rejected = self._reject_preempted(scheduler_output, preempted) if preempted else []
+            alive = set(self._requests())
+            registered = self.register_new_requests(
+                scheduler_output, alive=alive, preempted=preempted
+            )
+            self.attach_plans(scheduler_output)
+        except Exception:
+            # fail-fast 的收尾：`schedule()` **已经**改过调度器状态（分配块、推进进度），
+            # 抛错前必须把本步涉及的 DA 请求中止掉，绝不留下"已调度、仍在 running"的内部请求。
+            self._abort_pending_da_requests(scheduler_output)
+            raise
+        return {"registered": registered, "preempted": rejected}
+
+    def _abort_pending_da_requests(self, scheduler_output: Any) -> list[str]:
+        """fail-fast 收尾：中止本步涉及的内部请求（幂等、可重复调用）。"""
+        candidates: set[str] = set(self._configs)
+        for new_req in getattr(scheduler_output, "scheduled_new_reqs", ()) or ():
+            req_id = str(getattr(new_req, "req_id", ""))
+            if not req_id:
+                continue
+            try:
+                has_payload = self.config_of(new_req) is not None
+            except Exception:
+                has_payload = True  # 载荷本身有问题 → 同样要中止
+            if has_payload:
+                candidates.add(req_id)
+        aborted: list[str] = []
+        for req_id in sorted(candidates):
+            state = None
+            try:
+                state = self.registry.get(req_id)
+            except KeyError:
+                pass
+            self.traces.append(
+                {
+                    "req_id": req_id,
+                    "note": "fail_fast_abort",
+                    "unsupported": True,
+                    "generated_tokens_before_drop": state.generated_tokens if state else None,
+                }
+            )
+            self.release(req_id)
+            try:
+                self._abort_request(req_id)
+            except Exception as exc:  # 不掩盖原始异常
+                self.notes.append(f"{req_id}: fail-fast 收尾时无法中止：{exc}")
+            self.unsupported.append({"req_id": req_id, "kind": "fail_fast_abort"})
+            aborted.append(req_id)
+        if aborted:
+            self.notes.append(f"fail-fast：已中止 {len(aborted)} 个内部请求 {aborted}")
+        return aborted
+
+    def register_new_requests(
+        self,
+        scheduler_output: Any,
+        *,
+        alive: set[str] | None = None,
+        preempted: Iterable[str] = (),
+    ) -> list[str]:
         """为本步新调度且携带载荷的请求建协议状态（幂等：已存在则跳过）。
 
         `alive` 为调度器账本里的存活集合：**不在账本里的请求不登记**（例如本步开始前已取消），
-        避免把已取消请求重新拉起来。
+        避免把已取消请求重新拉起来。`preempted` 为本步被抢占的请求：**不登记**（已被中止）。
+
+        调用时机：`schedule()` 之后、`execute_model()` 之前 —— 载荷/布局校验与门禁必须早于执行，
+        否则配置错误会先白跑一次模型才被发现，且首步即终结的请求会因账本已删而无记录。
         """
         if alive is None:
             alive = set(self._requests())
+        preempted = {str(r) for r in preempted}
         registered: list[str] = []
         for new_req in getattr(scheduler_output, "scheduled_new_reqs", ()) or ():
             req_id = str(new_req.req_id)
-            if req_id in self._configs or req_id not in alive:
+            if req_id in self._configs or req_id not in alive or req_id in preempted:
                 continue
             config = self.config_of(new_req)
             if config is None:
@@ -282,8 +447,32 @@ class AttnViewEngine:
             parsed[req_id] = count
         return parsed
 
+    def _flush_detokenizer(self, req_id: str) -> str:
+        """生成结束前 flush 增量 UTF-8 解码器，返回残留字节解出的文本（不静默丢弃）。"""
+        detok = self._detokenizers.get(req_id)
+        if detok is None:
+            return ""
+        return detok.flush()
+
+    def _finish_and_release(self, req_id: str, *, note: str) -> dict | None:
+        """正常结束/进程退出的统一收尾：flush 残留 → 冻结 trace → 释放状态。"""
+        if req_id not in self._configs:
+            return None
+        state = self.registry.get(req_id)
+        leftover = self._flush_detokenizer(req_id)
+        state.finish()
+        record = self._record_trace(req_id, applied_step=None, note=note)
+        if leftover:
+            record["leftover_text"] = leftover
+        self.release(req_id)
+        return record
+
     def release_finished_in_step(self, engine_core_outputs: Any) -> list[str]:
-        """释放**本步**刚结束的请求（正常停止 / 长度上限），并冻结 trace。"""
+        """释放**本步**刚结束的请求（正常停止 / 长度上限），并冻结 trace。
+
+        与"执行中被取消"是两条不同路径：这里由**正常终结项**驱动（`update_from_output` 产出的
+        finish 项），取消/中止则由账本核对驱动（见 `_drop_gone`）。
+        """
         released: list[str] = []
         for outputs in (engine_core_outputs or {}).values():
             for out in getattr(outputs, "outputs", ()) or ():
@@ -293,12 +482,18 @@ class AttnViewEngine:
                 reason = getattr(out, "finish_reason", None)
                 if reason is None:
                     continue
-                state = self.registry.get(req_id)
-                state.finish()
-                self._record_trace(req_id, applied_step=None, note=f"finished:{reason}")
-                self.release(req_id)
+                self._finish_and_release(req_id, note=f"finished:{reason}")
                 released.append(req_id)
         return released
+
+    def shutdown(self) -> None:
+        """进程退出/异常清理的显式接线：flush 残留字节并释放全部请求级状态。"""
+        pending = sorted(self._configs)
+        for req_id in pending:
+            self._finish_and_release(req_id, note="shutdown")
+        if pending:
+            self.notes.append(f"shutdown: 已 flush 并释放 {len(pending)} 个请求的协议状态")
+        self._pending = None
 
     # --- 计划构造 ----------------------------------------------------------- #
 
@@ -343,6 +538,21 @@ class AttnViewEngine:
                     f"{req_id}: 调度后进度 {post_computed} 小于本步调度 token 数 {scheduled}"
                     "（进度账本异常）"
                 )
+            if config.enforce_global:
+                # 载荷显式要求强制 global：协议解析与 trace **继续**（状态机照常演进），
+                # 但**执行视图**强制 global —— 本适配层不出受限计划 ⇒ worker 走原版读 metadata
+                # （全局可见），并单列标记以便与"协议模式恰为 global"区分开（C6.x）。
+                if state.mode != MODE_GLOBAL:
+                    mark = {
+                        "req_id": req_id,
+                        "note": "enforce_global",
+                        "protocol_mode": state.mode,
+                        "applied_view": "global",
+                        "effect_step": state.generated_tokens,
+                    }
+                    self.enforce_global_steps.append(mark)
+                    self.traces.append(dict(mark))
+                continue
             if state.mode == MODE_GLOBAL:
                 # global 一律走原版读 metadata；prefill 步在此天然被跳过（此时模式必为 global）
                 continue
@@ -372,7 +582,7 @@ class AttnViewEngine:
     # --- 与 step 的接合 ----------------------------------------------------- #
 
     def attach_plans(self, scheduler_output: Any) -> dict[str, dict] | None:
-        """**紧跟 `schedule()` 之后**调用：按本次调度的块与进度构造计划并注入。
+        """**紧跟 `schedule()` 之后**调用（由 `on_step_scheduled` 统一编排）：按本次调度的块与进度构造计划并注入。
 
         为什么必须在这里：块是按本次调度分配的 —— 例如 prompt_len=6272（8 块）时，
         消费 g0 的那次 forward 会写入块 8，而块 8 直到本次 `schedule()` 才分配；
@@ -406,8 +616,10 @@ class AttnViewEngine:
     def _drop_gone(self, *, alive: set[str], finished_now: Mapping[str, Any], preempted: set[str]) -> dict[str, list[str]]:
         """处理"账本里已消失、本步也没有正常终结项"的请求：**不解析**、直接释放并记 trace。
 
-        这类请求是执行中被取消/中止（`_process_aborts_queue` 之后 `update_from_output` 会跳过、
-        不产出 finish 项），也可能是被抢占（本阶段不支持 → 记 trace，驱动侧据此停该用例）。
+        这类请求是**执行中被取消/中止**（`_process_aborts_queue` 之后 `update_from_output` 会跳过、
+        不产出 finish 项，`_free_request` 已 `del` 掉账本项）。真正的抢占**不会**走到这里：
+        被抢占的请求仍在账本里（`scheduler.py:1405-1446`），由 `_reject_preempted` 在**执行前**处理。
+        这里的 `preempted` 只用于给"既被抢占又已消失"的组合打标签（防御性，正常路径不出现）。
         """
         dropped = {"cancelled": [], "preempted": []}
         for req_id in list(self._configs):
@@ -433,23 +645,26 @@ class AttnViewEngine:
         return dropped
 
     def on_step_outputs(self, scheduler_output: Any, model_output: Any, engine_core_outputs: Any) -> dict[str, Any]:
-        """一步的解析与清理（**不**构造计划；计划在 `attach_plans` 里按调度结果构造）。
+        """一步的解析与清理（**不**登记、**不**构造计划：前者在 `on_step_scheduled`，后者在 `attach_plans`）。
 
         顺序与判据（依 pin 的调度器语义）：
 
         1. 先丢弃 `SchedulerOutput.finished_req_ids`（这是**上一步**终结集合的快照 ——
            `Scheduler.schedule()` 在返回前已把 `self.finished_req_ids` 清空，`scheduler.py:1495`）；
-        2. 核对调度器账本（`scheduler.requests`，`_free_request` 会 `del`，`:2512`）后**再登记**新请求 ——
-           不在账本里的不登记；
-        3. 账本里消失**且**本步无正常终结项的请求 = 执行中被取消/中止 → **不解析**、释放并记 trace；
-        4. 只解析「仍存活」或「本步正常终结」的请求（正常终结的 stop token 仍应进入解析与 trace）；
-        5. 释放本步正常终结者。
+        2. 防御性重跑抢占处理（正常路径已在 `on_step_scheduled` 执行过；幂等）；
+        3. 核对调度器账本（`scheduler.requests`，`_free_request` 会 `del`，`:2512`）：
+           账本里消失**且**本步无正常终结项的请求 = 执行中被取消/中止 → **不解析**、释放并记 trace；
+        4. 只解析「仍存活」或「本步正常终结」的请求（正常终结的 stop token 仍应进入解析与 trace；
+           首步即终结的请求在本步 `on_step_scheduled` 已登记，因此其采样 token 不会被漏掉）；
+        5. 释放本步正常终结者（flush 残留字节 + 冻结 trace）。
         """
+        preempted = self._preempted_ids(scheduler_output)
+        if preempted:
+            # 执行后路径：只释放与记录（本步已执行完，不需要也不应该再抛错打断输出处理）
+            self._reject_preempted(scheduler_output, preempted, raise_on_preemption=False)
         alive = set(self._requests())
         finished_now = self._finish_items(engine_core_outputs)
         self.drop_finished(getattr(scheduler_output, "finished_req_ids", ()) or ())
-        self.register_new_requests(scheduler_output, alive=alive)
-        preempted = {str(r) for r in (getattr(scheduler_output, "preempted_req_ids", None) or ())}
         dropped = self._drop_gone(alive=alive, finished_now=finished_now, preempted=preempted)
         parsed = self.parse_outputs(model_output, allow=alive | set(finished_now))
         self._record_traces_for(parsed)
@@ -478,12 +693,13 @@ class AttnViewEngine:
                 }
             )
 
-    def _record_trace(self, req_id: str, *, applied_step: int | None, note: str) -> None:
+    def _record_trace(self, req_id: str, *, applied_step: int | None, note: str) -> dict:
         state = self.registry.get(req_id)
         record = state.trace()
         record["note"] = note
         record["applied_step"] = applied_step
         self.traces.append(record)
+        return record
 
     def note_application(self, req_id: str, *, applied_step: int, plan_payload: Mapping[str, Any]) -> None:
         """worker 实际落位后回填 applied_step（检查点 2 由 trace 汇聚处调用）。"""

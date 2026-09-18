@@ -174,6 +174,13 @@ class DefaultModelState(ModelState):
         for_capture: bool = False,
         da_fa_override: Any | None = None,
     ) -> dict[str, Any]:
+        # attnview: 本阶段只在 MambaHybridModelState（目标模型的真实入口）接线读取覆写；
+        # 纯注意力路径不接受该覆写 —— 出现即显式拒绝，绝不留"接收但不消费"的静默分支。
+        if da_fa_override is not None:
+            raise RuntimeError(
+                "attnview: DefaultModelState 不在本阶段支持范围（目标模型走 MambaHybridModelState）："
+                "拒绝该请求的 DA 读取覆写，不静默吞载荷"
+            )
         if cudagraph_mode == CUDAGraphMode.FULL:
             # Use padded sizes - padding is handled by model_runner.prepare_attn.
             num_reqs = input_batch.num_reqs_after_padding

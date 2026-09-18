@@ -180,10 +180,23 @@ class PatchShapeTest(unittest.TestCase):
         self.assertIn("**prepare_attn_kwargs", src)
 
     def test_engine_core_hooks_present(self) -> None:
+        """接线顺序也要对：编排必须在 `execute_model` **之前**，解析在 `update_from_output` 之后。"""
         tree = parse(self.p["v1/engine/core.py"])
         step_src = ast.unparse(find_func(tree, "step", cls="EngineCore"))
-        self.assertIn("attach_plans", step_src)
+        self.assertIn("on_step_scheduled", step_src)
         self.assertIn("on_step_outputs", step_src)
+        self.assertLess(
+            step_src.index("on_step_scheduled"),
+            step_src.index("execute_model"),
+            "编排（抢占/登记/计划）必须早于 execute_model",
+        )
+        self.assertLess(
+            step_src.index("update_from_output"),
+            step_src.index("on_step_outputs"),
+            "解析必须晚于 update_from_output",
+        )
+        shutdown_src = ast.unparse(find_func(tree, "shutdown", cls="EngineCore"))
+        self.assertIn("attnview.shutdown", shutdown_src, "进程退出路径必须 flush 并释放协议状态")
         batch_src = ast.unparse(find_func(tree, "step_with_batch_queue", cls="EngineCore"))
         self.assertIn(
             "refuse_unsupported_step",
