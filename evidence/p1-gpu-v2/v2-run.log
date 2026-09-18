@@ -2,7 +2,7 @@ torch 2.13.0+cu130 | entry vllm.vllm_flash_attn.flash_attn_varlen_func fa_versio
 device NVIDIA RTX PRO 6000 Blackwell Server Edition cc=(12, 0) | atol=0.015 rtol=0.01 seeds=[0, 1, 2]
 cases ['trajectory_resident', 'focus_current_block', 'local_excludes_document', 'tail_1', 'tail_b_minus_1', 'tail_b', 'sensitive_counterexample', 'b2_rows', 'block16_control', 'arbitrary_subset_supplement']
 
-seed0 trajectory_resident              测量 9 条 判据 124 -> PASS
+seed0 trajectory_resident              测量 9 条 判据 142 -> PASS
       step0 mode=global kv_len=6272 seqused=6272 tail=784 max_abs=0.00025 rms=4.3e-05 OK
       step1 mode= focus kv_len=6273 seqused=2353 tail=1 max_abs=0.00035 rms=7.1e-05 OK
       step2 mode= focus kv_len=6274 seqused=3922 tail=2 max_abs=0.00025 rms=5.4e-05 OK
@@ -12,26 +12,26 @@ seed0 trajectory_resident              测量 9 条 判据 124 -> PASS
       step6 mode= local kv_len=6278 seqused=1574 tail=6 max_abs=0.00044 rms=8.5e-05 OK
       step7 mode= local kv_len=6279 seqused=1575 tail=7 max_abs=0.00048 rms=8.6e-05 OK
       step8 mode=global kv_len=6280 seqused=6280 tail=8 max_abs=0.00024 rms=4.4e-05 OK
-seed0 focus_current_block              测量 1 条 判据 12 -> PASS
+seed0 focus_current_block              测量 1 条 判据 14 -> PASS
       step0 mode= focus kv_len=6272 seqused=3136 tail=784 max_abs=0.0003 rms=6.1e-05 OK
-seed0 local_excludes_document          测量 1 条 判据 12 -> PASS
+seed0 local_excludes_document          测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.0005 rms=8.7e-05 OK
-seed0 tail_1                           测量 1 条 判据 12 -> PASS
+seed0 tail_1                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=4705 seqused=1569 tail=1 max_abs=0.00052 rms=8.6e-05 OK
-seed0 tail_b_minus_1                   测量 1 条 判据 12 -> PASS
+seed0 tail_b_minus_1                   测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5487 seqused=1567 tail=783 max_abs=0.00046 rms=8.7e-05 OK
-seed0 tail_b                           测量 1 条 判据 12 -> PASS
+seed0 tail_b                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5488 seqused=1568 tail=784 max_abs=0.00058 rms=8.7e-05 OK
-seed0 sensitive_counterexample         测量 1 条 判据 13 -> PASS
+seed0 sensitive_counterexample         测量 1 条 判据 15 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.0005 rms=8.7e-05 OK
-seed0 b2_rows                          测量 2 条 判据 25 -> PASS
+seed0 b2_rows                          测量 2 条 判据 29 -> PASS
        row0 mode=global kv_len=6272 seqused=6272 tail=None max_abs=0.00025 rms=4.3e-05 OK
        row1 mode= local kv_len=6272 seqused=1568 tail=None max_abs=0.0005 rms=8.7e-05 OK
-seed0 block16_control                  测量 1 条 判据 12 -> PASS
+seed0 block16_control                  测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=53 seqused=37 tail=5 max_abs=0.00362 rms=0.000509 OK
-seed0 arbitrary_subset_supplement      测量 1 条 判据 12 -> PASS
+seed0 arbitrary_subset_supplement      测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=2352 tail=784 max_abs=0.00032 rms=7.2e-05 OK
-seed1 trajectory_resident              测量 9 条 判据 124 -> PASS
+seed1 trajectory_resident              测量 9 条 判据 142 -> PASS
       step0 mode=global kv_len=6272 seqused=6272 tail=784 max_abs=0.00025 rms=4.4e-05 OK
       step1 mode= focus kv_len=6273 seqused=2353 tail=1 max_abs=0.00033 rms=7.1e-05 OK
       step2 mode= focus kv_len=6274 seqused=3922 tail=2 max_abs=0.00029 rms=5.5e-05 OK
@@ -41,26 +41,26 @@ seed1 trajectory_resident              测量 9 条 判据 124 -> PASS
       step6 mode= local kv_len=6278 seqused=1574 tail=6 max_abs=0.00042 rms=8.5e-05 OK
       step7 mode= local kv_len=6279 seqused=1575 tail=7 max_abs=0.00059 rms=8.5e-05 OK
       step8 mode=global kv_len=6280 seqused=6280 tail=8 max_abs=0.00028 rms=4.4e-05 OK
-seed1 focus_current_block              测量 1 条 判据 12 -> PASS
+seed1 focus_current_block              测量 1 条 判据 14 -> PASS
       step0 mode= focus kv_len=6272 seqused=3136 tail=784 max_abs=0.00033 rms=6.1e-05 OK
-seed1 local_excludes_document          测量 1 条 判据 12 -> PASS
+seed1 local_excludes_document          测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.00053 rms=8.7e-05 OK
-seed1 tail_1                           测量 1 条 判据 12 -> PASS
+seed1 tail_1                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=4705 seqused=1569 tail=1 max_abs=0.00055 rms=8.6e-05 OK
-seed1 tail_b_minus_1                   测量 1 条 判据 12 -> PASS
+seed1 tail_b_minus_1                   测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5487 seqused=1567 tail=783 max_abs=0.0004 rms=8.6e-05 OK
-seed1 tail_b                           测量 1 条 判据 12 -> PASS
+seed1 tail_b                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5488 seqused=1568 tail=784 max_abs=0.00052 rms=8.7e-05 OK
-seed1 sensitive_counterexample         测量 1 条 判据 13 -> PASS
+seed1 sensitive_counterexample         测量 1 条 判据 15 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.00053 rms=8.7e-05 OK
-seed1 b2_rows                          测量 2 条 判据 25 -> PASS
+seed1 b2_rows                          测量 2 条 判据 29 -> PASS
        row0 mode=global kv_len=6272 seqused=6272 tail=None max_abs=0.00028 rms=4.5e-05 OK
        row1 mode= local kv_len=6272 seqused=1568 tail=None max_abs=0.00053 rms=8.7e-05 OK
-seed1 block16_control                  测量 1 条 判据 12 -> PASS
+seed1 block16_control                  测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=53 seqused=37 tail=5 max_abs=0.00288 rms=0.000526 OK
-seed1 arbitrary_subset_supplement      测量 1 条 判据 12 -> PASS
+seed1 arbitrary_subset_supplement      测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=2352 tail=784 max_abs=0.00034 rms=7e-05 OK
-seed2 trajectory_resident              测量 9 条 判据 124 -> PASS
+seed2 trajectory_resident              测量 9 条 判据 142 -> PASS
       step0 mode=global kv_len=6272 seqused=6272 tail=784 max_abs=0.00024 rms=4.3e-05 OK
       step1 mode= focus kv_len=6273 seqused=2353 tail=1 max_abs=0.00049 rms=6.9e-05 OK
       step2 mode= focus kv_len=6274 seqused=3922 tail=2 max_abs=0.00025 rms=5.4e-05 OK
@@ -70,24 +70,24 @@ seed2 trajectory_resident              测量 9 条 判据 124 -> PASS
       step6 mode= local kv_len=6278 seqused=1574 tail=6 max_abs=0.00047 rms=8.6e-05 OK
       step7 mode= local kv_len=6279 seqused=1575 tail=7 max_abs=0.00054 rms=8.5e-05 OK
       step8 mode=global kv_len=6280 seqused=6280 tail=8 max_abs=0.00022 rms=4.3e-05 OK
-seed2 focus_current_block              测量 1 条 判据 12 -> PASS
+seed2 focus_current_block              测量 1 条 判据 14 -> PASS
       step0 mode= focus kv_len=6272 seqused=3136 tail=784 max_abs=0.00031 rms=6.2e-05 OK
-seed2 local_excludes_document          测量 1 条 判据 12 -> PASS
+seed2 local_excludes_document          测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.00039 rms=8.7e-05 OK
-seed2 tail_1                           测量 1 条 判据 12 -> PASS
+seed2 tail_1                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=4705 seqused=1569 tail=1 max_abs=0.00044 rms=8.7e-05 OK
-seed2 tail_b_minus_1                   测量 1 条 判据 12 -> PASS
+seed2 tail_b_minus_1                   测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5487 seqused=1567 tail=783 max_abs=0.00049 rms=8.5e-05 OK
-seed2 tail_b                           测量 1 条 判据 12 -> PASS
+seed2 tail_b                           测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=5488 seqused=1568 tail=784 max_abs=0.00053 rms=8.7e-05 OK
-seed2 sensitive_counterexample         测量 1 条 判据 13 -> PASS
+seed2 sensitive_counterexample         测量 1 条 判据 15 -> PASS
       step0 mode= local kv_len=6272 seqused=1568 tail=784 max_abs=0.00039 rms=8.7e-05 OK
-seed2 b2_rows                          测量 2 条 判据 25 -> PASS
+seed2 b2_rows                          测量 2 条 判据 29 -> PASS
        row0 mode=global kv_len=6272 seqused=6272 tail=None max_abs=0.00026 rms=4.5e-05 OK
        row1 mode= local kv_len=6272 seqused=1568 tail=None max_abs=0.00039 rms=8.7e-05 OK
-seed2 block16_control                  测量 1 条 判据 12 -> PASS
+seed2 block16_control                  测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=53 seqused=37 tail=5 max_abs=0.00328 rms=0.000509 OK
-seed2 arbitrary_subset_supplement      测量 1 条 判据 12 -> PASS
+seed2 arbitrary_subset_supplement      测量 1 条 判据 14 -> PASS
       step0 mode= local kv_len=6272 seqused=2352 tail=784 max_abs=0.00041 rms=7.1e-05 OK
 
-判据 738 条，失败 0 条 -> PASS
+判据 852 条，失败 0 条 -> PASS

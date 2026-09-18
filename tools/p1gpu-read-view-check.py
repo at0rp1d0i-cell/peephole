@@ -271,7 +271,7 @@ class CaseRunner:
         return [int(case["kv_len"])]
 
     def _measure(self, *, label, mode, refs, kv_len, prompt_len, k_true, v_true, k_gpu, v_gpu, q_row, table=None,
-                 extra_ok=None):
+                 extra_ok=None, appended=False):
         """一步：数据面交叉核对 → GPU 读取 → 独立参考 → 数值与内容判据。"""
         view = None
         if table is None:
@@ -307,6 +307,7 @@ class CaseRunner:
         numeric = error_stats(out[0], ref, self.atol, self.rtol)
         measurement = {
             "label": label,
+            "appended": bool(appended),
             "mode": mode,
             "refs": list(refs),
             "kv_len": kv_len,
@@ -399,6 +400,7 @@ class CaseRunner:
                 label=f"step{step['step']}", mode=mode, refs=refs, kv_len=kv_len, prompt_len=prompt_len,
                 k_true=k_true, v_true=v_true, k_gpu=k_gpu, v_gpu=v_gpu, q_row=q_gpu, table=table,
                 extra_ok=measurement if measurement else None,
+                appended=bool(step.get("writes")),
             )
             if measurement:
                 m.update(measurement)
@@ -466,6 +468,7 @@ class CaseRunner:
             ref_sdpa = attention_sdpa_fp32(q_ref, k_sel, v_sel, self.scale)
             record["measurements"].append({
                 "label": f"row{index}",
+                "appended": False,
                 "mode": row["mode"],
                 "kv_len": int(row["kv_len"]),
                 "seqused_k": int(table.seqused_k),

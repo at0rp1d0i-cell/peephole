@@ -31,6 +31,9 @@ def fake_view(*, visible_blocks, physical, spans, kv_len, block_size=B, valid_co
 def good_case(**overrides):
     measurement = {
         "label": "step0",
+        "appended": False,
+        "mode": "local",
+        "kv_len": 6272,
         "numeric": {"max_abs": 0.01, "rms": 0.001, "within_tolerance": True, "failure": None},
         "oracle_selfcheck": {"max_diff": 1e-6, "limit": 1e-5},
         "read_table": {"has_minus_one": False, "width_ok": True, "physical_nonneg": True, "width": 3, "seqused_k": 1569},
@@ -132,7 +135,8 @@ class AcceptanceAggregationTest(unittest.TestCase):
             "data_plane_write_slot": {"data_plane": {"blocks_match": True, "physical_match": True, "seqused_match": True, "write_slot_match": False, "current_block_retained": True, "details": "写入位置不一致"}},
             "kv_k_unchanged": {"kv_integrity": {"k_unchanged": False, "v_unchanged": True, "expected_slots": None}},
             "kv_v_unchanged": {"kv_integrity": {"k_unchanged": True, "v_unchanged": False, "expected_slots": None}},
-            "append_slot_k": {"kv_integrity": {"k_unchanged": None, "v_unchanged": None, "expected_slots": [99], "k_changed_slots": [1], "v_changed_slots": [99]}},
+            "append_slot_k": {"appended": True, "kv_integrity": {"k_unchanged": True, "v_unchanged": True, "expected_slots": [99], "k_changed_slots": [1], "v_changed_slots": [99]}},
+            "append_declared": {"appended": None},
             "resident_cache": {"residency": {"data_ptr_stable": False}},
         }
         for name, overrides in injections.items():
@@ -143,6 +147,56 @@ class AcceptanceAggregationTest(unittest.TestCase):
                     any(c.name.endswith(name) for c in summary.failed),
                     f"{name} 未出现在失败列表：{[c.name for c in summary.failed]}",
                 )
+
+    def test_none_or_missing_integrity_cannot_bypass_the_gate(self) -> None:
+        # 每项给出"必须失败"的判据集合：None/缺字段一律不能通过
+        cases = {
+            "K=None V=False": ({"k_unchanged": None, "v_unchanged": False, "expected_slots": None},
+                               {"kv_k_unchanged", "kv_v_unchanged"}),
+            "K=True V=None": ({"k_unchanged": True, "v_unchanged": None, "expected_slots": None},
+                              {"kv_v_unchanged"}),
+            "K=None V=True": ({"k_unchanged": None, "v_unchanged": True, "expected_slots": None},
+                              {"kv_k_unchanged"}),
+            "K=None V=None": ({"k_unchanged": None, "v_unchanged": None, "expected_slots": None},
+                              {"kv_k_unchanged", "kv_v_unchanged"}),
+            "两项都缺": ({}, {"kv_k_unchanged", "kv_v_unchanged"}),
+        }
+        for name, (integrity, must_fail) in cases.items():
+            with self.subTest(case=name):
+                summary = summarize([good_case(kv_integrity=integrity)])
+                self.assertFalse(summary.ok, f"{name} 竟然通过")
+                for suffix in must_fail:
+                    self.assertTrue(
+                        any(c.name.endswith(suffix) for c in summary.failed),
+                        f"{name}：{suffix} 未出现在失败列表 {[c.name for c in summary.failed]}",
+                    )
+
+    def test_missing_measurement_sections_fail(self) -> None:
+        for section in ("numeric", "oracle_selfcheck", "read_table", "data_plane", "residency", "appended"):
+            with self.subTest(section=section):
+                case = good_case()
+                case["measurements"][0].pop(section)
+                summary = summarize([case])
+                self.assertFalse(summary.ok, f"缺少 {section} 竟然通过")
+                self.assertTrue(any(c.name.endswith("schema_complete") for c in summary.failed))
+
+    def test_append_declaration_is_enforced(self) -> None:
+        # appended=True 却没给 expected_slots -> 失败
+        case = good_case(appended=True)
+        case["measurements"][0]["kv_integrity"] = {"k_unchanged": True, "v_unchanged": True, "expected_slots": None}
+        self.assertFalse(summarize([case]).ok)
+        # appended 不是布尔 -> 失败
+        case = good_case(appended="yes")
+        self.assertFalse(summarize([case]).ok)
+        # 追加判据是附加项：给了 expected_slots 就必须逐槽匹配
+        case = good_case(appended=True)
+        case["measurements"][0]["kv_integrity"] = {
+            "k_unchanged": True, "v_unchanged": True, "expected_slots": [2352],
+            "k_changed_slots": [2352], "v_changed_slots": [2353],
+        }
+        summary = summarize([case])
+        self.assertFalse(summary.ok)
+        self.assertTrue(any(c.name.endswith("append_slot_v") for c in summary.failed))
 
     def test_extra_criteria_gate_the_verdict(self) -> None:
         case = good_case()

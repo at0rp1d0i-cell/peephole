@@ -73,12 +73,18 @@ FP32 参考在预冻结容差内一致；读取选择确实生效；canonical �
   独立推导可见集合，自行做块外扩与因果上界（query_len=1 → 上界 = kv_len−1），从**逻辑真值**按位置 gather，
   FP32 **逐 head** 计算（GQA：h → h//6）。**不 import 候选 gpukv，不由候选读表反推**。
 - 第三实现自检：同一可见集合再算一遍 SDPA，与 oracle 的偏差全用例 ≤ 4.2e-07（门限 1e-5）。
-- `src/attnview/gpucheck.py`：11 类判据（数值、oracle 自检、读取表无 `-1`、表宽、数据面 5 项、K 不变、
-  V 不变、追加 slot 纪律、常驻性）+ 用例级（行隔离、敏感度）**全部参与 PASS/exit**；
-  失败保留**完整**错误信息（含最差偏差位置与数值）。CPU 失败注入测试逐条覆盖（`tests/test_gpucheck.py` 部分
-  在 `tests/test_gpukv.py` 内，11 条注入各断言整体失败）。
+- `src/attnview/gpucheck.py`：每次测量产生判据并**全部参与 PASS/exit**——必需字段齐全
+  （`schema_complete`）、数值、oracle 自检、读取表无 `-1`、表宽、数据面 5 项、**K 与 V 两项内容判据
+  （必须都为 `True`，`None`/缺字段即失败）**、常驻性、**追加声明 `append_declared`（必须显式 True/False；
+  声明追加就必须给出 `expected_slots`）**、追加 slot 逐槽匹配（K 与 V 双侧，**附加**于内容判据而非替代），
+  外加用例级行隔离与敏感度 → 本轮共 **852 条判据**。
+  失败保留**完整**错误信息（含最差偏差位置与数值）。CPU 失败注入测试覆盖：每类判据的显式 False、
+  `K=None`/`V=None`/两项都缺/整个 `kv_integrity` 缺失、缺少任一必需段、`appended` 非布尔、
+  `appended=True` 无 `expected_slots`、追加槽只错一侧（`tests/test_gpukv.py`，106 项 CPU 全通过）。
+  该轮收紧来自 advisor 复核：原实现用 `is not None` 守卫，导致 `k_unchanged=None` 时连 `v_unchanged=False`
+  都不检查、缺失整个 `kv_integrity` 也能通过。
 
-## 5. 结果汇总（12 条目 × 3 种子：**738 条判据 / 0 失败 / exit 0**）
+## 5. 结果汇总（12 条目 × 3 种子：**852 条判据 / 0 失败 / exit 0**）
 
 | 用例 | 可见块（seed 0） | seqused_k | 尾长 | max_abs | rms |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -130,9 +136,9 @@ RTX PRO 6000 Blackwell cc(12,0) 97887 MiB、驱动 580.142、入口 `vllm.vllm_f
 
 ```bash
 source /root/attnview/env.sh
-python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v2.json  # exit 0，738 判据 / 0 失败
+python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v2.json  # exit 0，852 判据 / 0 失败
 python3 tools/p1gpu-overread-control.py                                              # exit 0，越读负对照
-CUDA_VISIBLE_DEVICES='' python3 -m unittest discover -s tests -t tests               # 103 项 CPU（含失败注入）
+CUDA_VISIBLE_DEVICES='' python3 -m unittest discover -s tests -t tests               # 106 项 CPU（含失败注入）
 ```
 
 ## 9. 推荐下一步

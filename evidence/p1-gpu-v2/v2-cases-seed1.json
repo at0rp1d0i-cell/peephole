@@ -11,12 +11,13 @@
     "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
     "cache_v_digest": "664dd10b68aa9fb5c900ab4354e4a01b",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "global",
         "refs": [],
         "kv_len": 6272,
@@ -138,6 +139,7 @@
       },
       {
         "label": "step1",
+        "appended": true,
         "mode": "focus",
         "refs": [
           1
@@ -264,6 +266,7 @@
       },
       {
         "label": "step2",
+        "appended": true,
         "mode": "focus",
         "refs": [
           1,
@@ -399,6 +402,7 @@
       },
       {
         "label": "step3",
+        "appended": true,
         "mode": "local",
         "refs": [],
         "kv_len": 6275,
@@ -519,6 +523,7 @@
       },
       {
         "label": "step4",
+        "appended": true,
         "mode": "local",
         "refs": [],
         "kv_len": 6276,
@@ -639,6 +644,7 @@
       },
       {
         "label": "step5",
+        "appended": true,
         "mode": "local",
         "refs": [],
         "kv_len": 6277,
@@ -759,6 +765,7 @@
       },
       {
         "label": "step6",
+        "appended": true,
         "mode": "local",
         "refs": [],
         "kv_len": 6278,
@@ -879,6 +886,7 @@
       },
       {
         "label": "step7",
+        "appended": true,
         "mode": "local",
         "refs": [],
         "kv_len": 6279,
@@ -999,6 +1007,7 @@
       },
       {
         "label": "step8",
+        "appended": true,
         "mode": "global",
         "refs": [],
         "kv_len": 6280,
@@ -1152,12 +1161,13 @@
     "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
     "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "focus",
         "refs": [
           3
@@ -1282,12 +1292,13 @@
     "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
     "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 6272,
@@ -1402,12 +1413,13 @@
     "cache_k_digest": "db8df370df8c5c14bea29c2f81b439ae",
     "cache_v_digest": "d61928c446ef5e5822c9223cb71459bb",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 4705,
@@ -1526,12 +1538,13 @@
     "cache_k_digest": "6c18f20297863e5bb2065b262a32314b",
     "cache_v_digest": "57fec5f8a02f092182186678c5060107",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 5487,
@@ -1646,12 +1659,13 @@
     "cache_k_digest": "c53d30e80f59fbfc60b96519b989bc19",
     "cache_v_digest": "98dbe9367c506a6f34336027a727bd4b",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 5488,
@@ -1766,12 +1780,13 @@
     "cache_k_digest": "0c8e9f343703ce5068e8d7f53d149980",
     "cache_v_digest": "a06fdb166d3ab5f8fd629c61f42a2db4",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 6272,
@@ -1893,12 +1908,13 @@
     "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
     "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "row0",
+        "appended": false,
         "mode": "global",
         "kv_len": 6272,
         "seqused_k": 6272,
@@ -1967,6 +1983,7 @@
       },
       {
         "label": "row1",
+        "appended": false,
         "mode": "local",
         "kv_len": 6272,
         "seqused_k": 1568,
@@ -2048,12 +2065,13 @@
     "cache_k_digest": "9496f39889fde248cb9971c34e72615b",
     "cache_v_digest": "60f8d7a36a2f8804733a98e48165439d",
     "data_ptr": {
-      "k": 140363880726528,
-      "v": 140363881119744
+      "k": 139776007077888,
+      "v": 139776007471104
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 53,
@@ -2172,12 +2190,13 @@
     "cache_k_digest": "e5bfb5c38b97084d395f0ce659baa05f",
     "cache_v_digest": "6545ae1ddd83a6345a718aa84ac9f3d1",
     "data_ptr": {
-      "k": 140364576980992,
-      "v": 140363859755008
+      "k": 139776703332352,
+      "v": 139775986106368
     },
     "measurements": [
       {
         "label": "step0",
+        "appended": false,
         "mode": "local",
         "refs": [],
         "kv_len": 6272,

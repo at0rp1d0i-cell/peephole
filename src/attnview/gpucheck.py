@@ -30,8 +30,22 @@ def _crit(name: str, ok: Any, detail: str = "") -> Criterion:
     return Criterion(name=name, ok=bool(ok), detail=detail)
 
 
+REQUIRED_MEASUREMENT_KEYS = (
+    "label", "mode", "kv_len", "numeric", "oracle_selfcheck", "read_table",
+    "data_plane", "kv_integrity", "residency", "appended",
+)
+
+
 def _measurement_criteria(label: str, m: Mapping[str, Any]) -> list[Criterion]:
     out: list[Criterion] = []
+    missing = [key for key in REQUIRED_MEASUREMENT_KEYS if key not in m]
+    out.append(
+        _crit(
+            f"{label}/schema_complete",
+            not missing,
+            f"缺少字段：{missing}" if missing else "字段齐全",
+        )
+    )
     numeric = m.get("numeric", {})
     out.append(
         _crit(
@@ -67,24 +81,39 @@ def _measurement_criteria(label: str, m: Mapping[str, Any]) -> list[Criterion]:
         ("current_block_retained", "data_plane_current_block"),
     ):
         out.append(_crit(f"{label}/{name}", plane.get(key) is True, str(plane.get("details", ""))))
-    integrity = m.get("kv_integrity", {})
-    if integrity.get("k_unchanged") is not None:
+    # 每次测量**必需** K 与 V 两项内容判据都为 True；None/缺字段一律失败，
+    # 不允许"K 为 None 就跳过、连 V=False 也不查"这种绕过。
+    integrity = m.get("kv_integrity")
+    if not isinstance(integrity, Mapping):
         out.append(
             _crit(
                 f"{label}/kv_k_unchanged",
-                integrity.get("k_unchanged") is True,
-                f"k_unchanged={integrity.get('k_unchanged')}",
+                False,
+                f"缺少 kv_integrity（实际 {integrity!r}）",
             )
         )
-        out.append(
-            _crit(
-                f"{label}/kv_v_unchanged",
-                integrity.get("v_unchanged") is True,
-                f"v_unchanged={integrity.get('v_unchanged')}",
+        out.append(_crit(f"{label}/kv_v_unchanged", False, f"缺少 kv_integrity（实际 {integrity!r}）"))
+    else:
+        for key, name in (("k_unchanged", "kv_k_unchanged"), ("v_unchanged", "kv_v_unchanged")):
+            out.append(
+                _crit(
+                    f"{label}/{name}",
+                    integrity.get(key) is True,
+                    f"{key}={integrity.get(key)!r}（必须为 True）",
+                )
             )
-        )
-    if integrity.get("expected_slots") is not None:
-        expected = list(integrity["expected_slots"])
+
+    # 追加判据是**附加**判据：给出 expected_slots 就必须逐槽匹配；
+    # 声明 appended=True 却没给 expected_slots 也直接失败。
+    appended = m.get("appended")
+    out.append(
+        _crit(f"{label}/append_declared", appended in (True, False), f"appended={appended!r}（必须为 True/False）")
+    )
+    expected = None
+    if isinstance(integrity, Mapping):
+        expected = integrity.get("expected_slots")
+    if expected is not None:
+        expected = list(expected)
         out.append(
             _crit(
                 f"{label}/append_slot_k",
@@ -98,6 +127,10 @@ def _measurement_criteria(label: str, m: Mapping[str, Any]) -> list[Criterion]:
                 integrity.get("v_changed_slots") == expected,
                 f"V 变化槽={integrity.get('v_changed_slots')} 期望={expected}",
             )
+        )
+    elif appended is True:
+        out.append(
+            _crit(f"{label}/append_slot_k", False, "appended=True 但未给出 expected_slots")
         )
     residency = m.get("residency", {})
     out.append(
