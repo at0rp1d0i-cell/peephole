@@ -1,5 +1,5 @@
 {
-  "generated_cst": "2026-09-18 12:16:19 +0800",
+  "generated_cst": "2026-09-18 12:22:37 +0800",
   "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
   "edits": {
     "v1/core/sched/output.py": {
@@ -55,12 +55,12 @@
     {
       "src": "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py",
       "dest": "v1/worker/gpu/attnview_adapter.py",
-      "sha256": "fcd65ba6762833e775b421acf951141e346a195923a82fb99b8df6a3d37833a8"
+      "sha256": "beb61eec8b90b7a31caec159c22cfbebedf65da271cad27158ba0e62bf9674f7"
     },
     {
       "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
       "dest": "v1/engine/attnview_engine.py",
-      "sha256": "dc11aeefc2e88e9c03e07198088361ba7f4af381211c816a4dcd63609f672642"
+      "sha256": "b2506e6e8e8b7490fa99fc8b719fda0b5aa0aedb97fc45f89c6aac50fdf9ca23"
     }
   ],
   "package_files": [
@@ -90,7 +90,7 @@
     },
     {
       "file": "src/attnview/step_plan.py",
-      "sha256": "1a769f2088dbc2825cc069571e50c84e96e79090674fc2fe589b7a5b06fca6cd"
+      "sha256": "d32ac1724d7853945a7139e611079b2612bbadab39921538631c12e1b4d46e23"
     }
   ]
 }

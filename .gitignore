@@ -6,7 +6,8 @@ cuda/
 caches/
 models/
 tmp/
-vllm/
+# 只忽略仓库根目录下的 vLLM 源码 checkout；不得影响 vllm-patch/（补丁产物需入库）
+/vllm/
 material/
 
 # 权重与二进制大件兜底

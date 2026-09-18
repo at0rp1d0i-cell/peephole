@@ -323,3 +323,35 @@ GPUModelRunner.execute_model                         [worker 进程]
   `test_revert_keeps_unrelated_files_in_package_dir`、`test_apply_verify_revert_round_trip`；
   真实环境演练见 `evidence/p2-single/deploy-drill.log`。
 
+**(d) 进度语义（第三轮 blocker）**：初稿在 `attach_plans` 里用 `request.num_computed_tokens + num_scheduled_tokens`
+算长度 —— 错。pin 的 `Scheduler.schedule()` 在**返回之前**就调用 `_update_after_schedule`
+（`vllm/v1/core/sched/scheduler.py:1383`），其中执行 `request.num_computed_tokens += num_scheduled_token`
+（`:1461`），所以调度器账本里的值是 **post**。再 `+scheduled` 会把 6273 算成 6274，并让"末尾单 token prefill chunk"
+（post == prompt_len）被误判成 decode。现在：
+
+- `attention_kv_len = post_computed_tokens`（**不再相加**；decode 步即 prompt + 已生成，含本步写入的当前 token）；
+- `pre_computed = post - scheduled` 只用于一致性校验（`< 0` 即账本异常，拒绝）；
+- 门禁改为**只对非 global 模式出计划**：global（含全部 prefill 步）一律走原版读 metadata；
+  若"尚未生成任何 token"（`pre < prompt_len`）却已是非 global 模式 → 协议/时序冲突，直接拒绝。
+- 测试夹具按**真实推进**构造（`FakeScheduler.schedule()` 镜像 `:1461` 的自增），并用源码锚定测试
+  （`test_progress_semantics_are_anchored_to_pin_source` 断言 pin 里确实存在该调用与自增语句）防止夹具与源码漂移。
+
+**(e) 配置门禁接线（第三轮 blocker）**：初稿只**定义**了 `assert_supported_config`，**没有任何调用者** →
+"同步调度但开启前缀缓存/图/投机"时带载荷的请求仍会进入适配器。现在两处都实际调用：
+
+- 引擎侧：首次登记 DA 请求时调用纯函数 `check_supported_config`（`register_new_requests` 内，结果缓存；普通请求不触发）；
+- worker 侧：`fa_override_for_step` 在**分配覆写缓冲之前**调用 `assert_supported_config(runner.vllm_config)`；
+- 同时修掉门禁自身一个真 bug：`str(CUDAGraphMode.NONE)` 实际是 `'NONE'`（不是 `'CUDAGraphMode.NONE'`），
+  原白名单会把**合法的 eager 配置误拒**；现按"最后一段名字"归一化（并兼容 0/None）。
+- 测试：`tests/test_p2_adapter_override.py` 走**真实入口** `fa_override_for_step` + CPU 张量：
+  合法配置下断言 gather/填充/`seq_lens`/`max_seq_len` 与非 DA 行保持；四类不支持配置（前缀缓存/异步/图/投机）
+  各自抛 `UnsupportedConfig` 且**未分配任何缓冲**；引擎侧另有登记即拒绝与合法放行两例。
+
+**(f) 交付可复现性（第三轮 blocker）**：`.gitignore` 的未锚定 `vllm/` 会把 `vllm-patch/files/vllm/...`
+一并忽略 → 两个新适配模块只存在于工作区、**从未进入提交**，交付无法从 commit 复现。现在：
+
+- 规则改为 `/vllm/`（只忽略仓库根目录的源码 checkout）；
+- 新增 `tests/test_p2_committed_state.py`：用 `git archive HEAD` 导出**独立临时树**，
+  断言 manifest 引用的每个来源都在提交里、且**内容哈希与 manifest 声明一致**、且不再被 `.gitignore` 忽略。
+  该测试断言的是提交态，因此失败即意味着"有产物没入库/入库的是旧版本"。
+

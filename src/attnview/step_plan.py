@@ -209,8 +209,15 @@ def check_supported_config(
             f"max_concurrent_batches={max_concurrent_batches}：批次队列会让下一步 metadata "
             "早于上一步 token 回到 host 构建；本阶段要求 ==1"
         )
-    mode = str(cudagraph_mode)
-    if mode not in ("CUDAGraphMode.NONE", "None", "0", "cudagraph_mode.NONE"):
+    # `str(CUDAGraphMode.NONE)` 在 vLLM 里是 'NONE'（不是 'CUDAGraphMode.NONE'）——
+    # 这里按「最后一段名字」归一化，避免把合法的 eager 配置误判为不支持。
+    if isinstance(cudagraph_mode, bool) or isinstance(cudagraph_mode, int):
+        cudagraph_is_none = int(cudagraph_mode) == 0
+    elif isinstance(cudagraph_mode, str) and cudagraph_mode.strip().isdigit():
+        cudagraph_is_none = int(cudagraph_mode.strip()) == 0
+    else:
+        cudagraph_is_none = str(cudagraph_mode).rsplit(".", 1)[-1].strip().upper() == "NONE"
+    if not cudagraph_is_none:
         raise UnsupportedConfig(f"cudagraph_mode={cudagraph_mode}：本阶段只跑 eager（--enforce-eager）")
     if enable_prefix_caching:
         raise UnsupportedConfig("enable_prefix_caching=True：本阶段要求关闭前缀缓存")
