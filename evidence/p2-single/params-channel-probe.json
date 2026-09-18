@@ -1,0 +1,76 @@
+{
+  "date_cst": "2026-09-18 11:53:11 +0800",
+  "argv": [
+    "tools/p2-probe-params-channel.py",
+    "--evidence",
+    "evidence/p2-single"
+  ],
+  "payload": {
+    "attnview": {
+      "mode": "focus",
+      "refs": [
+        3,
+        1
+      ],
+      "visible_logical_blocks": [
+        0,
+        5,
+        6,
+        7
+      ],
+      "visible_kv_len": 6272,
+      "effect_step": 41,
+      "protocol": "v1.0"
+    }
+  },
+  "checks": [
+    {
+      "check": "构造后 extra_args 未被 __post_init__ 改写",
+      "ok": true,
+      "detail": "extra_args={'attnview': {'mode': 'focus', 'refs': [3, 1], 'visible_logical_blocks': [0, 5, 6, 7], 'visible_kv_len': 6272, 'effect_step': 41, 'protocol': 'v1.0'}}"
+    },
+    {
+      "check": "SamplingParams 往返类型",
+      "ok": true,
+      "detail": "SamplingParams"
+    },
+    {
+      "check": "SamplingParams 往返后 extra_args 逐字段相等",
+      "ok": true,
+      "detail": "往返={'attnview': {'mode': 'focus', 'refs': [3, 1], 'visible_logical_blocks': [0, 5, 6, 7], 'visible_kv_len': 6272, 'effect_step': 41, 'protocol': 'v1.0'}}"
+    },
+    {
+      "check": "嵌套值类型保真",
+      "ok": true,
+      "detail": "refs=[3, 1] effect_step=int"
+    },
+    {
+      "check": "其它采样字段同时保真",
+      "ok": true,
+      "detail": "temperature=0.0 max_tokens=64"
+    },
+    {
+      "check": "EngineCoreRequest 往返类型",
+      "ok": true,
+      "detail": "EngineCoreRequest"
+    },
+    {
+      "check": "EngineCoreRequest 往返后 extra_args 保持",
+      "ok": true,
+      "detail": "往返={'attnview': {'mode': 'focus', 'refs': [3, 1], 'visible_logical_blocks': [0, 5, 6, 7], 'visible_kv_len': 6272, 'effect_step': 41, 'protocol': 'v1.0'}}"
+    },
+    {
+      "check": "NewRequestData 编码后可解码且 extra_args/block_ids 保真",
+      "ok": true,
+      "detail": "extra_args={'attnview': {'mode': 'focus', 'refs': [3, 1], 'visible_logical_blocks': [0, 5, 6, 7], 'visible_kv_len': 6272, 'effect_step': 41, 'protocol': 'v1.0'}} block_ids=[[0, 1, 2, 3]] | NewRequestData 类型化解码: NameError: name 'torch' is not defined"
+    }
+  ],
+  "version": {
+    "vllm": "0.29.0",
+    "vllm_file": "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/__init__.py",
+    "serial_utils": "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/serial_utils.py",
+    "sampling_params": "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/sampling_params.py"
+  },
+  "new_request_data_decoder_typing": "NameError: name 'torch' is not defined",
+  "ok": true
+}
