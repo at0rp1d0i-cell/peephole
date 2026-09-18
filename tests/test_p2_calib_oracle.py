@@ -467,6 +467,37 @@ class CliEndToEndTest(unittest.TestCase):
             ["k_prefill_L3", "out_step1_L3", "q_step1_L3", "v_prefill_L3"],
         )
 
+    def test_declared_derived_scale_is_flagged_as_known_approximation(self) -> None:
+        head_dim, prompt_len = 2, 3
+        scale = 1.0 / math.sqrt(head_dim)
+        ones = torch.ones(1, prompt_len, head_dim)
+        q = torch.ones(1, 1, head_dim)
+        arrays = build_arrays(
+            prompt_len=prompt_len,
+            scale=scale,
+            num_heads=1,
+            num_kv_heads=1,
+            head_dim=head_dim,
+            q={1: q},
+            out={1: ORACLE.dense_reference(q, ones, ones, [2], scale, 1, 1)},
+            positions={1: [2]},
+            k={3: ones},
+            v={3: ones},
+            scale_source="derived_head_dim**-0.5",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(write_npz(Path(tmp) / "capture.npz", arrays), report_path)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        # derived 的 scale 仍可用（不拒绝），但必须在报告里标成已知近似来源。
+        self.assertEqual(report["metadata"]["scale_source"], "derived_head_dim**-0.5")
+        self.assertEqual(report["numerics"]["scale_source"], "derived_head_dim**-0.5")
+        self.assertTrue(report["numerics"]["scale_is_approximate"])
+        self.assertTrue(
+            any("scale" in warning and "derived" in warning for warning in report["warnings"])
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
