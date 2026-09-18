@@ -1,0 +1,56 @@
+=== 部署/撤销演练（最终工具；2026-09-18 13:41:12 +0800；HEAD=b1c7617；工具 sha256=e6f494e5c00db223）===
+--- 1) 负例：篡改目标 → apply 必须拒绝(4) 且零写入 ---
+预检失败：1 项冲突，未修改任何文件
+  前置哈希不符 vllm/vllm/v1/core/sched/output.py：当前 af3c146bdf5e != 期望 41cf5780a013（文件已被他人改动或版本不符）
+apply 退出码=4（期望 4）
+未部署（无事务记录）
+verify(未部署) 退出码=0
+--- 2) apply / 3) verify ---
+部署完成：27 个目标（源码 checkout + site-packages 两处），事务记录 vllm-patch/deployed.json
+apply=0
+校验（state=deployed）：27 个目标，全部一致
+verify=0
+--- 4) 部署态真实调用核验 ---
+编排早于 execute_model: True
+shutdown 接线: True
+抢占=中止+抛不支持: True
+抢占用真实 finish_requests: True
+门禁按实例: True
+几何取 runner 实际对象: True
+FA2 版本+prefill 边界: True
+hybrid 转传覆写: True
+default 显式拒绝: True
+Traceback (most recent call last):
+  File "<string>", line 17, in <module>
+KeyError: 'records'
+--- 5) revert（最终工具：只动本事务写过的对象）---
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/core/sched/__pycache__/output.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/__pycache__/core.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/__pycache__/attn_utils.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/default.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/interface.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_states/__pycache__/mamba_hybrid.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/__pycache__/attnview_adapter.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/__pycache__/attnview_engine.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/__init__.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/decode.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/parser.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/readview.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/gpukv.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/state.cpython-312.pyc
+cleaned: venvs/attnview/lib/python3.12/site-packages/attnview/__pycache__/step_plan.cpython-312.pyc
+warning: 包目录仍有非本次文件，已保留：['__pycache__']
+撤销完成：27 个目标已恢复/删除，指纹已校验（1 条告警）
+revert=0
+--- 6) 撤销后指纹 ---
+checkout 脏行=0（期望 0）；两副本差异=0（期望 0）；orig=0（期望 0）；事务记录=0（期望 0）；残留 pyc=28
+--- 7) journal 归属字段（真实树，apply 后）---
+顶层 state: deployed | 记录数: 27 | 单条键: ['backup', 'dest', 'kind', 'package', 'post', 'pre', 'src', 'state']
+per-record state 取值: ['written'] | 全部 written: True
+--- 8) revert 后再核 fingerprint ---
+撤销完成：27 个目标已恢复/删除，指纹已校验
+checkout 脏行=0；两副本差异=0；orig=0；事务记录=0
+--- 9) 范围说明：撤销后源码树全量测试 ---
+Ran 231 tests in 11.067s
+
+OK
