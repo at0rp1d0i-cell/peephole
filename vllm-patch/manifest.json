@@ -1,0 +1,96 @@
+{
+  "generated_cst": "2026-09-18 12:08:20 +0800",
+  "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+  "edits": {
+    "v1/core/sched/output.py": {
+      "replacements": 1,
+      "pre_sha256": "41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525",
+      "post_sha256": "75451f403e99734d81e03cb36185b60a00ef4d9264bdc4b8e730713c055676a3",
+      "patched_path": "vllm-patch/patched/v1/core/sched/output.py"
+    },
+    "v1/engine/core.py": {
+      "replacements": 3,
+      "pre_sha256": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
+      "post_sha256": "d01dc8e97abf38cbfa5d1454ccdab081f238fb1c1658666af1977457453b028b",
+      "patched_path": "vllm-patch/patched/v1/engine/core.py"
+    },
+    "v1/worker/gpu/attn_utils.py": {
+      "replacements": 3,
+      "pre_sha256": "55bb9f034bd91f09358ba405974a622b9fe5bfcc4834a6483f985a49a674915f",
+      "post_sha256": "7f9207e29af4372816a792a232d5dd04fb71c158e03d290218a1f0d51db0c279",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu/attn_utils.py"
+    },
+    "v1/worker/gpu/model_runner.py": {
+      "replacements": 2,
+      "pre_sha256": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
+      "post_sha256": "41eb69f27eed3d5fdb1ca671c7046f61952bd236a47d0372fe97ce4525f5e25f",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu/model_runner.py"
+    },
+    "v1/worker/gpu/model_states/default.py": {
+      "replacements": 1,
+      "pre_sha256": "12a3fb5601f596b93e6d0a6350b3e231005519ccdf3393a42dfd088bb6c379bb",
+      "post_sha256": "035903d79da8439f8123aa03231ffe1ec59588d089f15109de6240e3bd80dff8",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu/model_states/default.py"
+    },
+    "v1/worker/gpu/model_states/interface.py": {
+      "replacements": 1,
+      "pre_sha256": "7476b6b287e5e6dae432f250e9212611459d57e4dbf582f732877839ef7ce544",
+      "post_sha256": "3b95c4f36455a7afcb20366b7503482fb5d60a03062d712cb8e65356073b9b05",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu/model_states/interface.py"
+    },
+    "v1/worker/gpu/model_states/mamba_hybrid.py": {
+      "replacements": 2,
+      "pre_sha256": "13fad849778315c9f18aff31cf67290a06320ee071ef5c24143076b4c952282d",
+      "post_sha256": "114f711553b3eb22b71537a6ffea513a2ff1d368514d1ec64deb1719b575aeab",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu/model_states/mamba_hybrid.py"
+    },
+    "v1/worker/gpu_worker.py": {
+      "replacements": 1,
+      "pre_sha256": "b0f39124f31ead3d2d20f1c6ac8696393c0ed6fed585ba8d31a4f7673e390407",
+      "post_sha256": "2fe84a4df87d0044982c1874f9a25b6fc625c5476aaadaf6528a17417f11e7d6",
+      "patched_path": "vllm-patch/patched/v1/worker/gpu_worker.py"
+    }
+  },
+  "new_files": [
+    {
+      "src": "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py",
+      "dest": "v1/worker/gpu/attnview_adapter.py",
+      "sha256": "fcd65ba6762833e775b421acf951141e346a195923a82fb99b8df6a3d37833a8"
+    },
+    {
+      "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
+      "dest": "v1/engine/attnview_engine.py",
+      "sha256": "1ad1e2eed18cead0a22b44d99ec2785ee7edb5a215b6445767fcd2436e14fa09"
+    }
+  ],
+  "package_files": [
+    {
+      "file": "src/attnview/__init__.py",
+      "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce"
+    },
+    {
+      "file": "src/attnview/decode.py",
+      "sha256": "29fb688006bb982a2ee88ff34ab0a657f1f7866cdc20a7a7cab548176feba44f"
+    },
+    {
+      "file": "src/attnview/parser.py",
+      "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d"
+    },
+    {
+      "file": "src/attnview/readview.py",
+      "sha256": "ce162dd31d12aeb9475a4239424e2164cf3ed84e30f5168e4a14972e8f4c49a5"
+    },
+    {
+      "file": "src/attnview/gpukv.py",
+      "sha256": "e0ce47f9511aefc65bd797e046163686eda6f7b5c4d1b0e425754d300d15f2c6"
+    },
+    {
+      "file": "src/attnview/state.py",
+      "sha256": "62bfcdaa54c3b9df5d7d4710e6159696e6d6b4d51113f1960b70f8a9370c750c"
+    },
+    {
+      "file": "src/attnview/step_plan.py",
+      "sha256": "1a769f2088dbc2825cc069571e50c84e96e79090674fc2fe589b7a5b06fca6cd"
+    }
+  ]
+}

@@ -7,7 +7,7 @@
 
 1. **接入路线**：**引擎侧解析 + 每步视图下推 + 只覆写全注意力组的 read metadata**。
    解析发生在 `EngineCore.step()` 拿到 host 侧 token 之后；视图随 `SchedulerOutput` 下发；worker 只在 `build_attn_metadata` 的**单个 KV 组**上替换 `block_table`/`seq_lens`/`max_seq_len`。
-2. **必须 `async_scheduling=False`（`--no-async-scheduling`）**：默认解析为 `True`（`config/vllm.py:1311`「Enable async scheduling unless there is an incompatible option」），此时 engine core 走 `step_with_batch_queue()`，**第 t+1 步的 metadata 会在第 t 步 token 回到 host 之前构建**，且下一步输入 id 在 device 侧拼装 → C3.5「t 解析、t+1 生效」**不可能满足**。关闭后走 `step()`，读回在**同一步内**、且**早于**下一次 metadata 构建（证据见 §2）。
+2. **本阶段要求 `async_scheduling=False`（`--no-async-scheduling`）**：默认解析为 `True`（`config/vllm.py:1311`「Enable async scheduling unless there is an incompatible option」），此时 engine core 走 `step_with_batch_queue()`，第 t+1 步的 metadata 会在第 t 步 token 回到 host 之前构建、下一步输入 id 在 device 侧拼装 → **未经额外依赖处理的默认异步流水不能保证 C3.5「t 解析、t+1 生效」**（不是对所有异步设计的绝对断言，而是本阶段拒绝该配置并在启用时 fail-fast）。关闭后走 `step()`，读回在**同一步内**、且**早于**下一次 metadata 构建（证据见 §2）。
 3. **不改 kernel、不改 canonical 写入/位置/GDN**：FA2 路径不读 `attn_metadata.slot_mapping`（**【侦察】** `flash_attn.py:1038-1186` 无该字段），读写天然解耦；GDN 走 MambaSpec 组、字段不同。
 4. **不硬编码块大小**：FA2 不接收 `block_size` 参数（由 4-D page 张量形状决定）；本项目只从运行期配置取 manager/kernel 块大小。
 5. **版本锁定的可撤销 patch**：运行时 import 的是 site-packages 副本且与源码树**逐字节一致**（**【自读】** `diff -rq` 差异 0；`vllm.__file__` 指向 site-packages），源码树改动不会生效 → 部署脚本必须**同时**覆盖两处并留 manifest 与回滚。
@@ -29,13 +29,17 @@
 
 ```text
 EngineCore.step()                                   v1/engine/core.py:600-625
-  scheduler_output = scheduler.schedule()           # 本步调度账本（含每请求 logical block_ids）
+  scheduler_output = scheduler.schedule()           # 本步调度账本（含每请求 canonical block_ids 来源）
   future = model_executor.execute_model(so, non_block=True)   # :609
-  model_output = future.result()                    # :615 → AsyncOutputFuture.result()
-     └─ UniProcExecutor.collective_rpc(non_block=False) → AsyncOutput.get_output()
-          └─ copy_event.synchronize()               async_utils.py:167-168   ← 到这里的 host 才可读 token
-  model_output = sample_tokens(...) if None         # 见下：本版本 sample_tokens 单独调用
-  scheduler.update_from_output(so, model_output)    # :621
+         └─ worker: 本步请求态更新 → prepare_inputs/prepare_attn → 建 metadata(:1657) → 前向
+            → 暂存 ExecuteModelState，**返回 None**（execute_model 本身不采样）
+  model_output = future.result()                    # :615 —— 此时通常为 None
+  if model_output is None:                          # 本版本采样是**另一次**调用
+      model_output = model_executor.sample_tokens(grammar_output)   # 同步分支内部解包
+         └─ worker: sample → AsyncOutput（旁路流发起 D2H、record copy_event）
+         └─ executor 解包：AsyncOutput.get_output() → copy_event.synchronize()
+              async_utils.py:167-168   ← 到这里的 host 才可读 token（只解包一次，不重复 get_output）
+  scheduler.update_from_output(so, model_output)    # :621 → 之后本适配层解析（§4）
   # 循环下一次 → 才重新 schedule()/execute_model() → 才重新构建 metadata
 ```
 
@@ -52,7 +56,7 @@ EngineCore.step()                                   v1/engine/core.py:600-625
 da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新请求协议状态 + 记录 trace
 ```
 
-**代价**：不新增任何 GPU↔CPU 同步——该同步是引擎在本配置下**本来就要做**的（`future.result()`）。此外本设计在 `execute_model`/`sample_tokens` 内**不插入**任何同步，因此不会触发稳态同步检查（`vllm/utils/gpu_sync_debug.py:217-232`）；这条路线的取舍是**放弃 async scheduling 的流水重叠**（单请求、延迟受限场景影响有限；成本归 R10 后续测量）。
+**代价（只作定性，不作收益判断）**：token 解析复用**所选同步基线**既有的 D2H 完成点（`future.result()` / `sample_tokens` 内的 `get_output`），本设计在 `execute_model`/`sample_tokens` 内**不插入**新的 GPU↔CPU 同步，因此不触发稳态同步检查（`vllm/utils/gpu_sync_debug.py:217-232`）。新增成本是**元数据侧**的：每步每 DA 请求一次小块 H2D + 一次设备侧 `index_select`/填充（见 §5 计量入口），以及**禁用异步调度本身**的流水损失；两者都**待实测**，本阶段不作任何「影响有限」之类判断。
 
 ## 3. 请求参数通道（SUP-004 §2.1）
 
@@ -82,8 +86,8 @@ da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新�
 
 | 字段 | 来源 | 本设计动作 |
 | --- | --- | --- |
-| `block_table`（4-D page 张量，per KV 组） | `block_tables[i]`（`BlockTables.gather_block_tables`） | **只对全注意力组**替换为 DA 行缓冲（每请求一行 = 可见 logical 块→kernel 块号映射） |
-| `seq_lens` → kernel 的 `seqused_k` | `input_buffers.seq_lens`（**跨组共享 buffer**，亦被 sampler/rejection 复用） | **不原地改写共享张量**；为 FA 组提供**独立** `seq_lens_da` 张量（每行 = 可见有效读长度） |
+| `block_table`（**二维整数物理块 ID 表**，per KV 组；四维的是 K/V page 缓存，勿混用） | `block_tables[i]`（`BlockTables.gather_block_tables` → `input_block_tables[i]` 持久副本） | **只对全注意力组**替换为 DA 行缓冲（每请求一行；行内容由 worker 用**运行期**几何从 canonical kernel 表做设备侧 gather，宽度一次生成内常量） |
+| `seq_lens` → kernel 的 `seqused_k` | `input_buffers.seq_lens`（**跨组共享 buffer**，亦被 sampler/rejection 复用） | **不原地改写共享张量**；为 FA 组提供**独立** `seq_lens` 张量：每行 = `seqused_k` = 各可见块被可见 span 覆盖的位置数之和（最大可见块取实际尾长），**复用 `gpukv.read_table_from_read_view` 的结果**，不在适配层重算 |
 | `max_query_len` → `max_seqlen_q` | `input_batch.num_scheduled_tokens.max()` | 不动（decode 步恒为 1） |
 | `max_seq_len` → `max_seqlen_k` | `prepare_attn` 传入的共享 int（`seq_lens_cpu_upper_bound` 上界） | FA 组用可见读长度的上界（DA 专用值）；其余组不动 |
 | `query_start_loc` | `input_batch.query_start_loc` | **不动**（`seqused_k` 的配套是 `query_start_loc`；改它会影响 Mamba/GDN 与 indexer） |
@@ -116,7 +120,7 @@ da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新�
 
 | # | 文件 | 函数/行 | 改动 | 波及 |
 | --- | --- | --- | --- | --- |
-| 1 | `vllm/v1/worker/gpu/attn_utils.py` | `build_attn_metadata`（247，组循环 276-336） | 新增可选入参 `da_group_override`；**仅**对全注意力组用 `(block_table_da, seq_lens_da, max_seq_len_da)` | 6 个调用方 + 图捕获调用方（【侦察】）；默认 `None` 时行为与原版**逐字节等价** |
+| 1 | `vllm/v1/worker/gpu/attn_utils.py` | `build_attn_metadata`（247，组循环 276-336） | 新增可选入参 `da_fa_override`（默认 `None`）；**仅**对全注意力组换用 `(block_table, seq_lens, seq_lens_cpu_upper_bound, max_seq_len)` 的覆写值 | 6 个调用方 + 图捕获调用方（【侦察】）。默认 `None` 时**不改变原行为**（同一批入参走原分支）；此结论**待**无 DA 分支实际执行后才算核实，本轮不称「逐字节等价」 |
 | 2 | `vllm/v1/worker/gpu/model_runner.py` | `execute_model`（1657 调用点）、`prepare_attn`/`prepare_dummy_attn`（1368/1389）、`sample_tokens`（1826） | 从 `scheduler_output` 取出本步 DA 载荷；查 `InputBatch` 行→`req_id` 映射；构造/复用 DA 行缓冲；`dummy_run=True` 时**强制忽略** | 唯一调用链（worker/`_dummy_run`/warmup）【侦察】 |
 | 3 | 新模块 `vllm/v1/worker/gpu/attnview_adapter.py`（+ engine 侧同模块） | — | 视图落位与协议状态逻辑集中在此，避免散落 | 新增文件，便于整体撤销 |
 | 4 | `vllm/v1/engine/core.py` | `step()`（600-625） | 读回后调用适配层解析；构造本步 DA 载荷 | 单点；`step_with_batch_queue` 路径**显式拒绝**（含断言） |
@@ -187,3 +191,93 @@ da_adapter.on_step_outputs(model_output, scheduler_output)   # 解析 + 更新�
 | 阶段 04 数值路径 | `reports/p1-gpu/read-view-report.md`、`evidence/p1-gpu-v6/` |
 
 **限制**：本文件是设计，不含 GPU 实测；所有 `【待 GPU】` 项与 §11 未定项在检查点 2 前不作结论。设计若需改协议/后端/模型候选/量化/公开 API 合同，另提证据与本地方案对照。
+
+---
+
+## 13. R1 修订（2026-09-18，依 `inbox/SUP-004-R1.md`）
+
+本节记录对初稿的**实质性更正**与随之落地的实现；与正文冲突处以本节为准。
+
+### 13.1 读取长度与当前写入时刻（原 §11.4 错误，已更正）
+
+| 量 | 正确定义 | 说明 |
+| --- | --- | --- |
+| `attention_kv_len` | **本次 attention 发生时**的 canonical 有效长度，**含本次 forward 正常写入的当前 token** | 不停止在上一采样时刻；阶段 03 的 `RequestProtocolState.attention_kv_len_next` 正是这个量 |
+| `seqused_k` | **各可见块被可见 span 覆盖的位置数之和**；最大可见块取**实际尾长** | 既不是完整历史长度，也不是可见块数 × 块大小；由 `gpukv.read_table_from_read_view` 产出（`ReadTable.seqused_k`），适配层**不重算** |
+| `tail_len` | 最大可见块的有效位置数 | `ReadTable.tail_len` |
+| `needed_width` | `ceil(seqused_k / kernel_block_size)` | **必须**等于可见块数；不等即拒绝（前端按前缀语义索引该列数） |
+| 表宽 `width` | `Geometry.max_width`，一次生成内常量（I5） | 后端只索引前 `needed_width` 列；填充列复用最后一块（合法块号，绝不放 `-1`） |
+
+**真实语义夹具（b=784，实现内已自检）**：`prompt_len=6272`、`attention_kv_len=6273`（含当前 token）时，
+`local` 视图可见 `[0,5,6,7,8]`、`counts=[784,784,784,784,1]`、`seqused_k=3137`、`tail_len=1`、
+对齐后**确实排除已写块 1–4**；同一状态下 `global` 视图 `seqused_k=6273==attention_kv_len`。
+CPU 探针里 `[0,5,6,7]`+`6272` 的组合在 b=784 下**不可能**，只是**传输夹具**（原证据保留）。
+
+### 13.2 载荷与几何边界
+
+- 载荷只含协议/布局事实：`protocol`、`prompt_len`、`segment_spans`、`local_window_span`、`sink_span`、`enforce_global`。
+  **禁止**出现 `kernel_block_size`/`max_width`/`num_blocks` 等几何字段（实现内 `FORBIDDEN_PAYLOAD_KEYS` 硬拒）。
+- 几何只在 worker 侧从运行期 `KVCacheConfig` 读取（各组 `kv_cache_spec.block_size`），
+  经 `Worker.attnview_geometry()` RPC 让 EngineCore **一次性核对**；`blocks_per_kv_block != 1` 时显式拒绝
+  （否则 `seqused_k` 的计量单位会变）。**不使用默认 784**。
+- 稳定读数：`BlockTables.num_blocks.np` 是 host 镜像 → 越界检查（可见块 < 已分配块）**不需要**读 GPU 张量；
+  稳态**不做** `.cpu()`/`.item()` 读 canonical 表（计量项 `host_reads_of_device_tensors` 应保持 0）。
+
+### 13.3 真实调用链与参数通道（初稿漏 `MambaHybridModelState`）
+
+```text
+EngineCore.step()                                    [engine 进程]
+  ├─ （schedule 之后）attnview.attach_plans(scheduler_output)     ← 注入上一步解析出的计划
+  └─ （update_from_output 之后）attnview.on_step_outputs(...)      ← 登记/清理/解析/产出下一步计划
+GPUModelRunner.execute_model                         [worker 进程]
+  ├─ attnview_adapter.fa_override_for_step(self, scheduler_output, input_batch, block_tables)
+  └─ model_state.prepare_attn(..., da_fa_override=…)   ← 显式 kwarg（仅非 None 时传，其它 ModelState 不受影响）
+       └─ MambaHybridModelState.prepare_attn (mamba_hybrid.py:232-330)
+            └─ build_attn_metadata(..., da_fa_override=…)           ← 单点落位（组循环内，仅 FA 组）
+```
+
+- 落位**构造新对象**：只替换该组的 `block_table`/`seq_lens`/`seq_lens_cpu_upper_bound`/`max_seq_len`；
+  `query_start_loc`、`slot_mapping`、`dcp_local_seq_lens`、Mamba/GDN 各字段保持 canonical。
+- FA2 前置断言：AOT scheduler 应为 `None`（`flash_attn.py:445`：`aot_schedule = version == 3`，本机 FA2），
+  运行期断言，不引入 FA3 路径。
+- 写入侧不变：`build_slot_mappings_by_layer → forward_context.slot_mapping → do_kv_cache_update`；FA2 不读 `attn_metadata.slot_mapping`。
+
+### 13.4 prefill / warmup / dummy / 终结（判据用真实状态）
+
+| 场景 | 判据（实测字段，不用启发式） |
+| --- | --- |
+| prefill（含末尾单 token chunk） | 运行期 `is_prefilling`（`num_computed_prefill_tokens < prefill_len`）；**不得**用 `query_len==1` 代替 → 一律不落位 |
+| decode | `is_prefilling=False` 且该行存在计划 → 落位 |
+| dummy / profile / 图捕获 | `dummy_run=True` 一律不落位；`for_cudagraph_capture` 分支不落位；本阶段 eager |
+| warmup | `warmup.py` 手工构造 `NewRequestData` 走真实 `execute_model` → 因**无载荷**（无 `extra_args["attnview"]`）而直通，不创建协议状态 |
+| 普通请求 | 无载荷 → 全程不经过适配层 |
+| 终结 / 取消 / 抢占 | 解析位置固定在 `update_from_output` **之后**、下一次 `schedule()` **之前**；先按 `SchedulerOutput.finished_req_ids`（含抢占）丢弃、再解析、再释放本步刚终结者；清理**幂等**，不会被同一步输出重建 |
+| 异常 | 不隐式回退 global（C6.2）；抢占仍显式不支持（按合同记录并停该用例） |
+
+### 13.5 支持范围与拒绝方式
+
+- 不支持配置（异步调度、`max_concurrent_batches != 1`、非 eager、前缀缓存、投机、块粒度不一致）
+  在**首次登记 DA 请求**时 `raise UnsupportedConfig`（fail-fast、响亮失败、不静默降级）；
+  **普通请求完全不受影响**（原版可复跑，async 调度照常）。
+- 为此 `assert_supported_config` 只放在「出现 DA 请求」的路径上，不放在引擎启动路径上（初稿曾计划放在启动，已改）。
+- 数值阈值本阶段**不拍定**：先交付观测/参考与 CPU 门禁，本地复核后再放行原版/global 校准。
+
+### 13.6 实现交付（本轮新增，均在版本锁定与可撤销前提下）
+
+| 产物 | 说明 |
+| --- | --- |
+| `src/attnview/step_plan.py` | 每步计划纯逻辑：载荷校验、几何校验、复用 `readview`+`gpukv` 构造计划、门禁、trace |
+| `vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py` | worker 侧：几何推导、覆写构造、计量（**不重算协议算术**） |
+| `vllm-patch/files/vllm/v1/engine/attnview_engine.py` | EngineCore 侧：登记/解析/计划/清理/trace（纯 Python，不 import torch） |
+| `tools/p2-gen-patch.py` | 从 pin 生成 patched 文件 + `manifest.json`（每个替换必须**恰好命中一次**） |
+| `tools/p2-apply-patch.py` | `apply`/`verify`/`revert`：拒绝未知前置哈希；撤销恢复原文件**并删除**新增文件与包目录，恢复后校验指纹 |
+| 部署面 | 8 个文件被改（`sched/output.py`、`engine/core.py`、`attn_utils.py`、`model_runner.py`、`model_states/{interface,default,mamba_hybrid}.py`、`gpu_worker.py`）+ 2 个新模块 + 7 个包文件；源码 checkout 与 site-packages **两处都部署** |
+| 事实更正 | `SchedulerOutput` 是 **dataclass**（`@dataclass`，非 `msgspec.Struct`）→ 新增字段为普通 dataclass 字段并带默认值 |
+
+### 13.7 证据口径更正
+
+- `evidence/p2-single/params-channel-probe.json` 有 **8 条**检查（此前回执写 7 条，更正）。
+- 该探针**只证明** `SamplingParams`/`EngineCoreRequest` 的 msgpack 往返保真；`NewRequestData` **类型化解码**
+  在本环境仍失败（`NameError: torch`），因此**不宣称** worker 运行通道已验证；TP=1 走 `UniProcExecutor`
+  同进程直调（不经该解码器）是**本轮自读**的源码事实，仍需检查点 2 实测确认。
+
