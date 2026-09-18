@@ -329,7 +329,9 @@ EDITS: list[tuple[str, str, str]] = [
         # PP broadcast / AsyncOutput / postprocess_sampled **之前**：这样 worker 历史
         # （postprocess_sampled 读的就是这块内存）与送往宿主的 token 是同一个值，不会分叉。
         # 未设置 ATTNVIEW_CALIB_FORCE 时完全不介入（普通请求零影响）。
-        attnview_adapter.calibration_force_tokens(sampler_output, input_batch.req_ids)
+        attnview_adapter.calibration_force_tokens(
+            sampler_output, input_batch.req_ids, num_sampled
+        )
 """,
     ),
     (

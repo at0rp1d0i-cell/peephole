@@ -24,7 +24,10 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
+
+import torch
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -47,6 +50,57 @@ CONTEXT = (
     "This paragraph exists only to give the calibration run a fixed, non-trivial context."
 )
 QUESTION = "In one short sentence, state what a read view is."
+
+
+class BudgetExceeded(RuntimeError):
+    """启动/请求超出工作单明确上限（15 分钟 / 180 秒）。"""
+
+
+class Watchdog:
+    """硬期限：到期时**先落盘证据再退出**（`os._exit(3)`），不擅自加长/加批。
+
+    为什么用线程而不是 `signal.alarm`：模型加载与 `generate` 会长时间阻塞在 C++ 侧，
+    Python 信号处理器要等控制权回到解释器才执行；看门狗线程在 C 阻塞期间同样能生效。
+    """
+
+    def __init__(self, seconds: float, label: str, out_dir: Path) -> None:
+        self.seconds = float(seconds)
+        self.label = label
+        self.out_dir = out_dir
+        self._timer: threading.Timer | None = None
+        self.started = time.time()
+
+    def _fire(self) -> None:
+        payload = {
+            "kind": "budget_exceeded",
+            "label": self.label,
+            "budget_s": self.seconds,
+            "elapsed_s": round(time.time() - self.started, 2),
+            "action": "保存证据后退出（不提高长度/批次，不继续加载）",
+        }
+        try:
+            self.out_dir.mkdir(parents=True, exist_ok=True)
+            (self.out_dir / f"budget_exceeded.{self.label}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2)
+            )
+            sys.stderr.write(f"超出预算：{json.dumps(payload, ensure_ascii=False)}\n")
+            sys.stderr.flush()
+        finally:
+            os._exit(3)
+
+    def __enter__(self) -> "Watchdog":
+        self._timer = threading.Timer(self.seconds, self._fire)
+        self._timer.daemon = True
+        self._timer.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+
+    @property
+    def elapsed(self) -> float:
+        return time.time() - self.started
 
 
 def sha256_file(path: Path) -> str:
@@ -118,28 +172,109 @@ def find_fa_layers(llm) -> list:
     return fa_layers
 
 
-def install_hooks(fa_layers: list, capture: dict) -> None:
-    def make_hook(index: int):
-        def hook(module, args, output):
-            q, k, v = args[0], args[1], args[2]
-            step = int(capture.get("step", 0))
-            record = capture.setdefault("records", {})
-            key = f"step{step}"
-            record.setdefault(key, {})[index] = {
-                "q": q.detach().to("cpu", dtype=__import__("torch").float32),
-                "k": k.detach().to("cpu", dtype=__import__("torch").float32),
-                "v": v.detach().to("cpu", dtype=__import__("torch").float32),
-                "out": output.detach().to("cpu", dtype=__import__("torch").float32)
-                if hasattr(output, "detach")
-                else None,
-                "q_shape": list(q.shape),
-                "k_shape": list(k.shape),
+class LayerCapture:
+    """按**真实契约**接入层观测：`FlashAttentionImpl.forward` 是 ABC 的普通方法（**不是** nn.Module），
+    签名 `(layer, query, key, value, kv_cache, attn_metadata, output, ...)`，返回注意力输出
+    （pin `v1/attention/backends/flash_attn.py:947-958`）。步边界用 `model.forward` 包裹得到
+    （每步一次），避免用层调用次数推步号。"""
+
+    def __init__(self) -> None:
+        self.step = 0
+        self.records: dict[int, dict[int, dict]] = {}
+
+    def wrap_impl(self, index: int, impl: object) -> None:
+        original = impl.forward
+
+        def wrapper(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs):
+            result = original(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
+            self.records.setdefault(self.step, {})[index] = {
+                "q": query.detach().to("cpu", dtype=torch.float32),
+                "k": key.detach().to("cpu", dtype=torch.float32),
+                "v": value.detach().to("cpu", dtype=torch.float32),
+                "out": (result if result is not None else output).detach().to("cpu", dtype=torch.float32),
+                "q_len": int(query.shape[0]),
+                "layer_index": index,
             }
+            return result
 
-        return hook
+        impl.forward = wrapper
 
+    def wrap_model(self, model: object) -> None:
+        original = model.forward
+
+        def wrapper(*args, **kwargs):
+            try:
+                return original(*args, **kwargs)
+            finally:
+                self.step += 1
+
+        model.forward = wrapper
+
+
+def install_capture(llm) -> LayerCapture:
+    capture = LayerCapture()
+    model, fa_layers = find_fa_layers(llm)
     for index, impl in fa_layers:
-        impl.register_forward_hook(make_hook(index))
+        capture.wrap_impl(index, impl)
+    capture.wrap_model(model)
+    return capture
+
+
+def find_fa_layers(llm) -> tuple[object, list]:
+    """返回 (模型, [(层下标, FLASH_ATTN 的 impl)])；找不到就明确报错，不静默跳过。"""
+    model = None
+    for getter in (
+        lambda: llm.llm_engine.model_executor.driver_worker.model_runner.model,
+        lambda: llm.llm_engine.model_executor.driver_worker.worker.model_runner.model,
+    ):
+        try:
+            model = getter()
+            break
+        except Exception:
+            continue
+    if model is None:
+        raise RuntimeError("校准: 找不到模型对象（需要 VLLM_ENABLE_V1_MULTIPROCESSING=0 单进程模式）")
+    layers = list(getattr(model, "layers", ()) or ())
+    if not layers:
+        raise RuntimeError("校准: 模型没有 .layers，无法安装层观测钩子")
+    found = []
+    for index, layer in enumerate(layers):
+        impl = getattr(getattr(layer, "self_attn", None), "impl", None)
+        if impl is not None and "flash" in repr(type(impl)).lower():
+            found.append((index, impl))
+    if not found:
+        raise RuntimeError("校准: 未找到 FLASH_ATTN 实现层（目标模型应为 3×GDN + 1×FA）")
+    return model, found
+
+
+def dump_capture(capture: LayerCapture, path: Path) -> None:
+    """把层观测导成 oracle 约定的 npz（键名见 `inbox/SUP-004-calibration.md` 与 oracle 任务合同）。"""
+    import numpy as np
+
+    arrays: dict[str, np.ndarray] = {}
+    prefill_done: dict[int, bool] = {}
+    for step in sorted(capture.records):
+        for index, rec in sorted(capture.records[step].items()):
+            q, k, v, out = rec["q"], rec["k"], rec["v"], rec["out"]
+            num_heads, head_dim = int(q.shape[1]), int(q.shape[2])
+            num_kv_heads = int(k.shape[1])
+            if not prefill_done.get(index) and rec["q_len"] > 1:  # prefill 步：保存整段 K/V
+                arrays[f"k_prefill_L{index}"] = k.transpose(0, 1).contiguous().numpy()
+                arrays[f"v_prefill_L{index}"] = v.transpose(0, 1).contiguous().numpy()
+                arrays["prompt_len"] = np.array(k.shape[0])
+                prefill_done[index] = True
+            if rec["q_len"] == 1:  # decode 步：保存 query/输出（键按**步号**编号）
+                arrays[f"q_step{step}_L{index}"] = q.transpose(0, 1).contiguous().numpy()
+                arrays[f"out_step{step}_L{index}"] = out.transpose(0, 1).contiguous().numpy()
+                arrays["layer_index"] = np.array(index)
+                arrays["num_heads"] = np.array(num_heads)
+                arrays["num_kv_heads"] = np.array(num_kv_heads)
+                arrays["head_dim"] = np.array(head_dim)
+                arrays["scale"] = np.array(head_dim ** -0.5)
+                arrays["dtype_name"] = np.array(f"captured_fp32_from_{rec['q'].dtype}")
+    if not arrays:
+        raise RuntimeError("校准: 没有可导出的层观测（检查强制/步边界包装是否生效）")
+    np.savez(path, **arrays)
 
 
 def main() -> int:
@@ -178,6 +313,8 @@ def main() -> int:
         enable_prefix_caching=False,
         gpu_memory_utilization=0.85,
         disable_log_stats=True,
+        # 同步调度：与 worker 侧门禁一致（`config/vllm.py:1263-1311` 未指定会默认 True）
+        async_scheduling=False,
     )
     try:
         from vllm.config.attention import AttentionConfig
@@ -186,16 +323,16 @@ def main() -> int:
     except Exception as exc:  # 无法构造 ⇒ 让门禁明确拒绝，而不是偷偷用默认值
         print(f"警告: 无法构造 AttentionConfig(flash_attn_version=2): {exc}", file=sys.stderr)
 
-    started = time.time()
-    llm = LLM(**llm_kwargs)
-    startup_s = time.time() - started
+    with Watchdog(STARTUP_BUDGET_S, "startup", args.out) as startup_watch:
+        llm = LLM(**llm_kwargs)
+    startup_s = startup_watch.elapsed
+    if startup_s > STARTUP_BUDGET_S:  # 双保险（看门狗正常路径下已退出）
+        raise BudgetExceeded(f"启动耗时 {startup_s:.1f}s 超过预算 {STARTUP_BUDGET_S}s")
 
     geometry = llm.llm_engine.model_executor.collective_rpc(
         "attnview_geometry", single_value=True
     )
-    capture: dict = {"step": 0, "records": {}}
-    if args.record_layers:
-        install_hooks(find_fa_layers(llm), capture)
+    capture = install_capture(llm) if args.record_layers else None
 
     params = SamplingParams(
         max_tokens=args.max_tokens,
@@ -205,22 +342,22 @@ def main() -> int:
     )
 
     def run_one(prompt: str, sampling_params: SamplingParams, *, capture_steps: bool) -> dict:
-        before = capture["step"] if capture_steps else 0
-        started_req = time.time()
-        outputs = llm.generate([prompt], sampling_params)
-        elapsed = time.time() - started_req
+        before = capture.step if (capture is not None and capture_steps) else 0
+        with Watchdog(REQUEST_BUDGET_S, "request", args.out) as req_watch:
+            outputs = llm.generate([prompt], sampling_params)
+        elapsed = req_watch.elapsed
         out = outputs[0]
         return {
             "elapsed_s": elapsed,
             "token_ids": list(out.outputs[0].token_ids),
             "finish_reason": str(out.outputs[0].finish_reason),
             "text_sha256": sha256_text(out.outputs[0].text),
-            "steps_captured": capture["step"] - before if capture_steps else 0,
+            "steps_captured": (capture.step - before) if (capture is not None and capture_steps) else 0,
         }
 
     result = run_one(arm_prompt.rendered, params, capture_steps=True)
-    if result["elapsed_s"] > REQUEST_BUDGET_S:
-        print(f"请求超时预算（{result['elapsed_s']:.1f}s > {REQUEST_BUDGET_S}s）：保存证据后退出", file=sys.stderr)
+    if result["elapsed_s"] > REQUEST_BUDGET_S:  # 双保险
+        raise BudgetExceeded(f"请求耗时 {result['elapsed_s']:.1f}s 超过预算 {REQUEST_BUDGET_S}s")
 
     cleanup: dict = {}
     if args.cleanup_check:
@@ -255,10 +392,8 @@ def main() -> int:
         "llm_kwargs": {k: str(v) for k, v in llm_kwargs.items()},
     }
     (args.out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
-    if capture["records"]:
-        import torch
-
-        torch.save(capture, args.out / "layers.pt")
+    if capture is not None and capture.records:
+        dump_capture(capture, args.out / "layers.npz")
     print(json.dumps({"arm": args.arm, "startup_s": round(startup_s, 1),
                       "request_s": round(result["elapsed_s"], 2), "tokens": result["token_ids"],
                       "finish": result["finish_reason"]}, ensure_ascii=False))

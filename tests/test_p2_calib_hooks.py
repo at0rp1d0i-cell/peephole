@@ -26,6 +26,14 @@ sys.path.insert(0, str(REPO / "src"))
 ADAPTER = REPO / "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py"
 
 
+def load_module_by_path(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_adapter():
     spec = importlib.util.spec_from_file_location("attnview_adapter_calib", ADAPTER)
     module = importlib.util.module_from_spec(spec)
@@ -156,6 +164,144 @@ class CalibHookTest(unittest.TestCase):
         self.assertIn("version", record["inputs"]["fa_group_table"])
         self.assertIn("stream", record)
         self.assertEqual(table.tolist(), [[0, 0, 0], [0, 0, 0]], "trace 不得改写入参")
+
+
+class LayerCaptureTest(unittest.TestCase):
+    """层观测必须按 pin 的**真实契约**接入：impl 是 ABC（非 nn.Module）、
+    `forward(layer, query, key, value, kv_cache, attn_metadata, output, ...)`、
+    步边界由 `model.forward` 包裹（每步一次）——本类用两步两层的 CPU 真实调用核实。"""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.driver = load_module_by_path("attnview_calib_driver", REPO / "tools/p2-calib-run.py")
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _make_fake(self, *, prompt_len: int = 3, num_kv_heads: int = 2, head_dim: int = 4):
+        torch_ = torch
+
+        class FakeFlashAttentionImpl:
+            def __init__(self, index: int) -> None:
+                self.index = index
+
+            def forward(self, layer, query, key, value, kv_cache, attn_metadata, output,
+                        output_scale=None, output_block_scale=None):
+                return query + key.sum(dim=0, keepdim=True) + value.sum(dim=0, keepdim=True)
+
+        class FakeModel:
+            def __init__(self, impls) -> None:
+                self.layers = [SimpleNamespace(self_attn=SimpleNamespace(impl=impl)) for impl in impls]
+                self.calls = 0
+
+            def forward(self, *args, **kwargs):
+                # 镜像真实：**每步每层只调一次**，q_len = 本步调度的 token 数
+                # （prefill 一整步一次，decode 单 query 一次）。
+                self.calls += 1
+                q_len = prompt_len if self.calls == 1 else 1
+                q = torch_.randn(q_len, num_kv_heads, head_dim)
+                k = torch_.randn(q_len, num_kv_heads, head_dim)
+                v = torch_.randn(q_len, num_kv_heads, head_dim)
+                return [layer.self_attn.impl.forward(None, q, k, v, None, None, torch_.zeros_like(q))
+                        for layer in self.layers]
+
+        impls = [FakeFlashAttentionImpl(0), FakeFlashAttentionImpl(1)]
+        return FakeModel(impls), impls
+
+    def test_two_steps_two_layers_records_are_complete(self) -> None:
+        model, impls = self._make_fake()
+        capture = self.driver.LayerCapture()
+        for index, impl in enumerate(impls):
+            capture.wrap_impl(index, impl)
+        capture.wrap_model(model)
+        model.forward()  # 步 0：prefill（q_len=3）
+        model.forward()  # 步 1：decode（q_len=1）
+        self.assertEqual(sorted(capture.records), [0, 1], "步边界必须每步一次，不能被覆盖")
+        for step in (0, 1):
+            self.assertEqual(sorted(capture.records[step]), [0, 1], "每步每层都要有记录")
+        self.assertEqual(capture.records[0][0]["q_len"], 3)
+        self.assertEqual(capture.records[1][0]["q_len"], 1)
+        rec = capture.records[0][1]
+        self.assertEqual(rec["q"].shape[-1], 4, "q/k/v 必须是真实张量（最后一维 = head_dim）")
+        self.assertGreater(rec["out"].numel(), 0, "out 不能为空")
+        self.assertTrue(torch.isfinite(rec["out"]).all())
+
+    def test_dump_capture_matches_oracle_contract(self) -> None:
+        model, impls = self._make_fake()
+        capture = self.driver.LayerCapture()
+        for index, impl in enumerate(impls):
+            capture.wrap_impl(index, impl)
+        capture.wrap_model(model)
+        model.forward()
+        model.forward()
+        target = self.dir / "layers.npz"
+        self.driver.dump_capture(capture, target)
+        import numpy as np
+
+        data = np.load(target)
+        self.assertIn("k_prefill_L0", data)
+        self.assertIn("v_prefill_L0", data)
+        self.assertIn("q_step1_L0", data)
+        self.assertIn("out_step1_L0", data)
+        for key in ("scale", "num_heads", "num_kv_heads", "head_dim", "prompt_len"):
+            self.assertIn(key, data, f"oracle 合同要求元数据 {key}")
+        self.assertEqual(tuple(data["k_prefill_L0"].shape), (2, 3, 4))  # [kv_heads, prompt_len, head_dim]
+
+    def test_find_fa_layers_fails_loudly_without_flash_impl(self) -> None:
+        llm = SimpleNamespace(
+            llm_engine=SimpleNamespace(
+                model_executor=SimpleNamespace(
+                    driver_worker=SimpleNamespace(
+                        model_runner=SimpleNamespace(
+                            model=SimpleNamespace(layers=[SimpleNamespace(self_attn=SimpleNamespace(impl=object()))])
+                        )
+                    )
+                )
+            )
+        )
+        with self.assertRaises(RuntimeError):
+            self.driver.find_fa_layers(llm)
+
+
+class WatchdogTest(unittest.TestCase):
+    """期限必须**真的能中断**：到期先落盘证据再退出（用子进程真实验证，不在本进程里自杀）。"""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_watchdog_saves_evidence_and_exits_nonzero(self) -> None:
+        script = Path(self.dir, "watchdog_case.py")
+        script.write_text(
+            "import sys, time\n"
+            f"sys.path.insert(0, {str(REPO / 'tools')!r})\n"
+            "from pathlib import Path\n"
+            "import importlib.util\n"
+            "spec = importlib.util.spec_from_file_location('drv', " + repr(str(REPO / "tools/p2-calib-run.py")) + ")\n"
+            "m = importlib.util.module_from_spec(spec); sys.modules['drv'] = m; spec.loader.exec_module(m)\n"
+            "with m.Watchdog(1.0, 'request', Path(sys.argv[1])):\n"
+            "    time.sleep(30)\n"
+            "print('不该走到这里')\n"
+        )
+        started = __import__("time").time()
+        proc = __import__("subprocess").run(
+            [sys.executable, str(script), self.dir.as_posix()], capture_output=True, text=True, timeout=30
+        )
+        elapsed = __import__("time").time() - started
+        self.assertEqual(proc.returncode, 3, f"到期应以 3 退出（实际 {proc.returncode}）")
+        self.assertLess(elapsed, 15, "看门狗必须在预算后很快生效（不能等阻塞返回）")
+        evidence = self.dir / "budget_exceeded.request.json"
+        self.assertTrue(evidence.exists(), "到期必须先落盘证据")
+        payload = json.loads(evidence.read_text())
+        self.assertEqual(payload["label"], "request")
+        self.assertIn("elapsed_s", payload)
 
 
 if __name__ == "__main__":
