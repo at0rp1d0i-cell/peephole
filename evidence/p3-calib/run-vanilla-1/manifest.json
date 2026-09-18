@@ -1,0 +1,79 @@
+{
+  "arm": "vanilla",
+  "head": "eceb695dedb4cb665d4603340736f8970d20f748",
+  "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+  "model_snapshot": "/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "prompt_sha256": "8f393f0eb1d597daa98e0536b6158eef9b0fe9250849abeebee3c1b89a4fd27c",
+  "prompt_len": 1505,
+  "payload": {
+    "protocol": "v1.0",
+    "prompt_len": 1505,
+    "segment_spans": [
+      [
+        362,
+        431
+      ]
+    ],
+    "local_window_span": [
+      440,
+      1505
+    ],
+    "sink_span": [
+      0,
+      16
+    ],
+    "enforce_global": false
+  },
+  "extra_args": null,
+  "startup_s": 94.77551245689392,
+  "startup_budget_s": 900,
+  "geometry_rpc": {
+    "kernel_block_size": 784,
+    "num_kv_groups": 4,
+    "fa_group_index": 3,
+    "blocks_per_kv_block": 1,
+    "max_model_len": 8192,
+    "group_block_sizes": [
+      8192,
+      8192,
+      8192,
+      784
+    ],
+    "flash_attn_version": 2
+  },
+  "sampling": {
+    "max_tokens": 8,
+    "temperature": 0.0,
+    "seed": 20260918
+  },
+  "result": {
+    "elapsed_s": 0.7352502346038818,
+    "token_ids": [
+      27,
+      9461,
+      29,
+      7081,
+      799,
+      10642,
+      11540,
+      557
+    ],
+    "finish_reason": "length",
+    "text_sha256": "1820f0eab5e2a4d75bb6610fa0d34f3b4d7370bcd6fc3c22c1dbb8eafb5bc922",
+    "steps_captured": 0
+  },
+  "cleanup": {},
+  "llm_kwargs": {
+    "model": "/root/autodl-tmp/attnview/models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "dtype": "bfloat16",
+    "tensor_parallel_size": "1",
+    "enforce_eager": "True",
+    "max_model_len": "8192",
+    "max_num_seqs": "1",
+    "enable_prefix_caching": "False",
+    "gpu_memory_utilization": "0.85",
+    "disable_log_stats": "True",
+    "attention_config": "AttentionConfig(backend=None, minimax_m3_msa_decode_backend='triton', backend_per_kind={}, flash_attn_version=2, flash_attn_max_num_splits_for_cuda_graph=32, tq_max_kv_splits_for_cuda_graph=32, use_trtllm_attention=None, disable_flashinfer_q_quantization=False, mla_prefill_backend=None, use_prefill_query_quantization=False, use_fp4_indexer_cache=None, indexer_kv_dtype='auto', use_non_causal=False, sparse_mla_force_mqa=False, flex_attn_block_m=None, flex_attn_block_n=None, flex_attn_q_block_size=None, flex_attn_kv_block_size=None)"
+  }
+}

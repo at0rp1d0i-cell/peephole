@@ -213,6 +213,38 @@ def main() -> int:
     check("global 步后输入张量仍未变",
           all(before[k] == fingerprint(t) for k, t in zip(before, group_tables)), None)
 
+    # --- 运行期 H2D/同步实测（calibration #2 要求；插桩计数不能替代本项）-------------
+    import warnings
+
+    from torch.profiler import ProfilerActivity, profile
+
+    trace_path = args.out.with_suffix(".chrome.json")
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            torch.cuda.set_sync_debug_mode("warn")  # 任何隐式同步都会以告警形式出现
+            try:
+                mod.fa_override_for_step(runner, sched, batch, group_tables)
+            finally:
+                torch.cuda.set_sync_debug_mode("default")
+    prof.export_chrome_trace(str(trace_path))
+    memcpy = {"HtoD": {"count": 0, "bytes": 0}, "DtoH": {"count": 0, "bytes": 0}}
+    streams: set[int] = set()
+    for event in prof.events():
+        name = str(getattr(event, "name", ""))
+        if "Memcpy HtoD" in name or "Memcpy DtoH" in name:
+            kind = "HtoD" if "HtoD" in name else "DtoH"
+            memcpy[kind]["count"] += 1
+            size = int(getattr(event, "bytes", 0) or 0)
+            memcpy[kind]["bytes"] += size
+            stream = getattr(event, "stream", None)
+            if stream is not None:
+                streams.add(int(stream))
+    sync_warnings = [str(w.message) for w in caught if "synchron" in str(w.message).lower()]
+    check("运行期未触发隐式同步告警（torch sync_debug warn）", not sync_warnings, sync_warnings[:3])
+    check("运行期确有 H2D 但无 DtoH（候选只把索引送上去）",
+          memcpy["HtoD"]["count"] > 0 and memcpy["DtoH"]["count"] == 0, memcpy)
+
     metering = mod.metering_snapshot()
     report = {
         "device": torch.cuda.get_device_name(0),
@@ -220,13 +252,22 @@ def main() -> int:
         "stream_before": stream_before,
         "stream_after": mod._stream_fingerprint(),
         "metering": metering,
+        "runtime": {
+            "memcpy": memcpy,
+            "profiler_stream_ids": sorted(streams),
+            "sync_warnings": sync_warnings,
+            "chrome_trace": str(trace_path),
+            "note": "运行期实测：profiler CUDA activity + torch sync debug；"
+                    "探针自身的 .to('cpu')/item() 诊断读取与候选调用分开计。",
+        },
         "checks": checks,
         "failed": [c["name"] for c in checks if not c["ok"]],
         "notes": [
             "本探针只调用 metadata 覆写入口，不加载模型、不做性能结论。",
-            "metering 是**代码插桩计数**（本模块显式发起的拷贝/索引/填充/标量赋值），"
-            "不代表运行时同步次数或耗时；真实同步与时间须由 GPU 观测。",
-            "探针内出现的 .to('cpu')/item() 只用于把结果写进报告，属诊断读取，不代表稳态实现有 H2D 回读。",
+            "metering 是**代码插桩计数**；运行期同步/H2D 证据在 `runtime` 段"
+            "（profiler CUDA activity + sync-debug 告警 + 原始 chrome trace），两者口径不同、不可互相替代。",
+            "探针内出现的 .to('cpu')/item() 只用于把结果写进报告，属诊断读取；"
+            "chrome trace 里它们与候选调用可分开辨认。",
         ],
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

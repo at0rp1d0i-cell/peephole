@@ -1,0 +1,36 @@
+{
+  "kind": "metadata_gate_postcommit",
+  "head": "eceb695dedb4cb665d4603340736f8970d20f748",
+  "committed_clean": " 无已跟踪改动",
+  "source_hashes": {
+    "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py": "b0788962a4318775",
+    "vllm-patch/manifest.json": "ce917d199f4e79ee",
+    "tools/p2-calib-metadata-probe.py": "ad7b66429a8585fd",
+    "src/attnview/step_plan.py": "d32ac1724d785394"
+  },
+  "probe_exit_code": 0,
+  "failed_checks": [],
+  "checks": 14,
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "capability": [
+    12,
+    0
+  ],
+  "stream": {
+    "cuda": true,
+    "device": 0,
+    "stream_id": 0,
+    "capturing": false
+  },
+  "metering": {
+    "h2d_calls": 2,
+    "h2d_bytes": 80,
+    "device_copy_calls": 6,
+    "device_index_select_calls": 2,
+    "device_fill_calls": 2,
+    "scalar_assignments": 4,
+    "host_reads_of_cpu_staging": 4
+  },
+  "cst": "2026-09-18 13:51:43 +0800",
+  "note": "本探针即 calibration 单步骤②的门禁；未加载模型。此前两次探针（含夹具/载荷错误）保留为未冻结诊断。"
+}

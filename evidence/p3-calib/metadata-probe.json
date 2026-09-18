@@ -1,0 +1,158 @@
+{
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "capability": [
+    12,
+    0
+  ],
+  "stream_before": {
+    "cuda": true,
+    "device": 0,
+    "stream_id": 0,
+    "capturing": false
+  },
+  "stream_after": {
+    "cuda": true,
+    "device": 0,
+    "stream_id": 0,
+    "capturing": false
+  },
+  "metering": {
+    "h2d_calls": 2,
+    "h2d_bytes": 80,
+    "device_copy_calls": 6,
+    "device_index_select_calls": 2,
+    "device_fill_calls": 2,
+    "scalar_assignments": 4,
+    "host_reads_of_cpu_staging": 4
+  },
+  "checks": [
+    {
+      "name": "几何取自 runner 实际对象",
+      "ok": true,
+      "detail": {
+        "kernel_block_size": 784,
+        "blocks_per_kv_block": 1
+      }
+    },
+    {
+      "name": "返回覆写对象",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "索引：可见逻辑块→物理块",
+      "ok": true,
+      "detail": {
+        "got": [
+          41,
+          28,
+          55,
+          88,
+          102
+        ],
+        "expected": [
+          41,
+          28,
+          55,
+          88,
+          102
+        ]
+      }
+    },
+    {
+      "name": "当前尾块确实进入可见集合（含最后一块）",
+      "ok": true,
+      "detail": {
+        "visible": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    },
+    {
+      "name": "当前尾块之后的填充复用尾块（绝不放 -1）",
+      "ok": true,
+      "detail": {
+        "fill": [
+          102
+        ]
+      }
+    },
+    {
+      "name": "长度：seqused_k 与计划一致",
+      "ok": true,
+      "detail": {
+        "got": 3137,
+        "plan": 3137
+      }
+    },
+    {
+      "name": "max_seq_len=覆写后 CPU 向量最大值（单请求 ⇒ 等于 seqused_k）",
+      "ok": true,
+      "detail": 3137
+    },
+    {
+      "name": "覆写缓冲覆盖 FA 行",
+      "ok": true,
+      "detail": [
+        0
+      ]
+    },
+    {
+      "name": "canonical/非 FA 输入未被就地改写（data_ptr/_version 不变）",
+      "ok": true,
+      "detail": {
+        "group0_table": true,
+        "group1_table": true,
+        "group2_table": true,
+        "group3_table": true
+      }
+    },
+    {
+      "name": "调用方 seq_lens 未被就地改写",
+      "ok": true,
+      "detail": {
+        "shape": [
+          1
+        ],
+        "dtype": "torch.int32",
+        "data_ptr": 140002807775232,
+        "version": 0
+      }
+    },
+    {
+      "name": "覆写缓冲与输入张量不是同一对象",
+      "ok": true,
+      "detail": {
+        "override_ptr": 140002807777792,
+        "input_ptr": 140002807777280
+      }
+    },
+    {
+      "name": "二次调用沿用同一缓冲（地址/形状稳定）",
+      "ok": true,
+      "detail": {
+        "ptr": 140002807777792
+      }
+    },
+    {
+      "name": "无计划的一步返回 None（调用方走 canonical/global）",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "global 步后输入张量仍未变",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "failed": [],
+  "notes": [
+    "本探针只调用 metadata 覆写入口，不加载模型、不做性能结论。",
+    "metering 是**代码插桩计数**（本模块显式发起的拷贝/索引/填充/标量赋值），不代表运行时同步次数或耗时；真实同步与时间须由 GPU 观测。",
+    "探针内出现的 .to('cpu')/item() 只用于把结果写进报告，属诊断读取，不代表稳态实现有 H2D 回读。"
+  ]
+}
