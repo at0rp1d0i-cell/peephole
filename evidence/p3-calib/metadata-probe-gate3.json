@@ -1,0 +1,206 @@
+{
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "capability": [
+    12,
+    0
+  ],
+  "stream_before": {
+    "cuda": true,
+    "device": 0,
+    "stream_id": 0,
+    "capturing": false
+  },
+  "stream_after": {
+    "cuda": true,
+    "device": 0,
+    "stream_id": 0,
+    "capturing": false
+  },
+  "metering": {
+    "h2d_calls": 3,
+    "h2d_bytes": 120,
+    "device_copy_calls": 12,
+    "device_index_select_calls": 3,
+    "device_fill_calls": 3,
+    "scalar_assignments": 6,
+    "host_reads_of_cpu_staging": 6
+  },
+  "runtime": {
+    "memcpy": {
+      "HtoD": {
+        "count": 2,
+        "bytes": 0
+      },
+      "DtoH": {
+        "count": 0,
+        "bytes": 0
+      }
+    },
+    "profiler_stream_ids": [],
+    "stream_synchronize_events": [
+      {
+        "name": "cudaDeviceSynchronize",
+        "stream": null,
+        "correlation": -1
+      }
+    ],
+    "sync_warnings": [
+      "Synchronization debug mode is a prototype feature and does not yet detect all synchronizing operations (Triggered internally at /__w/pytorch/pytorch/torch/csrc/cuda/Module.cpp:1028.)"
+    ],
+    "chrome_trace": "evidence/p3-calib/metadata-probe-gate3.chrome.json",
+    "note": "运行期实测：profiler CUDA activity（按 args.bytes/args.stream 解析）+ torch sync-debug；stream_synchronize_events 用 External id ↔ correlation 对齐到触发它的 H2D，用于定位同步来源；探针自身的 .to('cpu')/item() 属诊断读取，与候选调用分开。"
+  },
+  "checks": [
+    {
+      "name": "几何取自 runner 实际对象",
+      "ok": true,
+      "detail": {
+        "kernel_block_size": 784,
+        "blocks_per_kv_block": 1
+      }
+    },
+    {
+      "name": "返回覆写对象",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "索引：可见逻辑块→物理块",
+      "ok": true,
+      "detail": {
+        "got": [
+          41,
+          28,
+          55,
+          88,
+          102
+        ],
+        "expected": [
+          41,
+          28,
+          55,
+          88,
+          102
+        ]
+      }
+    },
+    {
+      "name": "当前尾块确实进入可见集合（含最后一块）",
+      "ok": true,
+      "detail": {
+        "visible": [
+          0,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    },
+    {
+      "name": "当前尾块之后的填充复用尾块（绝不放 -1）",
+      "ok": true,
+      "detail": {
+        "fill": [
+          102
+        ]
+      }
+    },
+    {
+      "name": "长度：seqused_k 与计划一致",
+      "ok": true,
+      "detail": {
+        "got": 3137,
+        "plan": 3137
+      }
+    },
+    {
+      "name": "max_seq_len=覆写后 CPU 向量最大值（单请求 ⇒ 等于 seqused_k）",
+      "ok": true,
+      "detail": 3137
+    },
+    {
+      "name": "覆写缓冲覆盖 FA 行",
+      "ok": true,
+      "detail": [
+        0
+      ]
+    },
+    {
+      "name": "canonical/非 FA 输入未被就地改写（data_ptr/_version 不变）",
+      "ok": true,
+      "detail": {
+        "group0_table": true,
+        "group1_table": true,
+        "group2_table": true,
+        "group3_table": true
+      }
+    },
+    {
+      "name": "调用方 seq_lens 未被就地改写",
+      "ok": true,
+      "detail": {
+        "shape": [
+          1
+        ],
+        "dtype": "torch.int32",
+        "data_ptr": 140298590093312,
+        "version": 0
+      }
+    },
+    {
+      "name": "覆写缓冲与输入张量不是同一对象",
+      "ok": true,
+      "detail": {
+        "override_ptr": 140298590095872,
+        "input_ptr": 140298590095360
+      }
+    },
+    {
+      "name": "二次调用沿用同一缓冲（地址/形状稳定）",
+      "ok": true,
+      "detail": {
+        "ptr": 140298590095872
+      }
+    },
+    {
+      "name": "无计划的一步返回 None（调用方走 canonical/global）",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "global 步后输入张量仍未变",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "运行期未触发隐式同步告警（torch sync_debug warn）",
+      "ok": false,
+      "detail": [
+        "Synchronization debug mode is a prototype feature and does not yet detect all synchronizing operations (Triggered internally at /__w/pytorch/pytorch/torch/csrc/cuda/Module.cpp:1028.)"
+      ]
+    },
+    {
+      "name": "运行期确有 H2D 但无 DtoH（候选只把索引送上去）",
+      "ok": true,
+      "detail": {
+        "HtoD": {
+          "count": 2,
+          "bytes": 0
+        },
+        "DtoH": {
+          "count": 0,
+          "bytes": 0
+        }
+      }
+    }
+  ],
+  "failed": [
+    "运行期未触发隐式同步告警（torch sync_debug warn）"
+  ],
+  "notes": [
+    "本探针只调用 metadata 覆写入口，不加载模型、不做性能结论。",
+    "metering 是**代码插桩计数**；运行期同步/H2D 证据在 `runtime` 段（profiler CUDA activity + sync-debug 告警 + 原始 chrome trace），两者口径不同、不可互相替代。",
+    "探针内出现的 .to('cpu')/item() 只用于把结果写进报告，属诊断读取；chrome trace 里它们与候选调用可分开辨认。"
+  ]
+}

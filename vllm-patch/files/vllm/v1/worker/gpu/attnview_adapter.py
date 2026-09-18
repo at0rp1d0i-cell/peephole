@@ -520,6 +520,18 @@ def _buffers_for(runner: Any, width: int, rows: int, device: torch.device) -> di
     return buffers
 
 
+def _staging(runner: Any, *, length: int, dtype: torch.dtype) -> torch.Tensor:
+    """请求级**pinned** CPU 暂存（异步 H2D 的前提）：小 H2D 若不是从 pinned 源发出，
+    会在 stream 上触发同步（实测：40B/4B 的 H2D 后紧跟 cudaStreamSynchronize）。"""
+    key = f"_attnview_staging_{length}_{str(dtype)}"
+    cached = getattr(runner, key, None)
+    if cached is not None:
+        return cached
+    tensor = torch.empty(length, dtype=dtype, pin_memory=torch.cuda.is_available())
+    setattr(runner, key, tensor)
+    return tensor
+
+
 def _geometry_for(runner: Any) -> Geometry:
     cached = getattr(runner, "_attnview_geometry", None)
     if cached is not None:
@@ -643,9 +655,11 @@ def fa_override_for_step(
             raise RuntimeError(
                 f"attnview: {req_id} 可见块 {last_visible} 超出该请求已分配块数 {allocated}"
             )
-        indices = torch.tensor(
-            list(plan.visible_logical_blocks), dtype=torch.long, device=device
-        )
+        # 索引走 pinned 暂存 + 异步 H2D：避免小 H2D 在 stream 上触发同步
+        visible = list(plan.visible_logical_blocks)
+        host_index = _staging(runner, length=geometry.max_width, dtype=torch.long)[: len(visible)]
+        host_index.copy_(torch.tensor(visible, dtype=torch.long))
+        indices = host_index.to(device=device, non_blocking=True)
         _METERING["h2d_calls"] += 1
         _METERING["h2d_bytes"] += int(indices.numel() * indices.element_size())
         gathered = group_table[row, : geometry.max_width].index_select(0, indices)
@@ -657,9 +671,12 @@ def fa_override_for_step(
             gathered = torch.cat([gathered, gathered[-1:].expand(geometry.max_width - n)], dim=0)
             _METERING["device_fill_calls"] += 1
         buffers["block_table"][row].copy_(gathered, non_blocking=True)
-        buffers["seq_lens"][row] = plan.seqused_k
+        # 标量也用 pinned 暂存 + 异步拷贝：直接 `= int` 会触发同步的小 H2D
+        host_scalar = _staging(runner, length=1, dtype=torch.int32)
+        host_scalar[0] = plan.seqused_k
+        buffers["seq_lens"][row : row + 1].copy_(host_scalar, non_blocking=True)
         buffers["seq_lens_cpu"][row] = plan.seqused_k
-        _METERING["device_copy_calls"] += 1
+        _METERING["device_copy_calls"] += 2
         _METERING["scalar_assignments"] += 2
         row_plans[row] = plan
         overridden.append(row)
