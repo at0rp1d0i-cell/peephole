@@ -381,12 +381,29 @@ class FakeRunner:
     """
 
     def __init__(self, *, is_prefilling: bool | None = None, req_ids=("r-main",),
-                 auto_first_prefill: bool = True) -> None:
+                 auto_first_prefill: bool = True, logical_positions=None,
+                 with_buffers: bool = True) -> None:
         self.is_prefilling = is_prefilling
         self.req_ids = list(req_ids)
         self.auto_first_prefill = auto_first_prefill
         self.prepare_calls = 0
         self.execute_model_state = None
+        #: 本次真实的一维逻辑位置缓冲（pin `input_batch.py:29` `InputBuffers.positions`）
+        self.logical_positions = list(logical_positions) if logical_positions is not None else None
+        self.num_tokens = None
+        self.input_buffers = (
+            SimpleNamespace(positions=None if logical_positions is None
+                            else torch.tensor(list(logical_positions), dtype=torch.int64))
+            if with_buffers else None
+        )
+
+    def next_step(self, logical_positions):
+        """模拟 runner 的每步准备：写入本步一维逻辑位置缓冲（真实缓冲）后再 `prepare_inputs`。"""
+        self.logical_positions = [int(v) for v in logical_positions]
+        self.num_tokens = len(self.logical_positions)
+        self.input_buffers = SimpleNamespace(
+            positions=torch.tensor(self.logical_positions, dtype=torch.int64))
+        return self.prepare_inputs()
 
     def prepare_inputs(self, *_args, **_kwargs):
         self.prepare_calls += 1
@@ -394,7 +411,13 @@ class FakeRunner:
             prefill = bool(self.is_prefilling)
         else:
             prefill = bool(self.auto_first_prefill and self.prepare_calls == 1)
-        return SimpleNamespace(req_ids=list(self.req_ids), is_prefilling_np=np.asarray([prefill], dtype=bool))
+        num_tokens = int(self.num_tokens or 0) or len(self.logical_positions or ())
+        self.last_batch = SimpleNamespace(
+            req_ids=list(self.req_ids),
+            is_prefilling_np=np.asarray([prefill], dtype=bool),
+            num_tokens=num_tokens,
+        )
+        return self.last_batch
 
 
 class LayerCaptureTest(unittest.TestCase):
@@ -418,13 +441,14 @@ class LayerCaptureTest(unittest.TestCase):
 
         调用方在每步 forward 前调一次 `runner.prepare_inputs()`（与真实 runner 的顺序一致）。
         """
+        runner = runner or FakeRunner()
         capture = self.driver.LayerCapture(
+            runner=runner,
             expected_layers={index: f"language_model.model.layers.{index}.self_attn.attn"
                              for index in range(len(impls))}
         )
         for index, impl in enumerate(impls):
             capture.wrap_impl(index, impl)
-        runner = runner or FakeRunner()
         capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture" if stream else self.dir / "unused", prompt_len=prompt_len)
@@ -434,9 +458,9 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl(), FakeFlashAttentionImpl(scale=0.25)]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
-        runner.prepare_inputs()
+        runner.next_step([3])
         model.forward(positions=torch.tensor([3], dtype=torch.int64))
         capture.disarm()
         model.forward(positions=torch.tensor([99], dtype=torch.int64))  # 窗口外（disarmed）
@@ -457,10 +481,10 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl(), FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         for position in (3, 4, 5):
-            runner.prepare_inputs()
+            runner.next_step([position])
             model.forward(positions=torch.tensor([position], dtype=torch.int64))
         capture.disarm()
         target = self.dir / "layers.npz"
@@ -500,11 +524,11 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         first = self.dir / "capture" / "forward1.npz"
         self.assertTrue(first.exists(), "每步结束必须立刻落盘（异常也留有可审证据）")
-        runner.prepare_inputs()
+        runner.next_step([3])
         model.forward(positions=torch.tensor([3], dtype=torch.int64))
         self.assertTrue((self.dir / "capture" / "forward2.npz").exists())
         import numpy as np
@@ -539,69 +563,164 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
-        with self.assertRaises(RuntimeError):
-            model.forward(positions=torch.tensor([5, 6, 7], dtype=torch.int64))  # prefill 起点 != 0
+        runner.next_step([5, 6, 7])  # 一维逻辑位置缓冲起点 != 0（真实来源不合格）
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("不是 0", str(ctx.exception))
 
-    def test_batch_2d_positions_take_target_row_slice(self) -> None:
-        """真实入口反例回归：`model_inputs["positions"]` 是 (max_num_reqs, max_num_tokens)=(3, 1505)
+    def test_mrope_axes_are_recorded_but_logical_positions_come_from_real_buffer(self) -> None:
+        """真实反例回归：`model inputs.positions` 是 **mRoPE 三轴**（本机 original 实测 (3, 1505)），
 
-        单活跃请求必须取**第 0 行的 q_len 列切片**（第 1/2 行是 padding/陈旧值），并按 prompt 长度核验；
-        decode 步的位置也来自同一行的切片。
+        而 KV/oracle 用的 **canonical 逻辑位置**必须取自 runner 真实的一维逻辑位置缓冲
+        （pin `input_batch.py:29` `InputBuffers.positions`，由 `prepare_pos_seq_lens` 写入）。
+
+        本用例故意让"三轴"与"一维逻辑位置"**不相等**（三轴首轴 = 逻辑位置 + 100）：
+        导出必须是逻辑位置，三轴只作记录；用 range(q_len) 或任一轴冒充逻辑位置会被起点/连续性检查拒绝。
         """
         prompt_len = 1505
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=prompt_len)
-        capture = self.driver.LayerCapture(
-            expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
         runner = FakeRunner()
+        capture = self.driver.LayerCapture(
+            runner=runner, expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
         capture.wrap_impl(0, impls[0])
         capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture", prompt_len=prompt_len)
 
-        rows = torch.zeros(3, prompt_len, dtype=torch.int64)  # 第 1/2 行留 0（padding/陈旧）
-        rows[0] = torch.arange(prompt_len, dtype=torch.int64)
-        runner.prepare_inputs()
-        model.forward(positions=rows)
-        decode_rows = torch.zeros(3, prompt_len, dtype=torch.int64)
-        decode_rows[0, 0] = prompt_len
-        model.q_len_override = 1  # decode 步只调度 1 个 token（真实路径：本步 q_len=1）
-        runner.prepare_inputs()
-        model.forward(positions=decode_rows)
-        model.q_len_override = None
-        capture.disarm()
+        logical = list(range(prompt_len))
+        axes = torch.zeros(3, prompt_len, dtype=torch.int64)
+        axes[0] = torch.arange(prompt_len, dtype=torch.int64) + 100  # 三轴与逻辑位置不同
+        axes[1] = torch.arange(prompt_len, dtype=torch.int64) + 7
+        runner.next_step(logical)
+        model.q_len_override = prompt_len
+        model.forward(positions=axes)
 
-        self.assertEqual(capture.positions[1]["positions_source_shape"], [3, prompt_len],
-                         "必须记录真实来源形状（2-D 批张量）")
-        self.assertEqual(len(capture.positions[1]["positions"]), prompt_len)
-        self.assertEqual(capture.positions[1]["positions"][:3], [0, 1, 2], "取第 0 行而非 padding 行")
-        self.assertEqual(capture.positions[2]["positions"], [prompt_len], "decode 位置同样取第 0 行切片")
-        self.assertEqual(capture.decode_steps(), [1])
+        step = capture.positions[1]
+        self.assertEqual(step["positions"], logical, "导出必须是 canonical 逻辑位置（真实一维缓冲）")
+        self.assertEqual(step["positions_source"],
+                         "runner.input_buffers.positions[:num_tokens]（真实一维逻辑位置缓冲）")
+        self.assertEqual(step["mrope_axes_shape"], [3, prompt_len], "mRoPE 三轴形状只作记录")
+        self.assertIsNotNone(step["mrope_axes_head"])
+        self.assertNotEqual(step["positions"][0], int(axes[0][0]),
+                            "三轴不得冒充逻辑位置（本例三轴 = 逻辑位置 + 100）")
 
-    def test_batch_2d_positions_narrow_row_or_3d_is_rejected(self) -> None:
-        """2-D 但行宽不足本步 q_len、或维数既非 1 也非 2 ⇒ 明确报错，不得推断。"""
+        # 反例：一维缓冲换成"三轴首轴"的值 ⇒ 起点/连续性检查必须拒绝
+        capture2 = self.driver.LayerCapture(
+            runner=runner, expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
+        capture2.wrap_impl(0, impls[0])
+        capture2.wrap_runner_inputs(runner)
+        capture2.wrap_model(model)
+        capture2.arm("r-main", self.dir / "capture2", prompt_len=prompt_len)
+        runner.next_step([v + 100 for v in range(prompt_len)])  # 冒充来源：三轴首轴
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=axes)
+        self.assertIn("不是 0", str(ctx.exception))
+
+    def test_logical_positions_require_consistent_real_quantities(self) -> None:
+        """R2 §B：三者必须齐备且一致 —— 本步 `InputBatch.num_tokens` ↔ 逻辑位置缓冲长度 ↔ 捕获 q_len。
+
+        缺失/不一致一律报错（**不回退 q_len、不取 max、不用 range(q_len)／三轴**），错误信息里要写明三个实际值。
+        """
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self.driver.LayerCapture()
+
+        def build(runner, name):
+            capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "L0"})
+            capture.wrap_impl(0, impls[0])
+            capture.wrap_runner_inputs(runner)
+            capture.wrap_model(model)
+            capture.arm("r-main", self.dir / name, prompt_len=3)
+            return capture
+
+        # ① 缓冲存在但长度不足 ⇒ 报错（写明三个值）
+        runner = FakeRunner()
+        build(runner, "capture-short")
+        runner.next_step([0, 1])
+        runner.last_batch.num_tokens = 3  # 真实字段说 3（与 q_len 一致），但缓冲容量只有 2
+        runner.input_buffers.positions = torch.zeros(2, dtype=torch.int64)
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=torch.arange(3, dtype=torch.int64))
+        message = str(ctx.exception)
+        self.assertIn("num_tokens=3", message)
+        self.assertIn("buffer_len=2", message)
+        self.assertIn("q_len=3", message)
+        self.assertIn("不足以覆盖本步 token", message)
+
+        # ② num_tokens 缺失 ⇒ 报错（不得回退 q_len）
+        impls2 = [FakeFlashAttentionImpl()]
+        model2 = FakeModel(impls2, prompt_len=3)
+        runner2 = FakeRunner()
+        capture2 = self.driver.LayerCapture(runner=runner2, expected_layers={0: "L0"})
+        capture2.wrap_impl(0, impls2[0])
+        capture2.wrap_runner_inputs(runner2)
+        capture2.wrap_model(model2)
+        capture2.arm("r-main", self.dir / "capture-no-num-tokens", prompt_len=3)
+        runner2.next_step([0, 1, 2])
+        runner2.last_batch.num_tokens = None  # 真实字段缺失
+        with self.assertRaises(RuntimeError) as ctx2:
+            model2.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("num_tokens 缺失或非正", str(ctx2.exception))
+        self.assertIn("q_len=3", str(ctx2.exception))
+
+        # ③ num_tokens != q_len ⇒ 报错（防回退：取 max(num_tokens,q_len) 或回退 q_len 都不会报错）
+        impls3 = [FakeFlashAttentionImpl()]
+        model3 = FakeModel(impls3, prompt_len=3)
+        runner3 = FakeRunner()
+        capture3 = self.driver.LayerCapture(runner=runner3, expected_layers={0: "L0"})
+        capture3.wrap_impl(0, impls3[0])
+        capture3.wrap_runner_inputs(runner3)
+        capture3.wrap_model(model3)
+        capture3.arm("r-main", self.dir / "capture-mismatch-num-tokens", prompt_len=3)
+        runner3.next_step([0, 1, 2])
+        runner3.last_batch.num_tokens = 2  # 与 q_len=3 不一致（此时缓冲容量 4096 充足）
+        with self.assertRaises(RuntimeError) as ctx3:
+            model3.forward(positions=torch.arange(3, dtype=torch.int64))
+        message3 = str(ctx3.exception)
+        self.assertIn("num_tokens=2", message3)
+        self.assertIn("q_len=3", message3)
+        self.assertIn("拒绝取 max 或回退", message3)
+        self.assertGreater(max(2, 3), 3 - 1, "取 max(2,3)=3 会掩盖不一致 ⇒ 该写法被禁止")
+
+        # ④ 缓冲缺失 ⇒ 报错
+        impls4 = [FakeFlashAttentionImpl()]
+        model4 = FakeModel(impls4, prompt_len=3)
+        runner4 = FakeRunner(with_buffers=False)
+        capture4 = self.driver.LayerCapture(runner=runner4, expected_layers={0: "L0"})
+        capture4.wrap_impl(0, impls4[0])
+        capture4.wrap_runner_inputs(runner4)
+        capture4.wrap_model(model4)
+        capture4.arm("r-main", self.dir / "capture-no-buffer", prompt_len=3)
+        runner4.prepare_inputs()
+        with self.assertRaises(RuntimeError) as ctx4:
+            model4.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("取不到 runner.input_buffers.positions", str(ctx4.exception))
+
+    def test_logical_positions_take_valid_prefix_of_larger_buffer(self) -> None:
+        """容量 > num_tokens 属正常：只取本步**有效前缀**（前 num_tokens 个），尾部残留不得进参考。"""
+        impls = [FakeFlashAttentionImpl()]
+        model = FakeModel(impls, prompt_len=3)
+        runner = FakeRunner()
+        capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "L0"})
         capture.wrap_impl(0, impls[0])
+        capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
-        capture.arm("r-main", self.dir / "capture", prompt_len=3)
-        model.q_len_override = 3
-        with self.assertRaises(RuntimeError) as ctx:
-            model.forward(positions=torch.zeros(3, 2, dtype=torch.int64))  # 行宽 2 < 本步 q_len 3
-        self.assertIn("行宽", str(ctx.exception))
-        model.q_len_override = None
-        with self.assertRaises(RuntimeError) as ctx:
-            model.forward(positions=torch.zeros(1, 3, 3, dtype=torch.int64))  # 3-D
-        self.assertIn("维数", str(ctx.exception))
+        capture.arm("r-main", self.dir / "capture-prefix", prompt_len=3)
+        runner.next_step([0, 1, 2])
+        # 尾部（容量剩余部分）塞入明显异常值：若被误当有效位置会立刻破坏连续/起点检查
+        runner.input_buffers.positions[len(runner.logical_positions):] = 999
+        model.forward(positions=torch.arange(3, dtype=torch.int64))
+        step = capture.positions[1]
+        self.assertEqual(step["positions"], [0, 1, 2], "只取有效前缀")
+        self.assertNotIn(999, step["positions"])
+        self.assertGreaterEqual(int(runner.input_buffers.positions.shape[0]), 3, "容量 ≥ num_tokens 即可")
 
     def test_accounting_requires_canonical_global_view(self) -> None:
         """执行视图必须是 canonical/global：FA metadata 的 seq_lens[0] 必须 == 本步最后位置 + 1。"""
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         capture.disarm()
         ok = self.driver.capture_accounting(capture, [1001], consumption_steps=1)
@@ -619,15 +738,15 @@ class LayerCaptureTest(unittest.TestCase):
     def test_other_request_window_is_not_captured(self) -> None:
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
-        capture = self.driver.LayerCapture(expected_layers={0: "layer0"})
         runner = FakeRunner()
+        capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "layer0"})
         capture.wrap_impl(0, impls[0])
         capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         model.forward(positions=torch.tensor([9], dtype=torch.int64))  # 未 armed：warmup 步
         self.assertEqual(capture.records, {}, "未 armed 的步不得进捕获")
         capture.arm("r-main", self.dir / "capture", prompt_len=3)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         capture.disarm()
         model.forward(positions=torch.tensor([3], dtype=torch.int64))  # cleanup 步
@@ -705,7 +824,7 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))
         del capture.positions[1]
         with self.assertRaises(RuntimeError):
@@ -722,9 +841,9 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         model.forward(positions=torch.arange(3, dtype=torch.int64))  # prefill 消费步 → g0
-        runner.prepare_inputs()
+        runner.next_step([3])
         model.forward(positions=torch.tensor([3], dtype=torch.int64))  # 唯一一次 decode → g1
         capture.disarm()
         tokens = [1001, 1002]
@@ -764,12 +883,12 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=1)  # prompt 只有 1 个 token（合法的单 token prefill）
         runner = FakeRunner(is_prefilling=True)
-        capture = self.driver.LayerCapture(expected_layers={0: "L0"})
+        capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "L0"})
         capture.wrap_impl(0, impls[0])
         capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture", prompt_len=1)
-        runner.prepare_inputs()
+        runner.next_step([0])
         model.forward(positions=torch.tensor([0], dtype=torch.int64))  # q_len == 1
         markers = capture.positions[1]["phase_markers"]
         self.assertEqual(capture.positions[1]["phase"], "prefill")
@@ -783,24 +902,33 @@ class LayerCaptureTest(unittest.TestCase):
     def test_phase_authoritative_evidence_unavailable_is_error(self) -> None:
         """取不到 `is_prefilling_np[目标行]` ⇒ 直接报错，**不得**用 q_len/max_query_len 兜底。"""
         impls = [FakeFlashAttentionImpl()]
-        cases = {
-            "未包裹 runner（无 InputBatch）": FakeRunner(),
-            "批次里没有目标请求": FakeRunner(req_ids=("other-req",)),
-        }
-        for label, runner in cases.items():
-            model = FakeModel(impls, prompt_len=3)
-            capture = self.driver.LayerCapture()
-            capture.wrap_impl(0, impls[0])
-            if label == "未包裹 runner（无 InputBatch）":
-                capture.wrap_model(model)  # 故意不包裹 runner
-            else:
-                capture.wrap_runner_inputs(runner)
-                capture.wrap_model(model)
-                runner.prepare_inputs()
-            capture.arm("r-main", self.dir / "capture-unavailable", prompt_len=3)
-            with self.assertRaises(RuntimeError) as ctx:
-                model.forward(positions=torch.arange(3, dtype=torch.int64))
-            self.assertIn("相位权威证据不可用", str(ctx.exception), label)
+
+        # (i) 未包裹 `prepare_inputs` ⇒ 本步没有 InputBatch：先撞上"三者一致"的严格校验
+        #     （num_tokens 缺失），同样是**明确失败**而不是相位兜底。
+        runner = FakeRunner()
+        runner.next_step([0, 1, 2])
+        model = FakeModel(impls, prompt_len=3)
+        capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "L0"})
+        capture.wrap_impl(0, impls[0])
+        capture.wrap_model(model)  # 故意不 wrap_runner_inputs
+        capture.arm("r-main", self.dir / "capture-no-batch", prompt_len=3)
+        with self.assertRaises(RuntimeError) as ctx:
+            model.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("num_tokens 缺失或非正", str(ctx.exception), "未包裹 prepare_inputs")
+
+        # (ii) 批次里没有目标请求 ⇒ 同样判证据不可用
+        impls2 = [FakeFlashAttentionImpl()]
+        model2 = FakeModel(impls2, prompt_len=3)
+        runner2 = FakeRunner(req_ids=("other-req",))
+        capture2 = self.driver.LayerCapture(runner=runner2, expected_layers={0: "L0"})
+        capture2.wrap_impl(0, impls2[0])
+        capture2.wrap_runner_inputs(runner2)
+        capture2.wrap_model(model2)
+        capture2.arm("r-main", self.dir / "capture-no-row", prompt_len=3)
+        runner2.next_step([0, 1, 2])
+        with self.assertRaises(RuntimeError) as ctx2:
+            model2.forward(positions=torch.arange(3, dtype=torch.int64))
+        self.assertIn("相位权威证据不可用", str(ctx2.exception), "批次里没有目标请求")
 
     def test_phase_evidence_disagreement_and_mixed_counters_are_rejected(self) -> None:
         """证据与真实位置相位不一致 ⇒ 报错；计数器有值且 prefill/decode 并存 ⇒ 报错。"""
@@ -808,28 +936,28 @@ class LayerCaptureTest(unittest.TestCase):
         # (1) 证据说 decode、位置说 prefill
         model = FakeModel(impls, prompt_len=3)
         runner = FakeRunner(is_prefilling=False)
-        capture = self.driver.LayerCapture()
+        capture = self.driver.LayerCapture(runner=runner)
         capture.wrap_impl(0, impls[0])
         capture.wrap_runner_inputs(runner)
         capture.wrap_model(model)
         capture.arm("r-main", self.dir / "capture-mismatch", prompt_len=3)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         with self.assertRaises(RuntimeError) as ctx:
             model.forward(positions=torch.arange(3, dtype=torch.int64))
         self.assertIn("相位判定不一致", str(ctx.exception))
 
-        # (2) 计数器有值且混合 ⇒ 报错（计数器此时是交叉核对证据）
+        # (2) 计数器有值且混合 ⇒ 报错（此时计数器是交叉核对证据）
         marker = SimpleNamespace(num_prefill_reqs=1, num_decode_reqs=1, num_prefill_tokens=3,
                                  num_decode_tokens=1)
         impls2 = [FakeFlashAttentionImpl()]
         model2 = FakeModel(impls2, prompt_len=3, marker=marker)
         runner2 = FakeRunner(is_prefilling=True)
-        capture2 = self.driver.LayerCapture()
+        capture2 = self.driver.LayerCapture(runner=runner2)
         capture2.wrap_impl(0, impls2[0])
         capture2.wrap_runner_inputs(runner2)
         capture2.wrap_model(model2)
         capture2.arm("r-main", self.dir / "capture-mixed", prompt_len=3)
-        runner2.prepare_inputs()
+        runner2.next_step([0, 1, 2])
         with self.assertRaises(RuntimeError) as ctx2:
             model2.forward(positions=torch.arange(3, dtype=torch.int64))
         self.assertIn("混合批", str(ctx2.exception))
@@ -840,7 +968,7 @@ class LayerCaptureTest(unittest.TestCase):
         impls = [FakeFlashAttentionImpl()]
         model = FakeModel(impls, prompt_len=3, marker=marker)
         capture, runner = self._armed(model, impls)
-        runner.prepare_inputs()
+        runner.next_step([0, 1, 2])
         with self.assertRaises(RuntimeError) as ctx:
             model.forward(positions=torch.arange(3, dtype=torch.int64))
         self.assertIn("混合批", str(ctx.exception))
@@ -900,6 +1028,136 @@ class DriverGuardTest(unittest.TestCase):
         self.assertIn("不是从 1 连续", problems)
 
 
+class PinAssignRequestIdTest(unittest.TestCase):
+    """**真实** `InputProcessor.assign_request_id` 调用（不关随机化开关）：
+
+    pin `v1/engine/input_processor.py:262-278` 把外部 id 换成 `f"{external}-{uuid8}"` 的内部 id，
+    并把原值写入 `request.external_req_id`。
+    """
+
+    def setUp(self) -> None:
+        from vllm.v1.engine.input_processor import InputProcessor
+
+        self.assign = InputProcessor.assign_request_id
+
+    def test_assign_request_id_appends_random_suffix(self) -> None:
+        class _Stub:
+            def __init__(self, request_id: str) -> None:
+                self.request_id = request_id
+                self.external_req_id = None
+
+        request = _Stub("calib-main-original-20260918")
+        self.assign(request)
+        self.assertEqual(request.external_req_id, "calib-main-original-20260918",
+                         "原外部 id 存进 external_req_id")
+        self.assertNotEqual(request.request_id, request.external_req_id)
+        suffix = request.request_id[len("calib-main-original-20260918-"):]
+        self.assertEqual(len(suffix), 8, f"pin 追加 8 位随机后缀（实际 {request.request_id!r}）")
+        # 再次调用同一对象必须拒绝（pin 显式校验 external_req_id 不得预置）
+        with self.assertRaises(ValueError):
+            self.assign(request)
+
+    def test_assign_request_id_suffix_is_per_call_random(self) -> None:
+        class _Stub:
+            def __init__(self, request_id: str) -> None:
+                self.request_id = request_id
+                self.external_req_id = None
+
+        first, second = _Stub("ext"), _Stub("ext")
+        self.assign(first)
+        self.assign(second)
+        self.assertNotEqual(first.request_id, second.request_id, "同名外部 id 也得到不同内部 id")
+
+
+class CumulativeOutputRegressionTest(unittest.TestCase):
+    """输出形态回归（R2 §A）：`_merge_step_tokens` **按已知 output_kind 明确分支**，不靠前缀猜。
+
+    pin 默认 `SamplingParams.output_kind=CUMULATIVE`（`sampling_params.py:317`）；四臂显式请求 **DELTA**。
+    """
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_cumulative", REPO / "tools/p2-calib-run.py")
+
+    def test_sampling_params_request_delta_against_pin_default(self) -> None:
+        from vllm.sampling_params import RequestOutputKind
+
+        self.assertEqual(RequestOutputKind.CUMULATIVE.value, 0, "pin 默认值仍是 CUMULATIVE")
+        params = self.driver.sampling_params(8)
+        self.assertEqual(params.output_kind, RequestOutputKind.DELTA, "驱动必须显式请求 DELTA")
+        self.assertEqual(self.driver.output_mode_of(params), "delta", "合并形态由实际请求派生")
+
+    def test_delta_mode_never_loses_tokens(self) -> None:
+        """反例 1：显式 DELTA 下 `seen=[11]` + 行 `[11,12]` ⇒ 必须新增 **2** 个（11、12），不得丢 11。"""
+        seen = [11]
+        fresh = self.driver._merge_step_tokens(seen, [11, 12], mode="delta")
+        self.assertEqual(fresh, [11, 12], "DELTA 整行采纳")
+        self.assertEqual(len(fresh), 2)
+        # 防回退：若按前缀猜（累计）会只取 [12]，丢掉 11
+        guessed_wrong = [11, 12][len(seen):]
+        self.assertNotEqual(fresh, guessed_wrong, "按前缀猜会丢 token ⇒ 不得采用该实现")
+
+    def test_cumulative_equal_length_snapshot_adds_nothing(self) -> None:
+        """反例 2：显式 CUMULATIVE 的等长重复快照 ⇒ 零新增（不得重复追加）。"""
+        seen = [11, 12]
+        self.assertEqual(self.driver._merge_step_tokens(seen, [11, 12], mode="cumulative"), [])
+        self.assertEqual(self.driver._merge_step_tokens(seen, [11, 12, 13], mode="cumulative"), [13])
+
+    def test_cumulative_prefix_mismatch_and_shorter_row_are_errors(self) -> None:
+        """反例 3：累计行前缀不符 ⇒ 报错；行变短 ⇒ 报错。"""
+        with self.assertRaises(RuntimeError) as ctx:
+            self.driver._merge_step_tokens([11, 12], [11, 99, 13], mode="cumulative")
+        self.assertIn("前缀与已见序列不符", str(ctx.exception))
+        with self.assertRaises(RuntimeError) as ctx2:
+            self.driver._merge_step_tokens([11, 12], [11], mode="cumulative")
+        self.assertIn("小于已见", str(ctx2.exception))
+        with self.assertRaises(RuntimeError) as ctx3:
+            self.driver._merge_step_tokens([11], [11], mode="guess")
+        self.assertIn("未知输出形态", str(ctx3.exception))
+
+    def test_drives_with_delta_mode_are_exact(self) -> None:
+        """DELTA 引擎：步内多 token 的行不得被截断为 1 个（反例 1 的端到端形态）。"""
+        engine = CumulativeEngine([100, 101], delta=True, row_width=2)  # 一步内两个 token 的 DELTA 行
+        drove = self.driver.drive_main_request(engine, "ext-1", max_tokens=2, mode="delta")
+        self.assertEqual(drove["tokens"], [100, 101], "DELTA 行 [100,101] 必须整段采纳（不得截成 1 个）")
+        self.assertEqual(drove["consuming_steps"], 1)
+
+    def test_cumulative_engine_requires_explicit_mode(self) -> None:
+        engine = CumulativeEngine([100, 101, 102])
+        drove = self.driver.drive_main_request(engine, "ext-1", max_tokens=3, mode="cumulative")
+        self.assertEqual(drove["tokens"], [100, 101, 102], "显式累计模式下只计一次")
+        self.assertEqual(drove["consuming_steps"], 3)
+
+
+class RunSourceFreezeTest(unittest.TestCase):
+    """运行源冻结（R2）：脚本自身 sha256 + 源码快照落进 run 目录，运行期被改即判失败。"""
+
+    def setUp(self) -> None:
+        self.driver = load_module_by_path("attnview_calib_driver_freeze", REPO / "tools/p2-calib-run.py")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_freeze_copies_script_and_records_hashes(self) -> None:
+        frozen = self.driver.freeze_run_source(self.dir)
+        script = REPO / "tools/p2-calib-run.py"
+        self.assertEqual(frozen["script_sha256"], self.driver.sha256_file(script))
+        snapshot = Path(frozen["source_snapshot"])
+        self.assertTrue(snapshot.exists(), "源码快照必须落在 run 目录里")
+        self.assertEqual(self.driver.sha256_file(snapshot), frozen["script_sha256"])
+        self.assertIsNone(self.driver.assert_run_source_unchanged(frozen), "未改动 ⇒ 无漂移")
+
+    def test_modified_script_is_detected(self) -> None:
+        copy = self.dir / "p2-calib-run-copy.py"
+        copy.write_text((REPO / "tools/p2-calib-run.py").read_text())
+        frozen = {"script_path": str(copy), "script_sha256": self.driver.sha256_file(copy)}
+        copy.write_text(copy.read_text() + "\n# 运行期被改\n")
+        drift = self.driver.assert_run_source_unchanged(frozen)
+        self.assertIsNotNone(drift)
+        self.assertIn("运行期脚本被修改", drift)
+
+
 class PinIdBoundaryTest(unittest.TestCase):
     """pin 的 request id 三层边界（真实调用）：
 
@@ -954,6 +1212,34 @@ class PinIdBoundaryTest(unittest.TestCase):
         path.unlink()
         missing = self.driver.verify_override_trace(path, req_id="r", expect_override_records=True)
         self.assertTrue(missing["problems"], "「必须有 override」在无记录时必然失败 ⇒ 不能用于本阶段三臂")
+
+
+class CumulativeEngine:
+    """每轮返回**累计** token 列表的假引擎（pin 默认 `output_kind=CUMULATIVE` 的返回形态）。
+
+    `delta=True` 时改为返回增量（用于确认两种形态都被正确处理）。
+    """
+
+    def __init__(self, tokens: list[int], *, delta: bool = False, request_id: str = "ext-1",
+                 row_width: int = 1) -> None:
+        self.tokens = list(tokens)
+        self.delta = delta
+        self.request_id = request_id
+        self.row_width = int(row_width)
+        self.emitted = 0
+        self.rows_for_guard: list[list[list[int]]] = []
+
+    def step(self):
+        if self.emitted >= len(self.tokens):
+            return []
+        if self.delta:
+            row = self.tokens[self.emitted: self.emitted + self.row_width]
+            self.emitted += len(row)
+        else:
+            self.emitted += 1
+            row = self.tokens[: self.emitted]
+        self.rows_for_guard.append([list(row)])
+        return [FakeRequestOutput(self.request_id, row, finished=self.emitted >= len(self.tokens))]
 
 
 class FakeRequestOutput:

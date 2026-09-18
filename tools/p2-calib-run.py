@@ -56,6 +56,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -452,8 +453,11 @@ class LayerCapture:
         self._step_open = False  # 只有 `_begin_step` 与 `_end_step` 之间才记录（防止跨步/嵌套误写）
         self._step_positions = None
         self._step_positions_shape: list[int] = []
+        self._step_mrope_axes = None
         self._step_metadata = None
         self._step_view: dict = {"observable": False}
+        #: 逻辑位置来源（供审计）：本步取到的一维缓冲说明
+        self.logical_positions_source: str | None = None
         #: 本步 InputBatch（`prepare_inputs` 包裹得到）与逐步相位证据快照
         self.current_input_batch = None
         self.batch_phase: dict[int, dict] = {}
@@ -539,19 +543,60 @@ class LayerCapture:
                 f"{self.armed_req_id!r}（批内多请求/绑定错配）—— 拒绝继续"
             )
         self.batch_phase[self.request_step] = self._batch_phase_evidence()
+        # 模型位置输入**原样保留**（真实入口实测为 (3, max_num_tokens) 的 mRoPE 三轴张量）：
+        # 只作记录，不改模型位置、不假设三轴恒相等。
+        self._step_positions_shape = [int(d) for d in getattr(positions, "shape", ())]
         if dim == 2:
-            # 真实入口实测：`model_inputs["positions"]` 是 `(max_num_reqs, max_num_tokens)` 批张量
-            # （本机 original 实测 (3, 1505)）。单活跃请求取第 0 行，列切片在 `_end_step` 按 q_len 做。
-            rows, width = int(positions.shape[0]), int(positions.shape[1])
-            if rows < 1 or width < 1:
-                raise RuntimeError(f"校准: 本步 positions 批张量形状 {tuple(positions.shape)} 不可用")
-            self._step_positions = positions[0]
-            self._step_positions_shape = [rows, width]
+            if any(d < 1 for d in self._step_positions_shape):
+                raise RuntimeError(f"校准: 本步 positions 张量形状 {tuple(positions.shape)} 不可用")
+            self._step_mrope_axes = positions
         else:
-            self._step_positions = positions
-            self._step_positions_shape = [1, int(positions.shape[0])]
+            self._step_mrope_axes = None
+        # 供 KV/oracle 用的 **canonical 逻辑位置**另有来源：runner 本次真实的一维逻辑位置缓冲
+        # （pin `input_batch.py:29` `InputBuffers.positions`，由 `prepare_pos_seq_lens` 每步写入）。
         self.records.setdefault(self.request_step, {})
         self._step_open = True
+
+    def _logical_positions_from_runner(self, q_len: int) -> tuple[list[int], str]:
+        """取本步**一维逻辑位置**（真实缓冲，按实际 token 数截取）。
+
+        - 来源：`runner.input_buffers.positions[:num_tokens]`（pin `input_batch.py:29`，
+          由 `prepare_pos_seq_lens`（`input_batch.py:367-385`）每步写入的真实逻辑位置）；
+        - `num_tokens` 取本步 `InputBatch.num_tokens`（`prepare_inputs` 包裹所得）；
+        - **不得**用 `range(q_len)`，**不得**由 mRoPE 三轴推导：两者都取不到即报错。
+        """
+        runner = self.runner
+        buffers = getattr(runner, "input_buffers", None)
+        buffer = getattr(buffers, "positions", None)
+        batch = self.current_input_batch
+        raw_num_tokens = getattr(batch, "num_tokens", None) if batch is not None else None
+        buffer_len = int(buffer.shape[0]) if buffer is not None and hasattr(buffer, "shape") else None
+        # 三者必须齐备且一致：本步 InputBatch.num_tokens（真实字段）↔ 逻辑位置缓冲长度 ↔ 捕获 q_len。
+        # 任何缺失/不一致都直接报错：**不回退 q_len、不取 max、不用 range(q_len)、不由三轴推导**。
+        if buffer is None:
+            raise RuntimeError(
+                f"校准: 取不到 runner.input_buffers.positions（一维逻辑位置缓冲）"
+                f"（num_tokens={raw_num_tokens} buffer_len={buffer_len} q_len={q_len}）—— 拒绝用 "
+                "range(q_len) 或 mRoPE 三轴推导冒充逻辑位置"
+            )
+        if raw_num_tokens is None or int(raw_num_tokens) <= 0:
+            raise RuntimeError(
+                f"校准: 本步 InputBatch.num_tokens 缺失或非正（num_tokens={raw_num_tokens} "
+                f"buffer_len={buffer_len} q_len={q_len}）—— 不得用 q_len 回退"
+            )
+        num_tokens = int(raw_num_tokens)
+        if num_tokens != q_len:
+            raise RuntimeError(
+                f"校准: 本步 token 数不一致（num_tokens={num_tokens} buffer_len={buffer_len} "
+                f"q_len={q_len}）—— 拒绝取 max 或回退，请核查位置来源"
+            )
+        if buffer_len is None or buffer_len < num_tokens:
+            raise RuntimeError(
+                f"校准: 逻辑位置缓冲不足以覆盖本步 token（num_tokens={num_tokens} "
+                f"buffer_len={buffer_len} q_len={q_len}）"
+            )
+        values = [int(v) for v in buffer[:num_tokens].detach().to("cpu").tolist()]
+        return values, "runner.input_buffers.positions[:num_tokens]（真实一维逻辑位置缓冲）"
 
     def wrap_runner_inputs(self, runner: object) -> None:
         """包裹 runner 里构造**本步** `InputBatch` 的方法（pin `worker/gpu/model_runner.py:1159`
@@ -682,7 +727,6 @@ class LayerCapture:
         self._step_open = False
         step = self.request_step
         layers = self.records.get(step) or {}
-        positions_tensor = self._step_positions
         self._step_positions = None
         if not layers:
             raise RuntimeError(f"校准: 目标请求第 {step} 步没有任何全注意力层被观测到（无法给出参考）")
@@ -690,15 +734,11 @@ class LayerCapture:
         if len(q_lens) != 1:
             raise RuntimeError(f"校准: 目标请求第 {step} 步各层 q_len 不一致：{sorted(q_lens)}")
         q_len = q_lens.pop()
-        raw_len = int(positions_tensor.shape[0])
-        if raw_len < q_len:
-            raise RuntimeError(
-                f"校准: 第 {step} 步 positions 行宽只有 {raw_len} 个，少于本步 q_len={q_len}"
-                f"（来源形状 {self._step_positions_shape}，拒绝推断）"
-            )
+        positions, logical_source = self._logical_positions_from_runner(q_len)
+        self.logical_positions_source = logical_source
+        raw_len = len(positions)
         view = self._step_view_evidence(self._step_metadata)
         self._step_metadata = None
-        positions = [int(v) for v in positions_tensor[:q_len].detach().to("cpu").tolist()]
         if positions != list(range(positions[0], positions[0] + q_len)):
             raise RuntimeError(
                 f"校准: 第 {step} 步 positions 前若干项 {positions[:8]} 不是本步 token 的真实绝对位置"
@@ -776,8 +816,13 @@ class LayerCapture:
             "positions": positions,
             "q_len": q_len,
             "positions_raw_len": raw_len,
-            "positions_source_shape": self._step_positions_shape,
-            "tail_columns_ignored": raw_len - q_len,
+            "positions_source": logical_source,
+            "mrope_axes_shape": self._step_positions_shape if self._step_mrope_axes is not None else None,
+            "mrope_axes_head": (
+                [int(v) for v in self._step_mrope_axes[:, :2].detach().to("cpu").reshape(-1).tolist()]
+                if self._step_mrope_axes is not None else None
+            ),
+            "tail_columns_ignored": 0,
             "phase": phase,
             "phase_source": phase_source,
             "phase_markers": marker,
@@ -1198,7 +1243,65 @@ def submit_request(engine, external_id: str, prompt_ids: list[int], params) -> d
     }
 
 
-def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=None) -> dict:
+def sampling_params(max_tokens: int, *, extra_args: dict | None = None):
+    """统一的采样参数：**显式 DELTA** 输出。
+
+    pin 默认 `output_kind=RequestOutputKind.CUMULATIVE`（`sampling_params.py:317`）⇒ 每轮返回的是
+    **累计** token 列表，整段 `extend` 会重复前缀（本地复核反例：3 个 token 被算成 6）。
+    四臂一律用本函数构造参数；累积侧另有 `_merge_step_tokens` 兜底，两种形态都只计一次。
+    """
+    from vllm import SamplingParams
+
+    try:
+        from vllm.sampling_params import RequestOutputKind
+    except Exception:  # 兼容不同导出位置
+        from vllm import RequestOutputKind  # type: ignore[attr-defined]
+
+    return SamplingParams(
+        max_tokens=int(max_tokens),
+        temperature=0.0,
+        seed=SEED,
+        extra_args=extra_args,
+        output_kind=RequestOutputKind.DELTA,
+    )
+
+
+def output_mode_of(params) -> str:
+    """从**实际请求的** `SamplingParams.output_kind` 读出输出形态（`delta` / `cumulative`）。
+
+    pin 默认 `CUMULATIVE`（`sampling_params.py:317`）；四臂一律显式请求 `DELTA`（见 `sampling_params`），
+    合并逻辑按这里读出的形态**明确分支**，不靠前缀猜。
+    """
+    kind = str(getattr(getattr(params, "output_kind", None), "name", "DELTA")).upper()
+    return "cumulative" if kind.startswith("CUMUL") else "delta"
+
+
+def _merge_step_tokens(seen: list[int], row_token_ids, *, mode: str) -> list[int]:
+    """把一轮输出行并入 `seen`，返回**新增 token**（按已知 `output_kind` 明确分支）。
+
+    - `mode="delta"`：直接采纳整行（`seen=[11]` + 行 `[11,12]` ⇒ 新增 2 个，**不得**按前缀猜成 1 个）；
+    - `mode="cumulative"`（显式声明）：前缀必须与 `seen` 相符（否则报错）、等长 ⇒ **零新增**
+      （终止时的重复快照）、变短 ⇒ 报错（来源异常）；
+    - 其它值 ⇒ 报错（形态必须显式给出）。
+    """
+    incoming = [int(t) for t in row_token_ids]
+    if mode == "delta":
+        return incoming
+    if mode != "cumulative":
+        raise RuntimeError(f"校准: 未知输出形态 {mode!r}（只支持 delta / cumulative，且必须显式给出）")
+    if len(incoming) < len(seen):
+        raise RuntimeError(
+            f"校准: 累计输出行长度 {len(incoming)} 小于已见 {len(seen)}——来源异常，拒绝继续"
+        )
+    if incoming[: len(seen)] != seen:
+        raise RuntimeError(
+            f"校准: 累计输出行的前缀与已见序列不符（seen[:8]={seen[:8]} incoming[:8]={incoming[:8]}）"
+        )
+    return incoming[len(seen):]
+
+
+def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=None,
+                       mode: str = "delta") -> dict:
     """用 `engine.step()` 循环驱动**单个**主请求到结束（步数上界显式，超界即报错不继续）。
 
     返回值：
@@ -1206,7 +1309,8 @@ def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=No
     - `tokens`：宿主侧实际看到的目标请求 token 序列；
     - `consuming_steps`：**宿主侧消费计数** —— `engine.step()` 每轮返回里目标请求**新增 token ≥ 1**
       的轮数（四臂通用口径：original 臂没有强制钩子，不能用 `force_step` 代替）；
-    - `steps`：本次驱动的 forward 轮数。
+    - `steps`：本次驱动的 forward 轮数；
+    - `output_mode`：本轮的输出形态（来自实际请求的 `output_kind`，合并逻辑据此明确分支）。
     """
     step_budget = int(max_tokens) + 16
     tokens: list[int] = []
@@ -1230,8 +1334,9 @@ def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=No
                 other_outputs.append(rid)
                 continue
             for row in getattr(out, "outputs", ()) or ():
-                produced += len(row.token_ids)
-                tokens.extend(int(t) for t in row.token_ids)
+                fresh = _merge_step_tokens(tokens, row.token_ids, mode=mode)
+                produced += len(fresh)
+                tokens.extend(fresh)
             finished = bool(getattr(out, "finished", False))
         if produced:
             consuming_steps += 1
@@ -1241,10 +1346,12 @@ def drive_main_request(engine, req_id: str, *, max_tokens: int, on_first_step=No
         "consuming_steps": consuming_steps,
         "finished": finished,
         "other_request_outputs": other_outputs,
+        "output_mode": mode,
     }
 
 
-def drive_until_token(engine, req_id: str, *, budget_steps: int, min_steps: int = 1) -> dict:
+def drive_until_token(engine, req_id: str, *, budget_steps: int, min_steps: int = 1,
+                      mode: str = "delta") -> dict:
     """驱动到出现 token（且至少走 `min_steps` 步，用于覆盖 prefill 之后的 decode 步）。"""
     tokens: list[int] = []
     steps = 0
@@ -1255,11 +1362,12 @@ def drive_until_token(engine, req_id: str, *, budget_steps: int, min_steps: int 
             if str(getattr(out, "request_id", "")) != str(req_id):
                 continue
             for row in getattr(out, "outputs", ()) or ():
-                tokens.extend(int(t) for t in row.token_ids)
+                tokens.extend(_merge_step_tokens(tokens, row.token_ids, mode=mode))
     return {"tokens": tokens, "steps": steps}
 
 
-def drive_until_finished(engine, req_id: str, *, budget_steps: int, on_step=None) -> dict:
+def drive_until_finished(engine, req_id: str, *, budget_steps: int, on_step=None,
+                         mode: str = "delta") -> dict:
     """驱动到该请求自然结束；每步后可回调（用于在请求仍 active 时探针其协议状态）。"""
     tokens: list[int] = []
     steps = 0
@@ -1271,7 +1379,7 @@ def drive_until_finished(engine, req_id: str, *, budget_steps: int, on_step=None
             if str(getattr(out, "request_id", "")) != str(req_id):
                 continue
             for row in getattr(out, "outputs", ()) or ():
-                tokens.extend(int(t) for t in row.token_ids)
+                tokens.extend(_merge_step_tokens(tokens, row.token_ids, mode=mode))
             finished = bool(getattr(out, "finished", False))
         if on_step is not None:
             on_step(steps)
@@ -1305,8 +1413,6 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
     patched 臂的 cleanup 请求**显式带载荷且 `enforce_global=True`**（不夹带 masked）；original 臂无补丁，
     请求不带载荷，协议状态不可观察时以 scheduler/未完成计数/worker req_ids 作为替代证据并明确标注。
     """
-    from vllm import SamplingParams
-
     engine = getattr(llm, "llm_engine", None)
     log = CheckLog()
     result: dict = {
@@ -1325,7 +1431,9 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
     result["extra_args"] = extra_args
 
     def params(max_tokens: int):
-        return SamplingParams(max_tokens=max_tokens, temperature=0.0, seed=SEED, extra_args=extra_args)
+        return sampling_params(max_tokens, extra_args=extra_args)
+
+    output_mode = "delta"  # 四臂显式请求 DELTA；合并逻辑按实际形态分支（见 output_mode_of）
 
     prompt_ids = [int(t) for t in prompt_ids]
     stamp = int(time.time())
@@ -1353,7 +1461,7 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
             # 1) 真实带载荷请求 A：驱动到**确实 forward 并产出 token**
             #    （宿主输出按 external id 归属；scheduler/协议状态按 internal id 查询）
             submit("cancel", params(8))
-            drove = drive_until_token(engine, ids["cancel"], budget_steps=8)
+            drove = drive_until_token(engine, ids["cancel"], budget_steps=8, mode=output_mode)
             result["observations"]["cancel_req"] = drove
             log.check(
                 "cancel_req_produced_token",
@@ -1436,7 +1544,8 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
                 }
 
             submit("new", params(2))
-            drove_b = drive_until_finished(engine, ids["new"], budget_steps=4, on_step=probe_b)
+            drove_b = drive_until_finished(engine, ids["new"], budget_steps=4, on_step=probe_b,
+                                       mode=output_mode)
             result["observations"]["new_req"] = drove_b
             result["observations"]["new_req_probes"] = probes_b
             log.check(
@@ -1497,7 +1606,7 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
 
             # 5) 正常结束路径：同样用带载荷请求，结束后再接一个新请求
             submit("normal", params(4))
-            drove_c = drive_until_finished(engine, ids["normal"], budget_steps=6)
+            drove_c = drive_until_finished(engine, ids["normal"], budget_steps=6, mode=output_mode)
             result["observations"]["normal_req"] = drove_c
             log.check(
                 "normal_req_produced_token_and_finished",
@@ -1510,7 +1619,7 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
                 f"正常结束后 scheduler.requests 含 C：{_scheduler_has(engine, internal('normal'))}",
             )
             submit("follow", params(2))
-            drove_d = drive_until_finished(engine, ids["follow"], budget_steps=4)
+            drove_d = drive_until_finished(engine, ids["follow"], budget_steps=4, mode=output_mode)
             result["observations"]["follow_req"] = drove_d
             log.check(
                 "follow_req_produced_token",
@@ -1567,7 +1676,8 @@ def capture_accounting(capture: LayerCapture, tokens: list[int], *, consumption_
             str(step): {
                 "positions": capture.positions[step]["positions"][:4],
                 "q_len": capture.positions[step]["q_len"],
-                "positions_source_shape": capture.positions[step]["positions_source_shape"],
+                "positions_source": capture.positions[step]["positions_source"],
+                "mrope_axes_shape": capture.positions[step]["mrope_axes_shape"],
                 "phase": capture.positions[step]["phase"],
                 "phase_source": capture.positions[step]["phase_source"],
                 "phase_markers": capture.positions[step]["phase_markers"],
@@ -1859,7 +1969,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         raise RuntimeError("校准: original 臂没有强制钩子（补丁未部署）—— 轨迹由它产生，不由它回放")
     trajectory_tokens = trajectory_token_sequence(trajectory) if trajectory is not None else []
 
-    from vllm import LLM, SamplingParams
+    from vllm import LLM
 
     llm_kwargs = dict(
         model=str(SNAPSHOT),
@@ -1909,7 +2019,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
 
     run_stamp = datetime.now(timezone(timedelta(hours=8))).strftime("%Y%m%d-%H%M%S")
     external_main_id = f"calib-main-{args.arm}-{run_stamp}"
-    params = SamplingParams(max_tokens=args.max_tokens, temperature=0.0, seed=SEED, extra_args=extra_args)
+    params = sampling_params(args.max_tokens, extra_args=extra_args)
 
     # ④ 直接提交阶段 03 的最终 token_ids（不重新 tokenize）；用返回的**内部 id** 做绑定与查询。
     #    控制文件必须在**首次 step() 之前**写入（首个消费步就要绑定到正确 id）。
@@ -1958,7 +2068,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         with Watchdog(REQUEST_BUDGET_S, "request", out, manifest_path) as req_watch:
             # ⑤ engine.step() 驱动到完成（看门狗 + 步数上界）；宿主侧输出按**外部 id** 归属
             drove = drive_main_request(engine, external_main_id, max_tokens=args.max_tokens,
-                                       on_first_step=on_first_step)
+                                       on_first_step=on_first_step, mode=output_mode_of(params))
         request_s = req_watch.elapsed
         if request_s > REQUEST_BUDGET_S:  # 双保险
             raise BudgetExceeded(f"主请求耗时 {request_s:.1f}s 超过预算 {REQUEST_BUDGET_S}s")
@@ -2011,11 +2121,9 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
             "capture_positions_slice_consistent",
             all(meta["positions"] == list(range(meta["positions"][0], meta["positions"][0] + meta["q_len"]))
                 for meta in capture.positions.values())
-            and all(meta["positions_source_shape"] and meta["positions_source_shape"][-1] >= meta["q_len"]
-                    for meta in capture.positions.values()),
-            "参照切片必须连续且来自真实来源；2-D 批张量的行是**容量**（max_num_tokens），"
-            "行尾多余列不进参考："
-            f"{ {s: {'shape': m['positions_source_shape'], 'q_len': m['q_len'], 'tail_cols': m['tail_columns_ignored']} for s, m in sorted(capture.positions.items())} }",
+            and all(meta["q_len"] == len(meta["positions"]) for meta in capture.positions.values()),
+            "逻辑位置必须连续且来自真实一维缓冲；mRoPE 三轴只作记录："
+            f"{ {s: {'source': m['positions_source'], 'mrope_axes_shape': m['mrope_axes_shape'], 'q_len': m['q_len']} for s, m in sorted(capture.positions.items())} }",
         )
         manifest["capture"] = capture.summary()
 
@@ -2203,6 +2311,42 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     return 1 if log.failed else 0
 
 
+def freeze_run_source(out: Path) -> dict:
+    """运行源冻结证据：脚本自身 sha256 + 源码快照（复制到本次 run 目录）。
+
+    流程约束（R2）：**先提交再运行**；起时落指纹、运行期不覆写脚本；结束后才修，并**新目录**起新 run。
+    这里在起时把当前脚本复制到 `<out>/source/` 并记录双方 sha256，供事后核对"跑的到底是哪份代码"。
+    """
+    out = Path(out)
+    script = Path(__file__).resolve()
+    digest = sha256_file(script)
+    snapshot_dir = out / "source"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = snapshot_dir / script.name
+    shutil.copyfile(script, snapshot)
+    snapshot_digest = sha256_file(snapshot)
+    if snapshot_digest != digest:
+        raise RuntimeError(f"校准: 源码快照与运行脚本不一致（{snapshot_digest} != {digest}）")
+    return {
+        "script_path": str(script),
+        "script_sha256": digest,
+        "source_snapshot": str(snapshot),
+        "source_snapshot_sha256": snapshot_digest,
+        "note": "运行期不得覆写本脚本；结束后如需修改，请用新输出目录起新 run",
+    }
+
+
+def assert_run_source_unchanged(snapshot: dict) -> str | None:
+    """结束前复核脚本未被覆写；不一致返回差异说明（写进 manifest 并由调用方判失败）。"""
+    script = Path(snapshot.get("script_path", ""))
+    if not script.exists():
+        return f"运行脚本 {script} 已不存在"
+    digest = sha256_file(script)
+    if digest != snapshot.get("script_sha256"):
+        return f"运行期脚本被修改：{digest} != {snapshot.get('script_sha256')}（本 run 结论不可信）"
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     out = args.out
@@ -2221,10 +2365,12 @@ def main(argv: list[str] | None = None) -> int:
     prompt_ids = [int(t) for t in prompt.token_ids]
     extra_args = {"attnview": payload} if args.arm == "patched-global" else None
 
+    frozen = freeze_run_source(out)
     manifest: dict = {
         "schema": SCHEMA,
         "arm": args.arm,
         "started_cst": now_cst(),
+        "source": frozen,
         "head": _git("rev-parse", "HEAD"),
         "git_status_porcelain": _git("status", "--porcelain").splitlines(),
         "pin_commit": _git("rev-parse", "HEAD", cwd=REPO / "vllm"),
@@ -2266,6 +2412,13 @@ def main(argv: list[str] | None = None) -> int:
         (out / "error.txt").write_text(traceback.format_exc())
         exit_code = 1
     finally:
+        drift = assert_run_source_unchanged(manifest.get("source") or {})
+        manifest.setdefault("source", {})["unchanged_at_end"] = drift is None
+        if drift:
+            manifest.setdefault("failures", []).append("script_modified_during_run")
+            manifest.setdefault("errors", []).append(drift)
+            if int(exit_code) == 0:
+                exit_code = 1  # 运行期脚本被改 ⇒ 本 run 结论不可信，不得以 0 退出
         manifest["ended_cst"] = now_cst()
         manifest["exit_code"] = int(exit_code)
         save_manifest(manifest_path, manifest)
