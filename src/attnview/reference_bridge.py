@@ -126,8 +126,14 @@ def perform_reference_attention_native(
     attn_metadata: Any,
     output: torch.Tensor,
     head_size: int,
+    key: torch.Tensor | None = None,
+    value: torch.Tensor | None = None,
 ) -> dict[str, Any]:
-    """真实签名下的参考执行:解包原生 KV → 独立 mask → gather → FP32 → cast → 原地写 output。"""
+    """真实签名下的参考执行:解包原生 KV → 独立 mask → gather → FP32 → cast → 原地写 output。
+
+    `key`/`value` 是真实 forward 传入的**本步** K/V(写入前的形状);dense 参考读取的是
+    canonical KV 缓存(含本步已写入位置),因此这两个参数只做存在性记录,不参与计算。
+    """
     geo = resolve_geometry(bridge=bridge, attn_metadata=attn_metadata, request_idx=request_idx,
                            step_index_0based=step_index_0based)
     mask = bridge.mask_at(step_index_0based)
@@ -156,4 +162,5 @@ def perform_reference_attention_native(
         "fp32_to_output_rms": float(torch.sqrt((diff ** 2).mean())),
         "fp32_to_output_rel_l2": (float(torch.linalg.vector_norm(diff)) / ref_l2) if ref_l2 > 0 else None,
         "ref_abs_max": float(fp32.abs().max()), "non_finite_count": non_finite, "wrote_in_place": True,
+        "got_key_arg": key is not None, "got_value_arg": value is not None,
     }
