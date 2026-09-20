@@ -6,22 +6,19 @@
 from __future__ import annotations
 
 import re
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
+from _lib import MODEL_REVISION, sha256_file
+from _support import REPO
 from attnview import prompts  # noqa: E402
 from attnview.parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL, TagParser  # noqa: E402
-from attnview.prompt import render_arm, sha256_file  # noqa: E402
+from attnview.prompt import render_arm  # noqa: E402
 from attnview.segmenter import Segment, build_offsets_index, join_segments, segment_context  # noqa: E402
 
-REPO = Path(__file__).resolve().parent.parent
 TOKENIZER_DIR = (
     REPO
     / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots"
-    / "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    / MODEL_REVISION
 )
 QUESTION = "Which two magic chunks hold the founding year and the budget?"
 SCRIPT = (
@@ -88,7 +85,7 @@ class PromptTemplateTest(unittest.TestCase):
 
     def test_segment_spans_cover_segment_text(self) -> None:
         da = self.render("da")
-        for seg, span in zip(self.segments, da.segment_spans):
+        for seg, span in zip(self.segments, da.segment_spans, strict=True):
             decoded = self.tokenizer.decode(da.token_ids[span[0] : span[1]])
             self.assertIn(seg.text.strip(), decoded)
         self.assertEqual(len(da.segment_spans), 3)
@@ -236,4 +233,6 @@ class PromptTemplateTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

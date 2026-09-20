@@ -5,13 +5,9 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from attnview.parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL  # noqa: E402
+from attnview.parser import MODE_GLOBAL, MODE_LOCAL  # noqa: E402
 from attnview.state import ProtocolRegistry  # noqa: E402
 
 
@@ -150,10 +146,6 @@ class StateIsolationTest(unittest.TestCase):
 
     def test_stop_token_is_sampled_but_not_forwarded(self) -> None:
         """末 token 触发停止：它被采样，但没有 forward 消费它 → 轨迹里不出现那一行。"""
-        import sys as _sys
-        from pathlib import Path as _Path
-
-        _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent / "src"))
         from attnview.readview import TokenLayout
         from attnview.trace import build_step_trace, independence_summary
 
@@ -199,4 +191,6 @@ class StateIsolationTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

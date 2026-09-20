@@ -14,9 +14,11 @@ import sys
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from _lib import venv_vllm_root
+from _support import REPO
+
 PIN_PKG = REPO / "vllm" / "vllm"
-INSTALL_PKG = REPO / "venvs/attnview/lib/python3.12/site-packages/vllm"
+INSTALL_PKG = venv_vllm_root(REPO)
 PATCH_ROOT = REPO / "vllm-patch"
 
 
@@ -128,7 +130,7 @@ class PatchShapeTest(unittest.TestCase):
         node = find_func(parse(self.p["v1/worker/gpu/attn_utils.py"]), "build_attn_metadata")
         self.assertIn("da_fa_override", func_arg_names(node))
         # 默认值为 None：不传即原行为
-        defaults = dict(zip([a.arg for a in node.args.args[-len(node.args.defaults):]], node.args.defaults))
+        defaults = dict(zip([a.arg for a in node.args.args[-len(node.args.defaults):]], node.args.defaults, strict=True))
         self.assertIn("da_fa_override", defaults)
         self.assertIsInstance(defaults["da_fa_override"], ast.Constant)
         self.assertIsNone(defaults["da_fa_override"].value)
@@ -286,4 +288,6 @@ class DeployScriptSafetyTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

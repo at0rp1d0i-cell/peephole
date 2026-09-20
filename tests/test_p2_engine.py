@@ -12,18 +12,14 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src"))
-
+from _support import REPO, load_module
 from attnview.readview import ReadViewError  # noqa: E402
 from attnview.step_plan import AttnViewConfigError, UnsupportedConfig  # noqa: E402
 
@@ -51,13 +47,7 @@ TOKEN_TEXT = {1: "<local>", 2: "x", 3: "a", 4: "\xe4\xb8", 5: "\xad"}
 
 def load_module_by_path(name: str, path: Path):
     """按路径加载模块（避免依赖安装副本是否已部署补丁）。"""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_module(name, path)
 
 
 def make_real_request(req_id: str = "r1", *, num_prompt_tokens: int = 8):
@@ -115,12 +105,7 @@ class PreemptHost:
 
 
 def load_engine_module():
-    spec = importlib.util.spec_from_file_location("attnview_engine_under_test", ENGINE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    # `@dataclass` 需要模块已在 sys.modules 里（否则 dataclasses 取 cls.__module__ 会失败）
-    sys.modules["attnview_engine_under_test"] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_module("attnview_engine_under_test", ENGINE_PATH)
 
 
 def payload(**over):
@@ -357,11 +342,51 @@ class PrefillAndPlanTimingTest(EngineTestBase):
         engine.register_new_requests(scheduler_output([new_req("p1", None)]))
         self.assertIsNone(engine.attach_plans(scheduler_output(scheduled={"p1": 1})))
 
-    def test_progress_semantics_are_anchored_to_pin_source(self) -> None:
-        """假 scheduler 的推进语义必须与 pin 一致：schedule() 返回前已 +num_scheduled。"""
-        source = (REPO / "vllm/vllm/v1/core/sched/scheduler.py").read_text()
-        self.assertIn("self._update_after_schedule(scheduler_output)", source)
-        self.assertIn("request.num_computed_tokens += num_scheduled_token", source)
+    def test_progress_semantics_match_pin_behaviour(self) -> None:
+        """假 scheduler 的推进语义必须与 pin 一致：调用**真实** `_update_after_schedule` 观察。
+
+        这里原先是 `assertIn("request.num_computed_tokens += num_scheduled_token", 上游源码)`
+        ——上游改个变量名就红，且并不能证明假件与此等价（见 `tests/test_pin_anchors.py`：
+        上游字节由哈希锚定，语义由本用例直接执行验证）。
+        """
+        from types import SimpleNamespace
+
+        from vllm.v1.core.sched.scheduler import Scheduler
+
+        class FakeRequest:
+            """可哈希的假请求：非 prefill 时上游会把它从 `_inflight_prefills` 里 `discard`。"""
+
+            num_computed_tokens = PROMPT_LEN
+            num_in_flight_tokens = 0
+            num_tokens = PROMPT_LEN
+            num_output_placeholders = 0
+            use_structured_output = False
+            is_prefill_chunk = True
+
+        request = FakeRequest()
+        host = SimpleNamespace(
+            requests={"r1": request},
+            defer_block_free=False,
+            _inflight_prefills=set(),
+            enable_return_routed_experts=False,
+            finished_req_ids={"stale"},
+            reset_preempted_req_ids=set(),
+        )
+        output = SimpleNamespace(
+            num_scheduled_tokens={"r1": 1}, has_structured_output_requests=False
+        )
+        Scheduler._update_after_schedule(host, output)
+        self.assertEqual(
+            request.num_computed_tokens,
+            PROMPT_LEN + 1,
+            "schedule() 返回前已按本次调度 token 数推进 num_computed_tokens",
+        )
+        self.assertFalse(request.is_prefill_chunk, "推进到 prompt 之后不再是 prefill chunk")
+        self.assertEqual(
+            host.finished_req_ids,
+            set(),
+            "schedule() 返回前清空上一步终结集合：on_step_outputs 读的是上一步的快照",
+        )
 
 
 class LifecycleTest(EngineTestBase):
@@ -694,12 +719,9 @@ class AbortDuringStepTest(EngineTestBase):
         self.assertEqual(list(engine.registry.active_ids()), [])
         self.assertEqual(engine.unsupported[0]["kind"], "preempted")
 
-    def test_abort_signals_are_anchored_to_pin_source(self) -> None:
-        source = (REPO / "vllm/vllm/v1/core/sched/scheduler.py").read_text()
-        self.assertIn("self.finished_req_ids = set()", source, "schedule 返回前会清空上一步终结集合")
-        self.assertIn("del self.requests[request.request_id]", source, "账本移除 = 请求已消失")
-        self.assertIn("if request is None or request.is_finished():", source,
-                      "被取消请求在 update_from_output 被跳过、不产 finish 项")
+    # 取消/抢占语义所依赖的**上游事实**（账本移除、上一步终结集合的清空、跳过已终结请求）
+    # 不在这里用源码文本断言：上游字节由 `tests/test_pin_anchors.py` 用哈希锚定，
+    # 行为由 `AbortDuringStepTest` / `LifecycleTest` 的用例直接验证。
 
 
 class TokenizerWiringTest(EngineTestBase):
@@ -769,4 +791,6 @@ class TraceTest(EngineTestBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

@@ -24,13 +24,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+from _lib import venv_vllm_root
+from _support import REPO
+
 TOOL = REPO / "tools/p2-apply-patch.py"
 MANIFEST = REPO / "vllm-patch/manifest.json"
 
 SRC_REL = Path("vllm/vllm")
-INSTALL_REL = Path("venvs/attnview/lib/python3.12/site-packages/vllm")
-PACKAGE_REL = Path("venvs/attnview/lib/python3.12/site-packages/attnview")
+#: 部署目标的**相对**路径：本用例在临时隔离树里部署，所以不能直接拿绝对 venv 路径。
+INSTALL_REL = venv_vllm_root(REPO).relative_to(REPO)
+PACKAGE_REL = INSTALL_REL.parent / "attnview"
 
 
 def sha256(path: Path) -> str:
@@ -44,6 +47,9 @@ INJECTED_RUNNER = """
 import os, runpy, shutil, sys
 
 tool, root, mode, index, message = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5]
+# 忠实模拟 `python tools/p2-apply-patch.py`：真实脚本调用会把脚本所在目录放进 sys.path[0]，
+# 工具因此能 `import _lib`（工具层共享模块）；-c 启动的包装脚本必须自己补上这一步。
+sys.path.insert(0, os.path.dirname(os.path.abspath(tool)))
 real_copy2 = shutil.copy2
 state = {"deploy_copies": 0}
 
@@ -455,4 +461,6 @@ class DeployScenarioTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

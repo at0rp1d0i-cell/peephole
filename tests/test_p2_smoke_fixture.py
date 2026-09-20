@@ -6,15 +6,12 @@
 """
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "src"))
+from _support import REPO, load_module
 
 DOC = REPO / "evidence/p1-cpu/demo-fixtures.json"
 EXPECT = REPO / "evidence/p3-calib/masked-prep/crossblock-note.json"
@@ -23,11 +20,7 @@ TRAJ = REPO / "evidence/p3-masked-smoke/traj-7834-generated.json"
 
 
 def load_runner():
-    spec = importlib.util.spec_from_file_location("p2_calib_run", REPO / "tools/p2-calib-run.py")
-    mod = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(mod)
-    return mod
+    return load_module("p2_calib_run", REPO / "tools/p2-calib-run.py")
 
 
 class SmokeFixtureBuilderTest(unittest.TestCase):
@@ -67,4 +60,6 @@ class SmokeFixtureBuilderTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

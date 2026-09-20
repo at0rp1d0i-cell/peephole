@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
 import math
 import subprocess
@@ -30,7 +29,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-REPO = Path(__file__).resolve().parent.parent
+from _support import REPO, load_module
+
 ORACLE_PATH = REPO / "tools" / "p2-calib-oracle.py"
 
 FORBIDDEN_TOKENS = ("readview", "gpukv", "step_plan", "visible")
@@ -38,10 +38,7 @@ FORBIDDEN_IMPORT_ROOTS = ("attnview", "vllm")
 
 
 def load_oracle():
-    spec = importlib.util.spec_from_file_location("p2_calib_oracle_under_test", ORACLE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_module("p2_calib_oracle_under_test", ORACLE_PATH)
 
 
 ORACLE = load_oracle()
@@ -138,11 +135,11 @@ def run_cli(capture: Path, out: Path, points: Path | None = None) -> subprocess.
 
 def hand_computed_dense(query: list[float], keys: list[list[float]], values: list[list[float]], scale: float) -> list[float]:
     """纯 Python（`math`）手算单头单 query 的 dense softmax 加权和；不依赖 torch。"""
-    logits = [scale * sum(qi * ki for qi, ki in zip(query, key)) for key in keys]
+    logits = [scale * sum(qi * ki for qi, ki in zip(query, key, strict=True)) for key in keys]
     shifted = [math.exp(value - max(logits)) for value in logits]
     total = sum(shifted)
     weights = [value / total for value in shifted]
-    return [sum(w * value[d] for w, value in zip(weights, values)) for d in range(len(query))]
+    return [sum(w * value[d] for w, value in zip(weights, values, strict=True)) for d in range(len(query))]
 
 
 def explicit_expansion_dense(q, k, v, positions, scale: float, *, kv_head_of) -> torch.Tensor:
@@ -171,7 +168,7 @@ def bf16_round(tensor: torch.Tensor) -> torch.Tensor:
 
 class AnalyticSingleHeadTest(unittest.TestCase):
     def test_single_head_matches_hand_computed_dense_softmax(self) -> None:
-        prompt_len, head_dim, position = 4, 2, 2
+        _, head_dim, position = 4, 2, 2
         scale = 1.0 / math.sqrt(head_dim)
         query = [1.0, 0.5]
         keys = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.5, -0.5]]
@@ -180,7 +177,7 @@ class AnalyticSingleHeadTest(unittest.TestCase):
         expected = hand_computed_dense(query, keys[: position + 1], values[: position + 1], scale)
         all_keys = hand_computed_dense(query, keys, values, scale)
         # 因果上界确实起作用：把第 4 个 key 也算进去会明显改变结果。
-        self.assertGreater(max(abs(a - b) for a, b in zip(expected, all_keys)), 1e-3)
+        self.assertGreater(max(abs(a - b) for a, b in zip(expected, all_keys, strict=True)), 1e-3)
 
         ref = ORACLE.dense_reference(
             q=torch.tensor([[query]], dtype=torch.float32),
@@ -192,7 +189,7 @@ class AnalyticSingleHeadTest(unittest.TestCase):
             num_kv_heads=1,
         )
         self.assertEqual(tuple(ref.shape), (1, 1, head_dim))
-        for got, want in zip(ref[0, 0].tolist(), expected):
+        for got, want in zip(ref[0, 0].tolist(), expected, strict=True):
             self.assertAlmostEqual(got, want, delta=1e-5)
 
 
@@ -558,8 +555,8 @@ class DecodeStepReferenceTest(unittest.TestCase):
     def expected(self, upto: int) -> list[list[float]]:
         """手算 step=upto 的每 head 期望输出：keys = prefill + current1..upto（head 0/1→kv0、2/3→kv1）。"""
         repeat = self.NUM_HEADS // self.NUM_KV_HEADS
-        keys = [[row for row in self.PREFILL_K[kvh]] for kvh in range(self.NUM_KV_HEADS)]
-        values = [[row for row in self.PREFILL_V[kvh]] for kvh in range(self.NUM_KV_HEADS)]
+        keys = [list(self.PREFILL_K[kvh]) for kvh in range(self.NUM_KV_HEADS)]
+        values = [list(self.PREFILL_V[kvh]) for kvh in range(self.NUM_KV_HEADS)]
         for step in range(1, upto + 1):
             for kvh in range(self.NUM_KV_HEADS):
                 keys[kvh].extend(self.CURRENTS[step]["k"][kvh])
@@ -632,8 +629,8 @@ class DecodeStepReferenceTest(unittest.TestCase):
         # 反例：忽略当前 token（只用 prefill KV）会显著不同 → 上面的 1e-5 排除了该替代参考。
         worst = max(
             abs(good - bad)
-            for good_row, bad_row in zip(self.expected(1), self.prefill_only())
-            for good, bad in zip(good_row, bad_row)
+            for good_row, bad_row in zip(self.expected(1), self.prefill_only(), strict=True)
+            for good, bad in zip(good_row, bad_row, strict=True)
         )
         self.assertGreater(worst, 1e-2)
 
@@ -732,7 +729,7 @@ class DecodeStepReferenceTest(unittest.TestCase):
         }
         for label, (mutate, keyword) in cases.items():
             with self.subTest(label):
-                arrays = {name: value for name, value in base.items()}
+                arrays = dict(base.items())
                 mutate(arrays)
                 with tempfile.TemporaryDirectory() as tmp:
                     capture = write_npz(Path(tmp) / "capture.npz", arrays)
@@ -888,7 +885,9 @@ class PointsModeTest(unittest.TestCase):
         self.assertEqual(report["summary"]["layers"], [0, 1])
         self.assertIn("point_records", report["definitions"])
 
-        key = lambda item: (item["scope"], item["layer"], item["step"], item["position"])
+        def key(item):
+            return (item["scope"], item["layer"], item["step"], item["position"])
+
         full_by_point = {key(item): item for item in full_report["comparisons"]}
         seen: dict[tuple, dict] = {}
         for item in report["comparisons"]:
@@ -994,4 +993,6 @@ class PointsModeTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

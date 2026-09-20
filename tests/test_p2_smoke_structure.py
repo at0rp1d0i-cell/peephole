@@ -4,14 +4,12 @@ import json
 import sys
 import unittest
 from contextlib import ExitStack
-from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
 import torch
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "src"))
+from _support import REPO
 from attnview.smoke_structure import StructureError, check_capture_structure, expectations_from_config
 
 
@@ -23,6 +21,7 @@ class StructureCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from transformers import AutoTokenizer
+
         from tests.test_p2_smoke_bounded_capture import load_runner
         cls.driver = load_runner()
         cls.tokenizer = AutoTokenizer.from_pretrained(str(cls.driver.SNAPSHOT), trust_remote_code=False)
@@ -32,8 +31,10 @@ class StructureCheckTest(unittest.TestCase):
         self.h = LayerCaptureTest("test_steps_layers_positions_and_metadata_are_real")
         self.h.setUp()
         self.addCleanup(self.h.tearDown)
-        self.payload = dict(prompt_len=34, sink_span=(0, 2), local_window_span=(30, 34),
-                            segment_spans=((4, 8), (8, 12), (12, 30)))
+        self.payload = {
+            "prompt_len": 34, "sink_span": (0, 2), "local_window_span": (30, 34),
+            "segment_spans": ((4, 8), (8, 12), (12, 30)),
+        }
         self.expected = expectations_from_config(
             timeline_config=REPO / "configs/p2-masked-prep/crossblock.json", doc_fixture=None,
             tokenizer=self.tokenizer, block_size=4, total_steps=29, **self.payload)
@@ -68,10 +69,14 @@ class StructureCheckTest(unittest.TestCase):
             meta.seq_lens = torch.tensor([length], dtype=torch.int32)
             meta.block_table = canonical[:, blocks].clone()
             if mode != "global":
-                trace["override_steps"].append(dict(
-                    kind="override_step", step=d, req_ids=["r-main"], num_scheduled_tokens={"r-main": 1},
-                    override=dict(group_index=1, rows_with_override=[0], seqused_k=[length], max_seq_len=length,
-                                  visible_logical_blocks={"0": blocks})))
+                trace["override_steps"].append({
+                    "kind": "override_step", "step": d, "req_ids": ["r-main"],
+                    "num_scheduled_tokens": {"r-main": 1},
+                    "override": {
+                        "group_index": 1, "rows_with_override": [0], "seqused_k": [length],
+                        "max_seq_len": length, "visible_logical_blocks": {"0": blocks},
+                    },
+                })
             return meta
         model.metadata_for = metadata_for
         with patch.dict(sys.modules, modules):
@@ -86,8 +91,10 @@ class StructureCheckTest(unittest.TestCase):
                 model.forward(positions=torch.tensor(positions))
                 parse = forward - 1
                 mode = "local" if 5 <= parse <= 10 else "focus" if 19 <= parse <= 23 else "global"
-                trace["parsed_steps"].append(dict(req_id="r-main", parse_step=parse, effect_step=forward,
-                                                  mode=mode, refs=[2] if mode == "focus" else []))
+                trace["parsed_steps"].append({
+                    "req_id": "r-main", "parse_step": parse, "effect_step": forward,
+                    "mode": mode, "refs": [2] if mode == "focus" else [],
+                })
             canonical.fill_(777)
             for value in context.slot_mapping.values():
                 value.fill_(-1)
@@ -173,20 +180,23 @@ class StructureCheckTest(unittest.TestCase):
                 args = self.driver.parse_args(["--arm", "patched-masked", "--out", str(out),
                     "--max-tokens", "29", "--cleanup-check", "--timeline-config", str(config_path)])
                 (out / "steps.jsonl").write_text("\n".join(json.dumps(r) for r in trace["override_steps"]))
-                torch.save([dict(step=i, req_id="r-main", req_ids=["r-main"], logits=torch.zeros(1, 8))
+                torch.save([{"step": i, "req_id": "r-main", "req_ids": ["r-main"], "logits": torch.zeros(1, 8)}
                             for i in range(1, 30)], out / "logits.pt")
                 if corrupt:
                     capture.structure[7][capture.layer_names[0]]["seq_len"] += 1
                 aborted = []
                 llm = NS(llm_engine=NS(model_executor=NS(collective_rpc=lambda *a, **k: {}),
-                                      abort_request=lambda ids: aborted.extend(ids), step=lambda: []))
-                stack.enter_context(patch.dict(sys.modules, {"vllm": NS(LLM=lambda **k: llm),
+                                      abort_request=lambda ids, _aborted=aborted: _aborted.extend(ids),
+                                      step=lambda: []))
+                stack.enter_context(patch.dict(sys.modules, {"vllm": NS(LLM=lambda _llm=llm, **k: _llm),
                     "vllm.config.attention": NS(AttentionConfig=lambda **k: k)}))
-                def drive(*a, on_first_step, **k):
+                # 闭包一律用默认参数绑定**本轮**的值（B023）：循环变量在下一轮会被重新赋值，
+                # 直接引用会让"这一轮的闭包"读到"下一轮的值"。
+                def drive(*a, on_first_step, _corrupt=corrupt, **k):
                     on_first_step()
-                    if corrupt == "request_error":
+                    if _corrupt == "request_error":
                         raise RuntimeError("inference trace failure")
-                    return dict(tokens=[1] * 29, steps=29, consuming_steps=29, other_request_outputs=[])
+                    return {"tokens": [1] * 29, "steps": 29, "consuming_steps": 29, "other_request_outputs": []}
                 def dump(llm, path):
                     path.write_text(json.dumps(trace["parsed_steps"]))
                     return {"observable": True}
@@ -199,7 +209,7 @@ class StructureCheckTest(unittest.TestCase):
                     "submit_request": lambda *a: {"internal_id": "r-main"},
                     "drive_main_request": drive,
                     "scheduler_requests": lambda e: {"r-main": NS(prompt_token_ids=list(range(34)))},
-                    "_scheduler_has": lambda e, req: req == "r-main" and not aborted,
+                    "_scheduler_has": lambda e, req, _aborted=aborted: req == "r-main" and not _aborted,
                     "protocol_state": lambda *a: {"observable": True},
                     "canonical_blocks": lambda *a: {"observable": False},
                     "dump_engine_traces": dump,
@@ -225,4 +235,6 @@ class StructureCheckTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

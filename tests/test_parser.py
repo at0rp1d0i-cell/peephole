@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from attnview.parser import (  # noqa: E402
     MODE_FOCUS,
@@ -221,4 +217,6 @@ class ParserTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

@@ -9,24 +9,17 @@
 """
 from __future__ import annotations
 
-import importlib.util
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import torch
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "src"))
+from _support import REPO, load_module
 
 
 def load_runner():
-    spec = importlib.util.spec_from_file_location("p2_calib_run_capture", REPO / "tools/p2-calib-run.py")
-    mod = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(mod)
-    return mod
+    return load_module("p2_calib_run_capture", REPO / "tools/p2-calib-run.py")
 
 
 class BoundedCaptureTest(unittest.TestCase):
@@ -140,10 +133,6 @@ class BoundedCaptureTest(unittest.TestCase):
             self.assertGreater(path.stat().st_size, 0)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class BoundedCaptureLifecycleTest(unittest.TestCase):
     """**完整生命周期**用例:复用既有 `LayerCaptureTest._armed`/`FakeModel`/`FakeRunner`,
     真实执行 `_begin_step`/`_end_step`(由 `wrap_model` 自动触发),不再用 `__new__` + 手填 positions。"""
@@ -197,3 +186,9 @@ class BoundedCaptureLifecycleTest(unittest.TestCase):
         a1 = capture.step_arrays(1)
         self.assertIn("k_prefill_L0", a1)
         self.assertNotIn("q_step1_L0", a1)
+
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

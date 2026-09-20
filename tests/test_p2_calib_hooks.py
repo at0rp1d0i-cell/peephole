@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import sys
@@ -24,18 +23,13 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src"))
+from _support import REPO, load_module
 
 ADAPTER = REPO / "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py"
 
 
 def load_module_by_path(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_module(name, path)
 
 
 def load_adapter():
@@ -65,7 +59,7 @@ class CalibHookTest(unittest.TestCase):
         self._saved = {
             k: os.environ.pop(k, None)
             for k in (self.ARM_ENV, "ATTNVIEW_CALIB_FORCE", "ATTNVIEW_CALIB_FORCE_LOG",
-                      "ATTNVIEW_CALIB_LOGITS", "ATTNVIEW_CALIB_TRACE")
+                      "ATTNVIEW_CALIB_TRACE")
         }
         self.mod = load_adapter()
 
@@ -452,7 +446,7 @@ class LayerCaptureTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def _armed(self, model, impls, *, prompt_len: int = 3, stream: bool = True,
-               runner: "FakeRunner | None" = None):
+               runner: FakeRunner | None = None):
         """装上捕获与**相位权威证据**（runner.prepare_inputs），返回 (capture, runner)。
 
         调用方在每步 forward 前调一次 `runner.prepare_inputs()`（与真实 runner 的顺序一致）。
@@ -614,8 +608,11 @@ class LayerCaptureTest(unittest.TestCase):
 
         step = capture.positions[1]
         self.assertEqual(step["positions"], logical, "导出必须是 canonical 逻辑位置（真实一维缓冲）")
-        self.assertEqual(step["positions_source"],
-                         "runner.input_buffers.positions[:num_tokens]（真实一维逻辑位置缓冲）")
+        self.assertIn(
+            "input_buffers.positions",
+            step["positions_source"],
+            "位置必须来自真实一维位置缓冲，而不是 mRoPE 三轴或 range(q_len)",
+        )
         self.assertEqual(step["mrope_axes_shape"], [3, prompt_len], "mRoPE 三轴形状只作记录")
         self.assertIsNotNone(step["mrope_axes_head"])
         self.assertNotEqual(step["positions"][0], int(axes[0][0]),
@@ -1770,6 +1767,7 @@ class WatchdogTest(unittest.TestCase):
         manifest.write_text(json.dumps({"schema": "x", "started_cst": "t0", "exit_code": None}))
         script.write_text(
             "import sys, time, json\n"
+            f"sys.path.insert(0, {str(REPO / 'tools')!r})\n"
             "from pathlib import Path\n"
             "import importlib.util\n"
             "spec = importlib.util.spec_from_file_location('drv', " + repr(str(REPO / "tools/p2-calib-run.py")) + ")\n"
@@ -1781,11 +1779,13 @@ class WatchdogTest(unittest.TestCase):
             [sys.executable, str(script), self.dir.as_posix(), manifest.as_posix()],
             capture_output=True, text=True, timeout=30,
         )
-        self.assertEqual(proc.returncode, 3)
+        self.assertEqual(proc.returncode, 3, proc.stderr)
         data = json.loads(manifest.read_text())
         self.assertEqual(data["exit_code"], 3)
         self.assertTrue(data["ended_cst"], "超时也要写结束时间戳")
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

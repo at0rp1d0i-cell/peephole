@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from attnview.extract import extract_public_output, public_stream_accounting  # noqa: E402
 
@@ -123,4 +119,6 @@ class ExtractTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

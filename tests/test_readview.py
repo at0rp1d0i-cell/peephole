@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from attnview.parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL  # noqa: E402
 from attnview.readview import (  # noqa: E402
@@ -121,7 +117,8 @@ class ReadViewTest(unittest.TestCase):
         v = view(MODE_FOCUS, (1, 2, 3), block=64)
         # 三段合并后应是单块区域的并集，且不重复计数
         spans = v.visible_spans
-        for (s1, e1), (s2, e2) in zip(spans, spans[1:]):
+        # `spans` 与 `spans[1:]` 的错位配对是**有意的**：只比较相邻区间对，长度天然差 1。
+        for (_s1, e1), (s2, _e2) in zip(spans, spans[1:], strict=False):
             self.assertLess(e1, s2, "相邻/重叠区间必须已合并")
 
     def test_timing_table_fields(self) -> None:
@@ -167,7 +164,8 @@ class ReadViewTest(unittest.TestCase):
 
     def test_logical_block_is_not_used_as_physical_id(self) -> None:
         v = view(MODE_FOCUS, (2,))
-        for logical, physical in zip(v.visible_blocks, v.physical_block_ids[: v.valid_counts]):
+        # valid_counts == len(visible_blocks)（构造不变量），错配即读取表被破坏 → 宁可炸。
+        for logical, physical in zip(v.visible_blocks, v.physical_block_ids[: v.valid_counts], strict=True):
             self.assertNotEqual(logical, physical, "物理块号必须来自 canonical 映射")
 
     def test_rejects_unallocated_visible_block(self) -> None:
@@ -265,4 +263,6 @@ class ReadViewTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

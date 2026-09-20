@@ -6,21 +6,13 @@
 """
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "src"))
+from _support import REPO, load_module
 
 
 def load_runner():
-    spec = importlib.util.spec_from_file_location("p2_calib_run_cleanup", REPO / "tools/p2-calib-run.py")
-    mod = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(mod)
-    return mod
+    return load_module("p2_calib_run_cleanup", REPO / "tools/p2-calib-run.py")
 
 
 GOOD_MARK = {"req_id": "new", "applied_view": "global", "protocol_mode": "local"}
@@ -69,4 +61,6 @@ class CleanupEnforceChecksTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

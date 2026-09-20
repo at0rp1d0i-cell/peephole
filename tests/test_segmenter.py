@@ -3,13 +3,8 @@
 from __future__ import annotations
 
 import re
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from attnview import segmenter  # noqa: E402
 from attnview.segmenter import (  # noqa: E402
     CAP_TOKENS,
     EMPTY_CONTEXT_PLACEHOLDER,
@@ -17,7 +12,6 @@ from attnview.segmenter import (  # noqa: E402
     join_segments,
     segment_context,
 )
-
 
 CHUNK = 4
 
@@ -213,7 +207,6 @@ class SegmenterTest(unittest.TestCase):
 
     def test_crossing_tokens_are_accounted_and_reported(self) -> None:
         """跨切割位置的 token 既不计入任何一段的 token 数，也不丢：可查询且最终 span 用重叠语义。"""
-        text = "aa bb cc dd"
         offsets = [(0, 2), (2, 5), (5, 8), (8, 12)]  # (2,5) 跨过 cut=3
         idx = build_offsets_index(offsets)
         self.assertEqual(idx.count(0, 3), 1)
@@ -244,4 +237,6 @@ def segments_text(segs) -> str:
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

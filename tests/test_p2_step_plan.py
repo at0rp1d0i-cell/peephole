@@ -21,12 +21,8 @@ FA 组 metadata 时是否污染共享 buffer 等，属于 GPU 侧接入验证，
 from __future__ import annotations
 
 import json
-import sys
 import unittest
 from dataclasses import replace
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from attnview.gpukv import GpuKvError  # noqa: E402
 from attnview.parser import MODE_GLOBAL, MODE_LOCAL  # noqa: E402
@@ -373,10 +369,10 @@ class UnsupportedConfigTest(unittest.TestCase):
 
     def test_invalid_geometry_values_are_rejected(self) -> None:
         cases = {
-            "kernel_block_size=0": dict(kernel_block_size=0),
-            "num_kv_groups=0": dict(num_kv_groups=0),
-            "fa_group_index 越界": dict(fa_group_index=NUM_KV_GROUPS),
-            "max_model_len=0": dict(max_model_len=0),
+            "kernel_block_size=0": {"kernel_block_size": 0},
+            "num_kv_groups=0": {"num_kv_groups": 0},
+            "fa_group_index 越界": {"fa_group_index": NUM_KV_GROUPS},
+            "max_model_len=0": {"max_model_len": 0},
         }
         for name, overrides in cases.items():
             with self.subTest(case=name):
@@ -592,4 +588,6 @@ class StepPayloadTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

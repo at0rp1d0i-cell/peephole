@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
+from _support import REPO
 from attnview.decode import (  # noqa: E402
     IncrementalDetokenizer,
     bytes_to_unicode,
@@ -15,7 +12,6 @@ from attnview.decode import (  # noqa: E402
     token_bytes,
 )
 
-REPO = Path(__file__).resolve().parent.parent
 TOKENIZER_DIR = (
     REPO
     / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots"
@@ -118,4 +114,6 @@ class IncrementalDecodeTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

@@ -12,8 +12,6 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,9 +19,8 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src"))
-
+from _support import REPO
+from _support import load_module as _load_module
 from attnview.step_plan import (  # noqa: E402
     DaRequestConfig,
     Geometry,
@@ -42,11 +39,8 @@ MAX_REQS = 1  # 本阶段单活跃请求
 
 
 def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module  # dataclasses 需要模块已在 sys.modules 里
-    spec.loader.exec_module(module)
-    return module
+    """同名包装：`_support.load_module` 的名字与本文件被包装者相同，故以别名导入。"""
+    return _load_module(name, path)
 
 
 def make_config(*, prefix_caching=False, async_scheduling=False, cudagraph=None, spec=None, tp=1,
@@ -136,7 +130,7 @@ class OverrideEntryTest(unittest.TestCase):
         backend_name="FLASH_ATTN",
     ):
         ratios = (
-            [m // k for m, k in zip(manager_sizes, kernel_sizes)] if ratios is None else ratios
+            [m // k for m, k in zip(manager_sizes, kernel_sizes, strict=True)] if ratios is None else ratios
         )
         canonical_fa = torch.zeros((MAX_REQS, 11), dtype=torch.int32)
         canonical_fa[0, : len(FA_PHYSICAL)] = torch.tensor(FA_PHYSICAL, dtype=torch.int32)
@@ -500,4 +494,6 @@ class MetadataOwnershipTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))
