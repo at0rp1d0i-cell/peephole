@@ -1,0 +1,60 @@
+# 测试专用独立 masked 参考执行（CPU）设计
+
+日期：2026-09-20。状态：**CPU 实现 + 检查完成，实机接线未验证**。依据工作单 `inbox/SUP-004-masked-reference.md`（SHA256 `0f366593…a1e`）；前置 ACCEPT `inbox/SUP-004-masked-prep-accept.md`（`ac072b80…b29e`）。仍属阶段 05，未放行 GPU/阈值。
+
+## 1. 改动点（不新建引擎、不改生产默认行为）
+| 文件 | 作用 |
+| --- | --- |
+| `src/attnview/reference_dense.py` | **测试专用**独立 dense 参考：独立可见位置、物理块表 gather、FP32 显式 QK/softmax/V、原地写 `output`、默认关闭的开关与异常恢复 |
+| `tools/p2-ref-cpu-checks.py` + `configs/p2-ref-cpu/checks.json` | 针对性 CPU 检查（22 项）与真实几何配置 |
+- 生产路径**无调用点**：`TestOnlyReferenceSwitch` 默认 `enabled=False`，只对目标 `request_id` + 指定层/步生效；异常时自动恢复为关闭并记录。
+- 提交指纹：脚本 `23e0738cd64d396e…`、模块 `9bff84056e26873c…`、配置 `51873822f5217b90…`；运行 HEAD `2c30381`。
+
+## 2. 独立性说明
+- **可见位置**只由**协议原始 span**（sink / local_window / `segment_spans[ref-1]` / response=[prompt_len, kv_len)）与**独立时间线（mode/refs）**算出；不调用候选的筛选或块表转换 helper，也不读压缩读表。
+- **K/V 取值**用 `物理块表 + 逐位置 gather`：逐位置 `divmod` 定位逻辑块与块内偏移，拒绝越界物理块号；不填充、不读未分配/未写槽。
+- **数值**在 FP32 显式计算，再按真实输出 dtype cast；**同时返回未 cast 的 FP32 与 cast 结果**，报告必须标明比较对象。
+- **端到端 decode 参考**：与候选臂共用**原版 global prefill**，但参考臂使用**自己的**真实 Q/canonical K/V/独立 mask/dense 输出，并**自己的请求与 KV/GDN 状态**，消费同一固定 token 轨迹；同一时刻仅一个活跃请求；不允许把候选隐藏状态/KV 逐步喂给参考臂。
+
+## 3. 接线依据与约束（pin `98dff2a8`，仅源码，无运行证明）
+- `Attention.forward` 先 `unified_kv_cache_update` 再 `unified_attention_with_output`；KV 写发生在 `impl.forward` **之前**。
+- `unified_attention_with_output` 调用 `impl.forward` 后**忽略其返回值**、继续使用传入的 `output` 缓冲 ⇒ **参考实现必须原地写入该 output 缓冲**；"只返回新张量"不会驱动后续层（本检查集中有专门反例检出该错误）。
+- `flash_attn.py` 的 `forward_includes_kv_cache_update=False`；`do_kv_cache_update` 经真实 `slot_mapping` 写 KV。
+- 不支持的量化/特殊 attention 特性**直接拒绝**（`ReferenceError`），不静默近似；GQA 头数不整除即拒绝。
+
+## 4. CPU 覆盖（22 项，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）
+- 非顺序物理映射:gather 行 == 物理块表映射出的行
+- 逻辑块号 ≠ 物理块号(映射确实非顺序)
+- 可见位置含当前 token 且以 kv_len-1 结尾
+- 可见位置全部 < kv_len(不读未写位置)
+- FP32 参考与朴素逐位置实现一致(≤1e-5)
+- cast 结果与未 cast FP32 的差异被记录(比较对象明确)
+- 结构反例:替换一个可见位置后被独立真值检出(集合不同)
+- 结构反例:尾长 −1(少读当前 token)被独立真值检出
+- 结构反例:越界位置被拒绝
+- 目标层/步启用
+- 非目标 request id 一律拒绝
+- 未指定层拒绝(缺层)
+- 未指定步拒绝(缺步)
+- 默认关闭(未 enable 时不接管)
+- 开关未启用时进入参考路径即报错
+- 参考实现原地写入传入 output(数据指针不变且内容非零)
+- 参考写入值与 FP32 参考 cast 后逐元素一致
+- 接线反例:只返回新张量、不写原缓冲 ⇒ 输出仍为初始值(被检出)
+- 异常(形状不符)后恢复为关闭
+- 两请求状态对象独立(互不影响)
+- 两请求各自独立推导 mask(不共享残留状态)
+- GQA 头数不整除时拒绝(不静默近似)
+
+## 5. 尚缺的实机证据
+- 真实模型的 attention/logits 数值、GDN 传播、图模式/FA2 实际后端、KV 排布与 RoPE 观测点、GQA 头映射在真实张量上的正确性、覆盖期间的写回与恢复在真实引擎中的行为。
+- 本检查用**桩件**模拟 `unified_attention_with_output` 的接线语义；**不以桩件通过宣称真实模型或 GPU 接线正确**。
+- 数值合同（容差）**未冻结、未内置通过阈值**；输出仅给 max_abs/RMS/相对 L2/参考幅度/非有限计数与 FP32-vs-cast 差异。
+
+## 6. 可复跑入口
+```bash
+source /root/attnview/env.sh
+CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-ref-cpu-checks.py \
+  --config configs/p2-ref-cpu/checks.json \
+  --out evidence/p3-calib/masked-prep/ref-cpu-checks.json
+```

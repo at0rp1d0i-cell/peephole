@@ -1,0 +1,142 @@
+{
+  "config": "configs/p2-ref-cpu/checks.json",
+  "limits": [
+    "CPU/桩件:不据此宣称真实模型或 GPU 接线正确",
+    "不设数值阈值;FP32 vs cast 差异只作记录",
+    "test-only 开关默认关闭,生产路径无调用点"
+  ],
+  "visible_positions_sample": {
+    "count": 1087,
+    "first": [
+      0,
+      1,
+      2
+    ],
+    "last": [
+      7838,
+      7839,
+      7840
+    ]
+  },
+  "checks": [
+    {
+      "name": "非顺序物理映射:gather 行 == 物理块表映射出的行",
+      "ok": true
+    },
+    {
+      "name": "逻辑块号 ≠ 物理块号(映射确实非顺序)",
+      "ok": true,
+      "block_table": [
+        5,
+        12,
+        1,
+        9,
+        14,
+        3
+      ]
+    },
+    {
+      "name": "可见位置含当前 token 且以 kv_len-1 结尾",
+      "ok": true,
+      "last": 7840,
+      "kv_len": 7841
+    },
+    {
+      "name": "可见位置全部 < kv_len(不读未写位置)",
+      "ok": true
+    },
+    {
+      "name": "FP32 参考与朴素逐位置实现一致(≤1e-5)",
+      "ok": true,
+      "max_abs": 2.086162567138672e-07
+    },
+    {
+      "name": "cast 结果与未 cast FP32 的差异被记录(比较对象明确)",
+      "ok": true,
+      "fp32_to_bf16_max_abs": 0.0
+    },
+    {
+      "name": "结构反例:替换一个可见位置后被独立真值检出(集合不同)",
+      "ok": true,
+      "removed": 0,
+      "added": 1
+    },
+    {
+      "name": "结构反例:尾长 −1(少读当前 token)被独立真值检出",
+      "ok": true,
+      "dropped": 7840
+    },
+    {
+      "name": "结构反例:越界位置被拒绝",
+      "ok": true,
+      "error": "位置 8625 需要逻辑块 11,但物理块表只有 11 项"
+    },
+    {
+      "name": "目标层/步启用",
+      "ok": true
+    },
+    {
+      "name": "非目标 request id 一律拒绝",
+      "ok": true
+    },
+    {
+      "name": "未指定层拒绝(缺层)",
+      "ok": true
+    },
+    {
+      "name": "未指定步拒绝(缺步)",
+      "ok": true
+    },
+    {
+      "name": "默认关闭(未 enable 时不接管)",
+      "ok": true
+    },
+    {
+      "name": "开关未启用时进入参考路径即报错",
+      "ok": true,
+      "error": "开关未对本次调用启用:调用方不应进入参考路径"
+    },
+    {
+      "name": "参考实现原地写入传入 output(数据指针不变且内容非零)",
+      "ok": true,
+      "max_abs": 0.205078125
+    },
+    {
+      "name": "参考写入值与 FP32 参考 cast 后逐元素一致",
+      "ok": true
+    },
+    {
+      "name": "接线反例:只返回新张量、不写原缓冲 ⇒ 输出仍为初始值(被检出)",
+      "ok": true,
+      "max_abs": 0.0
+    },
+    {
+      "name": "异常(形状不符)后恢复为关闭",
+      "ok": true,
+      "restores": [
+        "exception→disabled"
+      ],
+      "errors": [
+        "ReferenceError: output 形状 (25, 256) 与参考 (24, 256) 不一致"
+      ]
+    },
+    {
+      "name": "两请求状态对象独立(互不影响)",
+      "ok": true,
+      "s1": 1,
+      "s2": 0
+    },
+    {
+      "name": "两请求各自独立推导 mask(不共享残留状态)",
+      "ok": true
+    },
+    {
+      "name": "GQA 头数不整除时拒绝(不静默近似)",
+      "ok": true,
+      "error": "GQA 头数不整除:q_heads=25 kv_heads=4"
+    }
+  ],
+  "failed": [],
+  "switch_calls": 1,
+  "test_scope": "CPU 检查用桩件模拟生产接线(unified_attention_with_output 忽略返回值、消费原 output 缓冲);**不**据此宣称真实模型或 GPU 接线正确;未加载 27B、未跑 GPU;不设数值阈值。"
+}
