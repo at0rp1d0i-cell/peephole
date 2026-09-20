@@ -37,10 +37,12 @@ def unpack_native_kv(kv_cache: torch.Tensor, head_size: int) -> tuple[torch.Tens
     blocks, kv_heads, block_size, two_d = kv_cache.shape
     if two_d != 2 * head_size:
         raise ReferenceError(f"kv_cache 末维应为 2*head_size={2 * head_size},实际 {two_d}")
+    # **不做 contiguous**:保留 stride 视图,避免每层每步复制整个 KV 缓存;
+    # 后续按可见位置逐点 gather,只触碰被选中的已写位置。
     key_cache, value_cache = kv_cache.transpose(1, 2).split(head_size, dim=-1)
     if key_cache.shape != (blocks, block_size, kv_heads, head_size):
         raise ReferenceError(f"解包后形状异常:{tuple(key_cache.shape)}")
-    return key_cache.contiguous(), value_cache.contiguous()
+    return key_cache, value_cache
 
 
 @dataclass
@@ -58,7 +60,8 @@ class TimelineBridge:
     segment_spans: tuple[tuple[int, int], ...]
     declarations: tuple[tuple[int, str, tuple[int, ...]], ...] = ()
     current_request_id: str | None = None
-    expected_kv_len_by_step: dict[int, int] = field(default_factory=dict)
+    #: 每步相位(由 harness 的 `InputBatch.is_prefilling_np[目标行]` 提供);缺失即 fail closed。
+    is_prefilling_by_step: dict[int, bool] = field(default_factory=dict)
 
     def mode_at(self, step_index_0based: int) -> tuple[str, tuple[int, ...]]:
         mode, refs = "global", ()
@@ -72,6 +75,10 @@ class TimelineBridge:
     def kv_len_at(self, step_index_0based: int) -> int:
         """独立 KV 上界:生成流第 t 个 token 被消费的 forward 的 KV 长度 = prompt_len + t + 1。"""
         return self.prompt_len + step_index_0based + 1
+
+    def is_prefilling_at(self, step_index_0based: int) -> bool | None:
+        """相位(**唯一权威证据**来自 harness 的 `is_prefilling_np[目标行]`);未提供返回 None。"""
+        return self.is_prefilling_by_step.get(step_index_0based)
 
     def mask_at(self, step_index_0based: int) -> Any:
         mode, refs = self.mode_at(step_index_0based)
@@ -103,13 +110,28 @@ def resolve_geometry(
         raise ReferenceError("block_table 行含负值(未分配槽不能进入参考)")
     kv_len = bridge.kv_len_at(step_index_0based)
     seq_lens = getattr(attn_metadata, "seq_lens", None)
-    seq_lens_value = None
-    if torch.is_tensor(seq_lens) and 0 <= request_idx < seq_lens.shape[0]:
-        seq_lens_value = int(seq_lens[request_idx])
-        if seq_lens_value != kv_len:
-            raise ReferenceError(
-                f"metadata.seq_lens[{request_idx}]={seq_lens_value} 与独立时间线 KV 上界 {kv_len} 不一致"
-            )
+    if not torch.is_tensor(seq_lens) or seq_lens.dim() != 1 or not 0 <= request_idx < seq_lens.shape[0]:
+        raise ReferenceError("metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)")
+    seq_lens_value = int(seq_lens[request_idx])
+    if seq_lens_value != kv_len:
+        raise ReferenceError(
+            f"metadata.seq_lens[{request_idx}]={seq_lens_value} 与独立时间线 KV 上界 {kv_len} 不一致")
+    # 单请求:由 query_start_loc 长度判定(n+1 个边界 = n 个请求)
+    qsl = getattr(attn_metadata, "query_start_loc", None)
+    if not torch.is_tensor(qsl) or qsl.dim() != 1 or qsl.numel() - 1 != 1:
+        raise ReferenceError(f"仅支持单请求:query_start_loc 给出 {None if not torch.is_tensor(qsl) else qsl.numel() - 1} 个请求")
+    # 计数器(pin 可能全 0,不作相位证据):仅在已填充时交叉核对
+    nd, nt = getattr(attn_metadata, "num_decode_reqs", None), getattr(attn_metadata, "num_decode_tokens", None)
+    npf = getattr(attn_metadata, "num_prefill_tokens", None)
+    counters_populated = any(int(x or 0) for x in (nd, nt, npf))
+    if counters_populated and int(nd or 0) != 1:
+        raise ReferenceError(f"计数器已填充但与单请求 decode 冲突:num_decode_reqs={nd}")
+    # 相位:必须由 harness 的 is_prefilling_np 明示为 decode(false);缺失或 prefill 即拒绝
+    phase = bridge.is_prefilling_at(step_index_0based)
+    if phase is None:
+        raise ReferenceError("缺少相位证据(harness 的 is_prefilling_np[目标行]):拒绝用 q_len/单 token 代替")
+    if phase:
+        raise ReferenceError("本步相位为 prefill(可能是末尾单 token prefill chunk):参考不接管")
     return {"block_table_row": row, "kv_len": kv_len, "seq_lens_value": seq_lens_value,
             "mode": bridge.mode_at(step_index_0based)[0], "refs": bridge.mode_at(step_index_0based)[1]}
 
@@ -129,6 +151,8 @@ def perform_reference_attention_native(
     key: torch.Tensor | None = None,
     value: torch.Tensor | None = None,
     impl_scale: float | None = None,
+    output_scale: torch.Tensor | None = None,
+    output_block_scale: torch.Tensor | None = None,
 ) -> dict[str, Any]:
     """真实签名下的参考执行:解包原生 KV → 独立 mask → gather → FP32 → cast → 原地写 output。
 
@@ -138,6 +162,8 @@ def perform_reference_attention_native(
     geo = resolve_geometry(bridge=bridge, attn_metadata=attn_metadata, request_idx=request_idx,
                            step_index_0based=step_index_0based)
     # --- fail-fast 门禁(全部从真实 impl/metadata/张量提取) ---
+    if output_scale is not None or output_block_scale is not None:
+        raise ReferenceError("出现量化输出缩放(output_scale/output_block_scale 非 None):参考拒绝在未支持特性下继续")
     if impl_scale is None:
         raise ReferenceError("缺少 impl.scale:参考必须使用真实 impl 的 scale")
     if float(switch.scale) and float(switch.scale) != float(impl_scale):
@@ -152,8 +178,6 @@ def perform_reference_attention_native(
         raise ReferenceError(f"仅支持 causal=True,实际 {causal}")
     n_decode = getattr(attn_metadata, "num_decode_reqs", None)
     num_tokens = getattr(attn_metadata, "num_actual_tokens", None)
-    if n_decode is not None and int(n_decode) != 1:
-        raise ReferenceError(f"仅支持单请求 decode,num_decode_reqs={n_decode}")
     if num_tokens is not None and int(num_tokens) != 1:
         raise ReferenceError(f"仅支持单 token decode,num_actual_tokens={num_tokens}")
     mask = bridge.mask_at(step_index_0based)
@@ -202,6 +226,7 @@ def perform_reference_attention_native(
         "buffer_ptr_preserved": True,
         "got_key_arg": key is not None, "got_value_arg": value is not None,
         "impl_scale": float(impl_scale), "kv_block_len": int(kv_cache.shape[2]),
+        "kv_strides": [int(s) for s in k_cache.stride()],
         "causal": bool(causal) if causal is not None else None,
         "num_decode_reqs": int(n_decode) if n_decode is not None else None,
     }

@@ -61,16 +61,20 @@ class TestOnlyReferenceAttachment:
         self.wrapped[index] = (impl, original)
 
         def wrapper(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs):
-            if args or kwargs:
-                raise ReferenceError(
-                    f"出现未支持的额外参数(args={len(args)}, kwargs={sorted(kwargs)}):"
-                    "量化/特殊 attention 特性不得被静默丢弃")
             rid = self.switch.current_request_id or ""
             step = self.switch.current_step
+            # 先判未启用/非目标:按**原签名**直通,不做任何额外参数检查(默认关闭时行为不变)
             if not self.switch.should_override(request_id=rid, layer_idx=index, step=step):
                 self.ledger.append({"layer": index, "step": step, "request_id": rid, "action": "passthrough"})
                 return original(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
             try:
+                # 目标请求:pin 每次都传 output_scale/output_block_scale(可能为 None);
+                # 显式 None = 未启用该特性,允许;非 None 或未知参数 = 量化/特殊特性,拒绝(不静默降级)。
+                unsupported = {k: v for k, v in kwargs.items() if v is not None}
+                if args or unsupported:
+                    raise ReferenceError(
+                        f"出现未支持的额外参数(args={len(args)}, kwargs={sorted(unsupported)}):"
+                        "量化/特殊 attention 特性不得被静默丢弃")
                 info = self._call_entry(index=index, step=step, query=query, key=key, value=value,
                                         kv_cache=kv_cache, attn_metadata=attn_metadata, output=output,
                                         impl=self.wrapped[index][0])
