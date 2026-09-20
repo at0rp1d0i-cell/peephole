@@ -107,7 +107,7 @@
 | `evidence/p0-model/cuda-upgrade-freeze-after.txt` | 4,118 | `33585d37b124ca2dc86518d8c6606a03795ce3f21bd8e7e18139871a5d34a07f` |
 | `evidence/p0-model/cuda-upgrade-freeze-before.txt` | 4,118 | `a21cb93333fa99960425b2d2ef9a66b4f9677cd59001ea500e3ea6f97eb6e302` |
 | `evidence/p0-model/cuda-upgrade-freeze-final.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` |
-| `evidence/p0-model/e0-baseline.txt` | 1,153 | `8bd30dba9e4ec8a6bf0b4e4c63589e953aca17cb3104f1c88a7c8e3896e79f77` |
+| `evidence/p0-model/e0-baseline.txt` | 1,131 | `1abd77b6f767afc9ce525e743291bfc074f561c6697d3e06a3e8ba62c5a357c5` |
 | `evidence/p0-model/e1-console.txt` | 447 | `8c84bc1341eaac32349c9a212e7003d210003ebb3a7de564031dd364adbdce0c` |
 | `evidence/p0-model/e1-model-identity.json` | 15,698 | `9efa1bfda57e5e8a3df1afddaaed1df136cd6765c814aaf0b6ce82fdee362575` |
 | `evidence/p0-model/e2-download.log` | 2,946 | `015da4f15589f5248e6215ccdc55da5c3a4813f63cbe65c4a9f9d8b8b66824be` |
@@ -150,19 +150,19 @@
 | `evidence/p0-model/e6b-record.json` | 1,968 | `50c1fc5d4400db68241e44174f827df1200c259ff9f2b1355a11ea2e543a32ea` |
 | `evidence/p0-model/e6b-request.json` | 300 | `c9c61047a823e819136049591ab086109fe46667edef3931dd05bf752b8daadf` |
 | `evidence/p0-model/e6b-response-raw.json` | 713 | `3eb98c5d21478eb4bbafd0118e82b71aa0b10b4dc666dfa6486840c2e8657b37` |
-| `logs/serve-e4.log` | 34,463 | `7d12122512d8d970b7418ef7665639b44e6c1f8d3f41a3fbe5555cc03bd39898` |
-| `logs/serve-e4b.log` | 33,937 | `f363f5ebc105e32d11134b48385a9f835d6c3682dc105cc94a777836469eb856` |
-| `logs/serve-e4c.log` | 28,667 | `ffe9b7d8eebc27fee80f01fc497c3bdc62c4492c9316a71aa163ecae87d7e688` |
-| `logs/serve-e6.log` | 33,642 | `9d18826928de284bcff9a00e9fc4d0ba826d86b660ef9705b69c2ff4c99413f3` |
-| `logs/serve-e6b.log` | 33,974 | `0d018b91febfcc6512efc9effe79a1db49161ed6bde526ecc5132d368d7840fe` |
-| `logs/serve-e4-attempt1-offline-resolve-fail.log` | 6,678 | `273f307a19630bdd8d6cdcc6bcd2a3b0cc4d6a9564fafd8fd211cd587666ade1` |
-| `logs/serve-e4-attempt2-maxnumseqs-default-fail.log` | 36,272 | `47991d5814d648555e0aa5d5e0f02aa17207eefd78975a84c4d17a4c9c8e610d` |
-| `logs/serve-e4-attempt3-flashinfer-jit-fail.log` | 88,720 | `5511c07f40217a0473662df4ab52b1e01c5e2d1f8c459c4931741e51d57a2877` |
-| `evidence/after-model/env-report-20260917-1910.md` | 86,971 | `739abdb065112bddd8e3b19ba47eb912f6ccade9daadcfebb282db19803a709c` |
+| `logs/serve-e4.log` | 34,441 | `571a01c89c29e0045f80d6a360076da27a41e15f07e054a1b66c548275b9b3c9` |
+| `logs/serve-e4b.log` | 33,915 | `3d906c46a2432b142a659aaa93ee0dc1ad96fe15a7d55e12ee69effcd22d014e` |
+| `logs/serve-e4c.log` | 28,645 | `f5b852f90ad14786d6ab4a03d2e34eb8dfd6a6bffdcf88e70e5f3855a74ed182` |
+| `logs/serve-e6.log` | 33,620 | `3021d17d8b9b98e2a8f6e2503c136e04f7e2dec6c578be0c71efdef233eef7e7` |
+| `logs/serve-e6b.log` | 33,952 | `2cf48986ff32803bf97c4b033ecd741147793a9ec861fec126e18f2d075bf211` |
+| `logs/serve-e4-attempt1-offline-resolve-fail.log` | 6,656 | `21b1868f07fc01ce842d3525a6a5d6f126b2823422055060d7a487d96d36f502` |
+| `logs/serve-e4-attempt2-maxnumseqs-default-fail.log` | 36,250 | `6c0717b64d88fe212cd5879437af4cf9deb5cd76d33254d1cef0f3b913448b0a` |
+| `logs/serve-e4-attempt3-flashinfer-jit-fail.log` | 88,698 | `3296f64bfb58f44f58a32930ec1a8ec175db0a34ca1d2046009f3f5e5d805736` |
+| `evidence/after-model/env-report-20260917-1910.md` | 86,901 | `83fff8f023aeccd5d7cd071cdb29f0bc71c0d8e985ababa00c2703ff96bfb06a` |
 | `evidence/after/cuda_tensor.txt` | 252 | `e89655c964f0a4a24b379b58b5af458ad6a8cc4ea3fd854a0acec9547de6bb3c` |
-| `evidence/after/env-report-20260917-1637.md` | 86,901 | `4cf8e066ca9116040069312bba55568139ee39bda9ef490084b620470c6cffe7` |
-| `evidence/after/env-report-20260917-1655.md` | 86,925 | `5d3be6f45f830028a4751c0f3a2eeced8b84db6a13f11c9db65349e17b180edf` |
-| `evidence/after/env-report-20260917-1716.md` | 86,925 | `395353c9ccf94e39aa60e23fd638b8df357a4631e2a63ee8254e4f63106b43d7` |
+| `evidence/after/env-report-20260917-1637.md` | 86,831 | `af384bff870225c4a3e50d11a57e791492923589f05a71cd5b89797a1631980a` |
+| `evidence/after/env-report-20260917-1655.md` | 86,855 | `3605428293f62a78c4b2a0153a2f121f48e6d0758b8c343212902ffe06a73da4` |
+| `evidence/after/env-report-20260917-1716.md` | 86,855 | `8925202467a84dd8dc9ca583d63732402be8d793db3e1187256d913e191d283b` |
 | `evidence/after/import_versions.txt` | 587 | `61b623a6b1dba2e0c08d4afd8389fc8158d5266fe2e1017879f219028631e589` |
 | `evidence/after/network-tools.txt` | 1,150 | `e3f026504fa94ef9009a21078e89d65e0b1df3c432fde69ff5f78cd05d8bc207` |
 | `evidence/after/nvcc.txt` | 208 | `d5e3a195eebabdcebf990838dda4ca273b10cf09c7e01080333f03d60cc1db56` |
@@ -184,13 +184,18 @@
 | `tools/kbs-probe/__pycache__/sitecustomize.cpython-312.pyc` | 5,139 | `5988a562c1ddef6393969a9cdc4c78fec7c76444aed4b2bedd55be353aa334e3` |
 | `tools/kbs-probe/sitecustomize.py` | 4,384 | `2e2307faccc833047cd60e19073569bff8c5c7ade63fea6dddb60ab7245b3c5d` |
 | `tools/serve-vanilla.sh` | 3,291 | `ff8c798d438144fc14becacf8a78d0de8abddd59f0cdbc18a06fda57e2a9d1b1` |
-| `reports/p0-model/model-report.md` | 30,353 | `2b949b3f7d40644900b38d99c14f903a66308d0404ca00cd8a277977b176b377` |
+| `reports/p0-model/model-report.md` | 30,331 | `6a044950a315d5283315a74abe6d622a8b6f069cd308aeb901659783945cd3b8` |
 | `reports/p0-model/model-identity.md` | 8,530 | `2ebe5f7df1a5faa575408ff4a89f4aaed31f34ded072345119914f2c63e29a94` |
-| `reports/p0-model/serve-command.sh` | 2,836 | `adb3d2415a676aec132a8fd23ff9496c1e2144841b0e5e0ea4f91336f662d979` |
+| `reports/p0-model/serve-command.sh` | 2,814 | `b6aeec54ad346f88801c6e47c6adf9e56437f2aec1867659ec30ccc111c6ad52` |
 | `reports/p0-model/requirements.freeze.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` |
 | `reports/p0-model/dependency-delta.md` | 3,395 | `2ec29e76ffdaa2f8f147b05ea793d55d3e3189587163ee01a8f2aa1612c2e1a3` |
 | `reports/p0-model/environment-rebuild.md` | 3,966 | `3ad31f752e13aace2c0ae060c22f890bdc5c06d4d8582137a7484079d50b6778` |
 | `setup-local-cuda.sh` | 8,420 | `802f6cda5e5c57a14094d1ff417444a49f73c16c32464ec7d33d5ea8d38bf6d5` |
-| `env.sh` | 4,808 | `796f638fb247f194a5cd931473d79b7d27e476c6e483182d9ebfc8b8863572e0` |
+| `env.sh` | 4,836 | `0b06f9e6a227a125072bd3f47aa24cb81bf5c83f1e7101a3ed581bc3d044e490` |
 | `requirements.freeze.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` |
 | `requirements.freeze.stage-01.txt` | 4,118 | `a21cb93333fa99960425b2d2ef9a66b4f9677cd59001ea500e3ea6f97eb6e302` |
+
+> **哈希登记说明（2026-09-21）**
+> - 上表 **15 行**登记的文件在 2026-09-21 公开发布前的脱敏中被改写（三类替换：容器主机名 / GPU UUID / 协调目录路径），其上 sha256 与字节数已按改写后的**当前字节**更新；脱敏前哈希见 `reports/desensitization.md` §3 受影响文件表（逐行对照见该报告 §4.3）。
+> - `env.sh` 行**不是**脱敏所致：该文件在索引生成后被 commit `f9d834f`（2026-09-21）继续编辑（4,808 → 4,836 B），同样已更新为当前字节。
+> - 本索引记录的部分证据在 2026-09-21 公开发布前经过脱敏（三类替换），哈希以当前字节为准。
