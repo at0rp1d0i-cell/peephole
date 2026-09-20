@@ -1,5 +1,5 @@
 {
-  "note": "SUP-004 masked 参考执行:测试专用独立 dense 参考的 CPU 检查(不加载模型/不跑 GPU)",
+  "note": "SUP-004 参考执行:固定 pin 真实接口(FlashAttentionMetadata + 原生 KV)下的桥接 CPU 检查",
   "heads": 24,
   "kv_heads": 4,
   "head_dim": 256,
@@ -10,5 +10,7 @@
     "CPU/桩件:不据此宣称真实模型或 GPU 接线正确",
     "不设数值阈值;FP32 vs cast 差异只作记录",
     "test-only 开关默认关闭,生产路径无调用点"
-  ]
+  ],
+  "tokenizer_dir": "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "accepted_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json"
 }
