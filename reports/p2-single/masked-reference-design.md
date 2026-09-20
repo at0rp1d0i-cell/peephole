@@ -36,6 +36,7 @@
 | --- | --- |
 | `src/attnview/reference_bridge.py` | `unpack_native_kv`：按 pin 的 `kv_cache.transpose(1, 2).split(head_size, -1)` 解包原生 4 维 KV；`TimelineBridge`：独立时间线（config 声明 + 真实 tokenizer 累计，段末 token 触发、t+1 消费）；`resolve_geometry`：`block_table` **取自真实二维张量**、模式/几何取自时间线，并与 `metadata.seq_lens` **交叉核对不一致即拒绝**；`perform_reference_attention_native`：真实签名下的参考执行 |
 | `src/attnview/reference_hook.py` | 同签名 wrapper（`layer, query, key, value, kv_cache, attn_metadata, output, ...`）：默认关闭、目标 request/层/步命中才接管、覆盖账本、异常即恢复关闭、`restore()` 恢复**原方法**并校验身份 |
+- **形状兼容（按 `attention.py:524-525`）**：query 与传入 impl 的 output 都是 `[num_tokens, num_heads, head_dim]`；本参考**只接受单 token decode**（`num_tokens != 1` 即拒绝），把 `[heads, head_dim]` 结果**写回 output 的对应视图**（`output[0]`），并校验写回前后 `data_ptr` 不变（不得替换缓冲）。夹具已用真实三维 `[1, heads, head_dim]`，实测通过。
 - **真实 metadata 字段仅用其真实拥有的**（`block_table` 二维张量、`seq_lens`、`query_start_loc` 等）；**不做**把 mode/refs/几何塞进 metadata 的自造接口。
 - 指纹：`reference_bridge.py 7b2dfea3c38b5bc0…`、`reference_hook.py ea24618b0ddc427e…`、`reference_dense.py 32845d8f543ea485…`、`p2-ref-cpu-checks.py fd5269c9fba676d4…`；运行 HEAD `58121cb`。
 

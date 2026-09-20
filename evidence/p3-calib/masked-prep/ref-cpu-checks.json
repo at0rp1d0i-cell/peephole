@@ -53,10 +53,10 @@
       784
     ],
     "output_dtype": "torch.bfloat16",
-    "fp32_to_output_max_abs": 0.0002435743808746338,
-    "fp32_to_output_rms": 5.6860681070247665e-05,
-    "fp32_to_output_rel_l2": 0.0016634635552716052,
-    "ref_abs_max": 0.15627558529376984,
+    "fp32_to_output_max_abs": 0.0002433285117149353,
+    "fp32_to_output_rms": 5.6498043704777956e-05,
+    "fp32_to_output_rel_l2": 0.0016550561912135415,
+    "ref_abs_max": 0.14160829782485962,
     "non_finite_count": 0
   },
   "checks": [
@@ -138,6 +138,25 @@
       "ok": true
     },
     {
+      "name": "真实三维 query/output:写回对应视图且原缓冲身份不变",
+      "ok": true,
+      "ptr_preserved": true
+    },
+    {
+      "name": "记录真实三维 shape 与 num_tokens=1",
+      "ok": true,
+      "query_shape": [
+        1,
+        24,
+        256
+      ],
+      "output_shape": [
+        1,
+        24,
+        256
+      ]
+    },
+    {
       "name": "真实接口下记录真实指标(dtype=output.dtype、cast 差异非零、seq_lens 交叉核对一致)",
       "ok": true,
       "metrics": {
@@ -150,10 +169,10 @@
           8,
           9
         ],
-        "fp32_to_output_max_abs": 0.0002435743808746338,
-        "fp32_to_output_rms": 5.6860681070247665e-05,
-        "fp32_to_output_rel_l2": 0.0016634635552716052,
-        "ref_abs_max": 0.15627558529376984,
+        "fp32_to_output_max_abs": 0.0002433285117149353,
+        "fp32_to_output_rms": 5.6498043704777956e-05,
+        "fp32_to_output_rel_l2": 0.0016550561912135415,
+        "ref_abs_max": 0.14160829782485962,
         "non_finite_count": 0
       }
     },
@@ -168,6 +187,11 @@
     {
       "name": "恢复后调用走原实现(计数 +1、输出缓冲不被参考改写)",
       "ok": true
+    },
+    {
+      "name": "多 token 输入被拒绝(仅单 token decode)",
+      "ok": true,
+      "error": "metadata.seq_lens[0]=7840 与独立时间线 KV 上界 7841 不一致"
     },
     {
       "name": "metadata.seq_lens 与独立时间线不一致时拒绝",
@@ -198,7 +222,7 @@
           "step": 6,
           "request_id": "req-D",
           "action": "error_restored",
-          "error": "ReferenceError: output 形状 (25, 256) 与参考 (24, 256) 不一致"
+          "error": "ReferenceError: output 形状 (1, 25, 256) 与 query (1, 24, 256) 不一致"
         }
       ]
     },
