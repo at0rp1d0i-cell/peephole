@@ -8,10 +8,10 @@
 | 项 | 值 |
 | --- | --- |
 | 验收 | **ACCEPT**：`inbox/SUP-003-review.md`（2026-09-18 10:12 CST），范围＝**被测 GPU 张量路径 + 阶段 03→04 数据面**；真实模型接入、位置/GDN、服务、质量与性能**未在范围内** |
-| 当前 commit | `9fae77f`（报告数值口径更正）；实现基线 `38982cf`（＝交付运行 HEAD）；工作区除**未跟踪**的本地复跑目录外干净 |
+| 当前 commit | `9fae77f`（报告数值口径更正）；实现基线 `38982cf`（＝交付运行 HEAD）；工作区除**未跟踪**的本地复跑目录外干净——该目录此后已移出仓内发行（`independent-review`），见 `reports/evidence-index.md` 的树外登记表 |
 | 交付证据 | `evidence/p1-gpu-v6/`：`run-manifest.json`（HEAD `38982cf`、`code_clean=true`、起止 10:09:22→10:09:34、exit 0、972 判据/0 失败）、`control-manifest.json`、`summary.json`、`cases-seed{0,1,2}.json`、`run.log`、`negative-control.{json,log}`、`evidence-index.md`（9 件逐个 sha256） |
 | 冻结配置 | `configs/p1-gpu/read-view-check-v3.json`（commit `b96d08a`）sha256 `3797326784d336030c8c5c59817b20d0010618a2904407668045dd36adbf96d1`；BF16/FA2/784/query_len=1/种子 0–2/atol 0.015、rtol 0.01 **未变** |
-| 独立复跑（本地主代理） | `evidence/p1-gpu-local-review-20260918-1011/`（**勿删**，未提交，仅在此记录）：`summary.json` sha256 `cc30f3de73c698e536f7e9855c30a7af44e8d2058abcffe914c1e9c482ec6301`、`run-manifest.json` `9f0264bdaf7124d74b76209ddfc0c6a9b2a0b80ad26b69db3c9c296712d35a7d`；CPU 111 项/4.435 s、GPU 972 判据/0 失败，数字与交付轮**逐位一致** |
+| 独立复跑（本地主代理） | `evidence/p1-gpu-local-review-20260918-1011/`——该目录已移出仓内发行（`independent-review`），原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表：`summary.json` sha256 `cc30f3de73c698e536f7e9855c30a7af44e8d2058abcffe914c1e9c482ec6301`、`run-manifest.json` `9f0264bdaf7124d74b76209ddfc0c6a9b2a0b80ad26b69db3c9c296712d35a7d`；CPU 111 项/4.435 s、GPU 972 判据/0 失败，数字与交付轮**逐位一致** |
 | GPU | 已释放（0 MiB 已分配）；未加载任何模型 |
 
 ## 2. 本阶段实际完成范围
@@ -42,15 +42,18 @@ python3 tools/p1gpu-overread-control.py --config configs/p1-gpu/read-view-check-
 | 负对照 | `tail_1` 越读 +100（1569→1669，仍在**已分配**尾块、表宽 3 足够）被门禁拒绝，max_abs 8.12；A/local 2 列表抬到需 3 列在 **kernel 调用前**被拒绝 |
 | 资源 | 峰值 156 MiB（含验证用 clone），逐用例秒级——**非性能测量** |
 
-## 4. 历史失败与本轮纠正（全部保留原始件，不删除、不改写）
+## 4. 历史失败与本轮纠正（原始件全部保留、不删除、不改写；v1–v5 代次已移出仓内发行）
+
+本节引用的 v1–v5 代次均已移出仓内发行（`superseded`）；原始字节归档在数据盘，路径/字节/sha256 见
+`reports/evidence-index.md` 的树外登记表。
 
 | 轮次/问题 | 事实 | 处置 |
 | --- | --- | --- |
-| v1（`476b8ef`） | 夹具按 `i` 写入、按 `l2p[i]` 读取 → 读到哨兵；非 GPU 常驻；参考共用候选算法；判据不进门禁；用例缺当前块；无真实模式切换 | 结论**撤回**；`evidence/p1-gpu/` 保留并加撤回横幅 |
+| v1（`476b8ef`） | 夹具按 `i` 写入、按 `l2p[i]` 读取 → 读到哨兵；非 GPU 常驻；参考共用候选算法；判据不进门禁；用例缺当前块；无真实模式切换 | 结论**撤回**；`evidence/p1-gpu/` 保留并加撤回横幅——已移出仓内发行（`superseded`），见 `reports/evidence-index.md` 的树外登记表 |
 | 我的参考 bug | 批量参考 einsum 把 kv head 维隐式求和，与 kernel 差 2.12；用逐 head 反写与逐 head 反推定位 | 修复并保留"批量 vs 逐 head"自检 |
 | v2（`1617164`） | `expect_blocks` 漏块 5（`align_outward(4700)`→块 5）且代码未读取该字段 | v3 修正并**纳入判据**（三方一致），未改 span |
 | v3（首轮正确夹具） | **配置提交晚于运行**：`b96d08a` 创建 10:07:10，产物 10:06:49；我一度用"事后拆提交 + mtime"声称满足时序 | **承认错误**；该轮不作交付依据；改为运行自记 manifest 并重跑 |
-| v4 / v5 | v4 运行时工作区含未提交改动（`code_clean=false`）；v5 主/负对照清单同名互相覆盖 | 均不作交付依据，保留为诊断；清单分名后重跑 |
+| v4 / v5 | v4 运行时工作区含未提交改动（`code_clean=false`）；v5 主/负对照清单同名互相覆盖 | 均不作交付依据，保留为诊断——已移出仓内发行（`superseded`），见 `reports/evidence-index.md` 的树外登记表；清单分名后重跑 |
 | 负对照设计 | 初版用 A/local（2 列表）越读 → 需第 3 列，属**越界注入** | 改为 `tail_1`（+100 仍在同一已分配尾块），另加边界拒绝检查 |
 | `gpucheck` 提前 return | `append` 段缺失时吞掉后续判据（residency 等） | CPU 注入测试发现并修复 |
 | 边界消息 | 曾用 dummy 张量块大小（16）而非表声明的（784） | `ReadTable` 带 `block_size` 并与缓存块维一致性断言 |

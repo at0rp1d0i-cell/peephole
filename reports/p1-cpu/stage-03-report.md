@@ -53,7 +53,7 @@
 | 测试入口 | `bash tools/p1cpu-run-tests.sh`（内部 `CUDA_VISIBLE_DEVICES=''`，不联网、不加载权重） |
 | 演示与固定轨迹 | `python3 tools/p1cpu-demo.py`（真实 tokenizer，本地快照 `local_files_only=True`） |
 | prompt 逐字保真 | `python3 tools/p1cpu-check-prompt-fidelity.py` |
-| 证据索引 | `evidence/p1-cpu/evidence-index.md`（逐个文件 sha256） |
+| 证据索引 | 生成索引 `reports/evidence-index.md`（`evidence/p1-cpu/` 逐个文件 sha256；本阶段原机械表 `evidence/p1-cpu/evidence-index.md` 已被其取代、移出仓内发行，status=`superseded`） |
 | **输入夹具（E2 要求"保留原文、无损分段、token IDs/offsets"）** | `evidence/p1-cpu/demo-fixtures.json`（完整原文 19217 字符、各段文本与字符区间、生成脚本、tokenizer/模板哈希）+ `evidence/p1-cpu/prompt-ids-offsets-{da,da_no_mask,vanilla}.json`（三臂各自的 `token_ids` 与 `offsets` 全量、segment/scaffold span） |
 | 接入设计 | `reports/p1-cpu/integration-design.md`（含 M1 API 子集建议表） |
 

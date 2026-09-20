@@ -7,9 +7,11 @@
 # 证据：<可复跑的命令，或产物路径>
 # 未验证：<明确写出，不留空>
 #
+# 证据两类（随仓发行 / 树外登记），状态词与规则见 reports/evidence-index.md。
+#
 # Work-order: SUP-004, NATIVE-053
-# Evidence: evidence/p3-calib/run-disabled-5, reports/p1-gpu/session-closeout.md
-# Verified: python -m pytest tests/ -q (exit 0)
+# Evidence: evidence/p3-calib/run-disabled-5, reports/evidence-index.md
+# Verified: python -m pytest tests/ -q (exit 0); python3 tools/pub-evidence-registry.py --check (exit 0)
 # Unverified: 实机 GPU 路径未运行；数值口径未复核
 #
 # 提交前跑 CONTRIBUTING.md §3 的四道机械门禁；规则全文见 CONTRIBUTING.md。

@@ -25,7 +25,9 @@
 
 ## 2. 容差依据（先于 masked 结果；只补少量代表点）
 
-- 复用现有全局捕获（`run-original-3a/capture/layers.npz`，SHA256 `e60ec7d1…437008`）与首份 oracle 报告（`oracle-original-3a.json`，SHA256 `3615eaa6…110225`）；
+- 复用现有全局捕获（`run-original-3a/capture/layers.npz`，SHA256 `e60ec7d1…437008`）与首份 oracle 报告的聚合段
+  `evidence/p3-calib/oracle-original-3a.aggregates.json`（全量件 `oracle-original-3a.json` 已移出仓内发行（detail-only）；原始字节归档在数据盘，
+  路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表）；
   **不重跑** 24192 完整比较。补点方式：**每层至少一个 decode 代表点** + 已知最坏 prefill 点（层 14/13/10 的 max 点）。
 - 明确公式（草案沿用并补全）：
   - `max_abs_err = max_i |out_i − ref_i|`
@@ -56,7 +58,8 @@
   上游同类先例（`test_mm_prefix.py`,bf16-FA vs 独立 FP32 dense）用 **atol=rtol=2e-2**,属**逐元素 allclose** 口径,与本表 `rel_l2` **口径不同**,
   只能作为"存在有界先例"的证据,**不能**由此推出本项目的任何候选值。
 - **本轮不给数值候选区间**（更正前一版）：此前的 `out_l2 ≈ 5` 无来源，且 `1e-3~3e-3` 无依据 —— 撤回。
-  已有事实（来自 `oracle-original-3a.json` 的 decode 逐比较 `out_norm`）：**中位 46.6、最大 401.7**（对应上表 `ref_l2` 量级），说明输出幅度分位跨度很大，
+  已有事实（来自首份 oracle 报告聚合段 `evidence/p3-calib/oracle-original-3a.aggregates.json` 的 decode 逐比较 `out_norm` 行，
+  中位/最大值可由该 112 行直接复算）：**中位 46.6、最大 401.7**（对应上表 `ref_l2` 量级），说明输出幅度分位跨度很大，
   不能用一个量级去反推容差。**候选区间必须等"代表点结果 + 上游断言方式核对"完成后再提**，且届时仍只作**建议**交用户决定；
   **不得**把 0.118/0.260 乘安全系数当数学保证，**不得**在看到 masked 结果后回调，**也不得**用 global 输出相等去推 masked 容差。
 - 需要的**有界校准**（另行批准，本草案不自行执行）：在固定的、**真正排除已写块**的短轨迹上，对 B 类比较补

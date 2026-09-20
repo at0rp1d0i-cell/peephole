@@ -65,6 +65,14 @@ git log --oneline --decorate              # 边界处直接看到 tag
 - **第二套风格**：`fix(scope): describe the change in english`——英文 Conventional 风格、无正文、无证据、无未验证项。同一仓库里并存两套提交风格本身就是"乱"的来源；要换风格就整仓换，别一条一条换。
 - **无可核对内容**：`docs: 修一些文档`——没说改了什么、凭什么算完成。
 
+### 1.6 证据发布范围
+
+证据分**随仓发行**与**树外登记**两类，判定不看"文件在不在 `evidence/` 下"，只看机械来源：索引 `reports/evidence-index.md`"树内：随仓发行"表列出的字节才随仓发行，未列出的不随仓发行。
+
+引用树外登记件统一写"已移出仓内发行（<status>）；原始字节归档在数据盘，路径/字节/sha256 见索引的树外登记表"——只指向索引，不逐处抄哈希。树外登记件不写进 `Evidence:` trailer（那里只写随仓发行的产物路径）。
+
+规则全文（R1–R9）与状态词只保留两处：索引的"发布规则""状态表"两节与状态源 `reports/evidence-registry.json`，此处不复制；索引的生成与复核入口见 §6。
+
 ## 2 一条提交一件事
 
 格式改动（改名、格式化、重排）与行为改动分开提交。一次提交能独立回滚、独立复核。
@@ -127,6 +135,9 @@ git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4}-
 | CPU 协议层与检查 | `python -m pytest tests/ -q` |
 | 运行环境 | `bash verify-runtime.sh` |
 | 补丁部署（事务化） | `python tools/p2-apply-patch.py apply \| verify \| revert` |
+| 证据索引（生成物，勿手改） | 复核 `python3 tools/pub-evidence-registry.py --check`；重生成 `python3 tools/pub-evidence-registry.py --write` |
+
+证据索引的机械事实来自工作区与 `git ls-files`，**规则与登记**写在状态源 `reports/evidence-registry.json`，`reports/evidence-index.md` 是它的生成物（改状态源后必须重生成，勿手改）。复核项：索引与磁盘是否一致（过期即失败）、文档/配置里的 `evidence/...` 悬空引用、未经 `allow_duplicate` 声明的逐字节重复、登记项是否真的被 git 忽略。索引"树外登记"表里的件（§1.6 的 R3–R7）原件归档在数据盘 `/root/autodl-tmp/attnview-evidence-archive`，与仓内相对路径同构、逐字节一致；R8 的未验收件与 R9 的大件不入库、留在盘上并被 `.gitignore` 排除——两者都不随仓发行。
 
 ## 7 启用提交模板
 

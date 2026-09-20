@@ -15,7 +15,7 @@
     python3 tools/p2-oracle-aggregate.py --check        # 用全量件复核已入库的聚合段
 
 `--check` 需要全量件在本机可达（数据盘）。全量件入库被移除后，其**字节数与 sha256
-登记在 `reports/evidence-registry.md`**；`--check` 同时核对这两项。
+登记在 `reports/evidence-index.md` 的树外登记表**（状态源 `reports/evidence-registry.json`）；`--check` 同时核对这两项。
 """
 
 from __future__ import annotations
@@ -28,6 +28,9 @@ import statistics
 import sys
 
 AGGREGATE_SUFFIX = ".aggregates.json"
+# 仓内全量件的规范相对路径：聚合段与它的相对位置绑定，因此 `--check` 的比对对象
+# 恒为仓内聚合段，而 `--from` 只决定「全量件现在在哪」（数据盘归档也适用）。
+DEFAULT_SOURCE = "evidence/p3-calib/oracle-original-3a.json"
 OMITTED_KEY = "comparisons"
 # 逐比较行按 scope 选择性保留：被报告直接引用的 scope 必须留在聚合段里。
 PUBLISHED_SCOPES = ("decode",)
@@ -111,7 +114,7 @@ def main(argv=None) -> int:
     ap.add_argument(
         "--from",
         dest="source",
-        default="evidence/p3-calib/oracle-original-3a.json",
+        default=DEFAULT_SOURCE,
         help="全量报告路径（默认 evidence/p3-calib/oracle-original-3a.json）",
     )
     ap.add_argument("--out", default=None, help="聚合段输出路径（默认 <全量件>.aggregates.json）")
@@ -122,7 +125,7 @@ def main(argv=None) -> int:
     )
     args = ap.parse_args(argv)
 
-    target = args.out or aggregate_path_for(args.source)
+    target = args.out or aggregate_path_for(DEFAULT_SOURCE)
     if not os.path.exists(args.source):
         print(f"全量件不存在：{args.source}", file=sys.stderr)
         return 2

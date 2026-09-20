@@ -1,6 +1,6 @@
 {
  "version": 2,
- "note": "证据发布范围的唯一事实来源。改本文件后必须跑 python3 tools/pub-evidence-registry.py --write 重新生成 reports/evidence-index.md；--check 验证一致性、悬空引用、未声明重复与登记项是否真的被忽略。",
+ "note": "证据发布范围的唯一事实来源。改本文件后必须跑 python3 tools/pub-evidence-registry.py --write 重新生成 reports/evidence-index.md；--check 验证一致性、悬空引用、未声明重复与登记项是否真的被忽略。 扫描面为 `evidence/` 与 `logs/`；`vllm-patch/`（部署派生件，含被 run manifest 的 git_status_porcelain 引用的 deployed.json / orig/）与 `reports/`、`tools/` 的字节不属本登记表范围。",
  "archive_root": "/root/autodl-tmp/attnview-evidence-archive",
  "rule": [
   {

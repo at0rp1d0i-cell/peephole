@@ -35,16 +35,20 @@
 | 四臂 capture 字节一致性 | 四臂 `capture/layers.npz` **字节完全相同**（含 Q/K/V/位置/输出/scale 元数据） | 主代理独立复核 `capture-byte-identity.json`（SHA256 `e60ec7d1…437008`） |
 
 ⇒ **主请求范围内，DA/global 路径引入的附加数值偏差为 0**（与关闭臂、原版逐元素相同）。
+- 本节引用的独立复核记录（`original-repeat-tensors.json`、`patched-v4-main-tensors.json`、`final-v5-artifacts.json`、`capture-byte-identity.json`）均已移出仓内发行（independent-review）；
+  原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 ## 3. dense FP32 全局参考（独立 oracle）
 
-- 输入：`run-original-3a/capture/layers.npz`（7.9 MB 报告 / 1323 MiB 捕获 = 1,387,436,946 B）。
+- 输入：`run-original-3a/capture/layers.npz`（7.9 MB 报告 / 1323 MiB 捕获 = 1,387,436,946 B）；
+  报告全量件 `oracle-original-3a.json` 已移出仓内发行（detail-only），入库版为其聚合段 `oracle-original-3a.aggregates.json`（见 §5）。
 - 覆盖：**24,192 comparisons = 24,080 prefill + 112 decode**；16 个全注意力层；**prefill 步 1 的全部 1505 个位置**
   （源码逐位置遍历，非仅末 token）+ **decode 步 1–7 全部**；`non_finite = 0`。
 - 误差（FP32 dense 参考 vs 真实 FA2 输出）：**prefill 最大 `max_abs_err` 0.2600479126**（层 14；层 13 0.2295、层 10 0.1456）；
   **decode 最大 0.1179962158**；首个 decode 步 min 0.00414 / median 0.01490 / max 0.09901。
 - **跨实现两样本核对**（主代理，NumPy float64，逐 head 重算两个最坏点）：0.2600652519 / 0.1179977043，
-  与 FP32 报告差 1.73e-5 / 1.49e-6（证据 `oracle-worstcase-independent.json`）。**仅为两样本核对，不是全量独立 oracle。**
+  与 FP32 报告差 1.73e-5 / 1.49e-6（证据 `oracle-worstcase-independent.json`，已移出仓内发行（independent-review）；
+  路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表）。**仅为两样本核对，不是全量独立 oracle。**
 - **口径**（不越界）：报告字段 `rel_err` = `max_abs_err / L2(out)`，**不是**逐元素 `allclose` 的 rtol；
   `dtype_name=None` 不得读作"模型 dtype 未知"——模型 dtype 由 manifest 的 BF16 与逐层 `capture_dtype_L{n}` 给出来源。
   误差含 BF16 舍入与 FA2 与 dense FP32 的实现差异；**本轮不设容差、不套用阶段 04 阈值**。
@@ -84,13 +88,18 @@
   # 4) 撤销回未部署态
   "$ATTNVIEW_PYTHON" tools/p2-apply-patch.py revert
   ```
+  上述命令的目标路径（`run-original-4a`、`run-original-4b`、`run-disabled-6`、`run-global-6`、`traj-original-2.json`）尚未产出；
+  登记见 `reports/evidence-index.md` 的"已声明缺失/未执行"表。
 - **oracle 参考（写新文件，不复写既有报告）**：
   ```bash
   CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py \
     --capture evidence/p3-calib/run-original-3a/capture/layers.npz \
     --out evidence/p3-calib/oracle-original-3a-rerun.json
   ```
-  首份实测报告为 `evidence/p3-calib/oracle-original-3a.json`（SHA256 `3615eaa6…110225`）。
+  首份实测报告的聚合段为 `evidence/p3-calib/oracle-original-3a.aggregates.json`（保留结论所需全部数值段与 decode 逐比较 112 行，
+  并自带全量件的 size + sha256；全量件 `oracle-original-3a.json` 已移出仓内发行（detail-only），原始字节归档在数据盘，
+  路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表）。
+  `oracle-original-3a-rerun.json` 目标路径尚未产出；登记见 `reports/evidence-index.md` 的"已声明缺失/未执行"表。
 - **当前环境**（**原交付 HEAD `85cfacf`**；当前报告版本见 `outbox/SUP-004-calibration-result.md`）：源码树**未部署**（checkout 与安装副本逐字节一致、无已部署 `attnview_engine.py`、
   无 `orig/`、无事务记录）；工作区干净；GPU 0 MiB。
 - **诊断时间口径**：四臂的 startup/请求耗时**包含**捕获与校准专用同步（强制钩子含 D2H/H2D、logits 捕获含显式 D2H），

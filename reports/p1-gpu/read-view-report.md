@@ -6,13 +6,19 @@
 工作区状态）、配置 `configs/p1-gpu/read-view-check-v3.json`（提交 `b96d08a`，sha256 `3797326784d33603…`，
 自该提交起未修改，且**是运行 HEAD 的祖先**）、起止 `10:09:22 → 10:09:34 CST`、exit 0、972 条判据 / 0 失败。
 HEAD 提交时间 `10:09:20` 早于运行开始 `10:09:22`。
+`configs/p1-gpu/read-view-check-v2.json` / `-v3.json` 保持运行当时的字节不变（v3 的 sha256
+`3797326784d336030c8c5c59817b20d0010618a2904407668045dd36adbf96d1` 仍由 `evidence/p1-gpu-v6/` 的
+run/control manifest 钉住）；其 `supersedes` 文本里提到的 v1/v2 证据目录已移出仓内发行，状态见
+`reports/evidence-index.md` 的树外登记表。
 
 **验收**：本地主代理 `inbox/SUP-003-review.md`（2026-09-18 10:12 CST）**ACCEPT**，范围为"被测 GPU 张量路径
-与阶段 03→04 数据面"；并独立复跑（远端 `evidence/p1-gpu-local-review-20260918-1011/`，
+与阶段 03→04 数据面"；并独立复跑（远端 `evidence/p1-gpu-local-review-20260918-1011/`——该目录已移出仓内发行
+（`independent-review`），原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表；
 `summary.json` sha256 `cc30f3de73c698e536f7e9855c30a7af44e8d2058abcffe914c1e9c482ec6301`）：
 CPU 111 项 / 4.435 s / exit 0，GPU 972 条判据 / 0 失败 / exit 0，与交付轮数字逐位一致。
 
-**不作为交付依据的历史运行**（保留原样）：
+**不作为交付依据的历史运行**（v1–v5 代次均已移出仓内发行（`superseded`）；原始字节归档在数据盘，
+路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表）：
 `evidence/p1-gpu/`（v1：逻辑/物理错位，结论已撤回）、`evidence/p1-gpu-v2/`（expect_blocks 数组漏块 5 且未被代码读取）、
 `evidence/p1-gpu-v3/`（**配置提交晚于运行**：`b96d08a` 创建于 10:07:10，而产物生成于 10:06:49，时序不合规）、
 `evidence/p1-gpu-v4/`（运行时工作区含未提交改动）、`evidence/p1-gpu-v5/`（主/负对照清单同名互相覆盖）。
@@ -36,7 +42,8 @@ FP32 参考在预冻结容差内一致；读取选择确实生效；canonical �
 | 参考与候选共用 `valid_count`/规范化块列表 | 有效长度错误会同时进入两边 |
 | 若干判据只记录不参与 exit | 输出 False 仍可能返回 0 |
 
-旧日志与失败证据**原样保留**在 `evidence/p1-gpu/`（含当时被标为 PASS 的记录），仅供追溯。
+旧日志与失败证据**原样保留**，但该代次已移出仓内发行（`superseded`）——原始字节归档在数据盘，
+路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表（含当时被标为 PASS 的记录），仅供追溯。
 
 ## 1. 夹具与真值（R1 §1）
 
@@ -163,7 +170,8 @@ RTX PRO 6000 Blackwell cc(12,0) 97887 MiB、驱动 580.142、入口 `vllm.vllm_f
    在 v3 修正为 `[0,1,5,6,7,8]` 并补全所有用例/行/step 的预期，作为**门禁判据**与 oracle、候选三方比对；未改任何 span。
    **时序更正（重要）**：我一度把 v3 的配置提交与证据提交事后拆成两个提交并称其证明"配置先于运行"——这是错的：
    `b96d08a` 实际创建于 `10:07:10`，晚于当轮产物 `10:06:49`，拆提交不构成时序证据、文件 mtime 也不证明提交先于实验。
-   该轮（`evidence/p1-gpu-v3/`）与中间两轮（v4/v5）**均不作交付依据**；改为由运行自身写清单并完整重跑
+   该轮（`evidence/p1-gpu-v3/`，已移出仓内发行（`superseded`），见 `reports/evidence-index.md` 的树外登记表）
+   与中间两轮（v4/v5，同上）**均不作交付依据**；改为由运行自身写清单并完整重跑
    （`evidence/p1-gpu-v6/`），交付以该轮为准。
 2. **越读负对照曾设计有误（已修）**：最初用 A/local（2 列表）把 `seqused_k` 1568→1668，需要第 3 列，
    属"越界注入"；改为 `tail_1` 夹具（+100 仍在同一已分配尾块、表宽 3 足够），并新增边界守卫在任何
@@ -187,6 +195,10 @@ python3 tools/p1gpu-read-view-check.py --config configs/p1-gpu/read-view-check-v
 python3 tools/p1gpu-overread-control.py --config configs/p1-gpu/read-view-check-v3.json --evidence evidence/p1-gpu-v3  # exit 0，独立越读负对照
 CUDA_VISIBLE_DEVICES='' python3 -m unittest discover -s tests -t tests               # 111 项 CPU（含失败注入与边界守卫）
 ```
+
+上列 `--evidence evidence/p1-gpu-v3` 为 v3 轮原命令与写入目标；该代次已移出仓内发行（`superseded`），
+原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表。交付依据轮的写入目标为
+`evidence/p1-gpu-v6/`（配置不变，仍为 `configs/p1-gpu/read-view-check-v3.json`）。
 
 ## 9. 推荐下一步
 

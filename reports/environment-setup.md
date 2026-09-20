@@ -1,6 +1,6 @@
 # 阶段 01 环境建立与复跑说明
 
-配套：[`environment-report.md`](environment-report.md)（事实与结果）、[`evidence-index.md`](evidence-index.md)（原始产物索引）。
+配套：[`environment-report.md`](environment-report.md)（事实与结果）、[`evidence-index.md`](evidence-index.md)（生成索引：证据发布范围与机械事实）。
 目标机 SSH 别名：`lab`（`~/.ssh/config`，AutoDL 容器）。全部命令在远端执行。
 
 ## 0. 设计要点
@@ -90,9 +90,11 @@ ssh lab 'df -h /root/autodl-tmp; findmnt -no SOURCE,FSTYPE,TARGET /root/autodl-t
 ssh lab 'mkdir -p /root/attnview/models/{hf-home,weights}'
 # 4) 把 HF 缓存指向数据盘固定位置（见 remote/env.sh）
 #    HF_HOME=$ATTNVIEW_HOME/models/hf-home、HF_HUB_CACHE=$HF_HOME/hub
-# 5) 自检 → exit 0，7 项检查全通过（evidence/verify-after-expand.log）
+# 5) 自检 → exit 0，7 项检查全通过（输出见 evidence/verify-console.log）
 ssh lab 'source /root/attnview/env.sh && bash /root/attnview/verify-runtime.sh'
 ```
+
+第 5 步的校验输出见 `evidence/verify-console.log`；迁移/扩容/HF 端点三次的副本（`evidence/verify-after-move.log`、`verify-after-expand.log`、`verify-after-hf-endpoint.log`）已移出仓内发行（同内容，status=`duplicate`），原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表。该校验结论逐字为：7 项检查全部 `[exit 0]`，末尾"全部检查通过"。
 
 顺序 I/O 顺带实测（各 3 次、2 GiB/次）：数据盘写中位 699 MB/s、读 2.0 GB/s；系统盘写 729 MB/s、读 2.0 GB/s——**两盘同速，因为同属一块 `/data` NVMe**（数据盘是 `/dev/md0` 上的 docker volume 子目录）。所以"放数据盘"的价值是持久性、可复制性与容量，不是速度；完整数据见 `environment-report.md` §7 与本机 `evidence/post-expansion.txt`。
 
@@ -125,6 +127,54 @@ ssh lab 'source /root/attnview/env.sh && bash /root/attnview/verify-runtime.sh'
 | `env.sh` | 环境定义唯一来源；只做变量赋值与幂等 PATH 追加，不输出、不做命令替换、不依赖 cwd | 可反复 source |
 | `install-runtime.sh` | venv + vLLM 依赖 + 源码 checkout + freeze | venv 存在则复用；依赖已满足则跳过；源码目录存在则只 fetch/checkout |
 | `setup-local-cuda.sh` | 把 venv 内 CUDA 13 工具链暴露为 `$ATTNVIEW_CUDA` 前缀并编译自检 | 前缀每次重建，结果一致 |
-| `verify-runtime.sh` | E5 逐项验证，原始输出落 `evidence/after/` | 只读检查，可重复 |
+| `verify-runtime.sh` | E5 逐项验证，原始输出落 `evidence/after/`（逐项 `.txt` 与 `evidence/verify-console.log`；其中环境探针中间刷新已移出仓内发行，见 §6） | 只读检查，可重复 |
 
 素材仓内同一份脚本位于 `remote/`（相对 `docs/stage-01-environment.md` §4 的旧版：旧版基于 miniconda + `venv`、写 `/etc/environment`、`repurpose` 变量 `home`，已按 uv + 项目自带 CUDA + `/root/attnview` 重写）。
+
+## 6. 原始产物、退出码与复现入口（阶段 01 原始记录）
+
+安装与 CUDA 前缀建立（命令、退出码、内容）：
+
+| 产物 | 命令 | 退出码 | 内容 |
+| --- | --- | --- | --- |
+| `logs/install-runtime-20260917-163051.log` | `source env.sh && bash install-runtime.sh` | 0 | 本次有效安装全程：venv 建立、依赖解析与安装、freeze、源码 checkout、import 来源核对、磁盘 |
+| `logs/install-runtime-20260917-155930.log` | 同命令（失败一次） | 1 | `uv: command not found`——非交互 PATH 里没有镜像 uv，据此把 uv 解析与自托管写进脚本 |
+| `logs/install-runtime-20260917-160026.log` | 同命令（失败一次） | — | uv 托管 CPython 直连下载停滞（`.temp` 无字节落盘），据此改为仅该步走平台加速 |
+| `evidence/cuda-setup.log` | `bash setup-local-cuda.sh` | 0 | 工具链目录、`nvcc --version`、前缀符号链接、sm_120 cubin 编译结果 |
+
+同一次有效安装另有 `nohup` 控制台副本 `logs/console-install.log`（exit 0，与上表第一条逐字节相同，末尾为"安装完成"），已移出仓内发行（status=`duplicate`）；原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 的树外登记表。
+
+E5 自检（`verify-runtime.sh` 产生；这里只登记产物、命令与退出码，逐项读数与结论见 [`environment-report.md`](environment-report.md) §4）：
+
+| 产物 | 命令 | 退出码 |
+| --- | --- | --- |
+| `evidence/after/python_version.txt` | `"$ATTNVIEW_PYTHON" -V` | 0 |
+| `evidence/after/pip_check.txt` | `python -m pip check` | 0 |
+| `evidence/after/pip_freeze.txt` | `python -m pip freeze` | 0 |
+| `evidence/after/import_versions.txt` | `import torch, vllm` + 设备属性 | 0 |
+| `evidence/after/cuda_tensor.txt` | 小张量 CUDA 运算 + 同步 | 0 |
+| `evidence/after/vllm_cli.txt` | `venvs/attnview/bin/vllm --help` | 0 |
+| `evidence/after/nvcc.txt` | `cuda/bin/nvcc --version` | 0 |
+| `evidence/after/network-tools.txt` | 见文件内命令记录 | 0 |
+
+`evidence/verify-console.log`（`bash verify-runtime.sh`，exit 0）是上述各项的命令、输出与 `[exit n]` 汇总，末尾"全部检查通过"。
+
+环境探针（`evidence/before|after/env-report-*.md`）由 `bash material/attnview/scripts/env-probe.sh --out evidence/before|after` 采集：uname/用户、`nvidia-smi` 全量、ECC/计算模式、GPU 拓扑、CUDA 工具链、Python/框架版本、vLLM 侧环境变量、主机资源、磁盘、计时工具可用性；探针为只读采集，不安装、不下载、不改系统配置。`evidence/before/` 的一份**未** source `env.sh`（纯基线），`evidence/after/` 的刷新在 source 之后采集。脚本成功退出**不代表**每项检查成功，逐项结论见 `environment-report.md` §1、§4。`evidence/after/` 内的环境探针中间刷新已移出仓内发行（status=`snapshot`）：仓内保留首份 `evidence/before/env-report-20260917-1559.md` 与末份 `evidence/after/env-report-20260917-1716.md`，其余刷新见 `reports/evidence-index.md` 的树外登记表。
+
+### 6.1 迁移到数据盘（`evidence/move-to-data-disk.txt`）
+
+该文件的命令记录：迁移动机（用户口径：性能相关资产优先数据盘）、`cp -a` 统计（8.3 GiB / 121244 文件 / 7.7 s）、符号链接切换、迁移前后 `df`。动作序列：`cp -a /root/attnview/. /root/autodl-tmp/attnview/` → `mv /root/attnview /root/attnview.on-system-disk` → `ln -s /root/autodl-tmp/attnview /root/attnview` →（走 `/root/attnview` 路径）`source env.sh && bash verify-runtime.sh` → `rm -rf /root/attnview.on-system-disk`（删除系统盘冗余副本）。迁移后 7 项检查全部 `[exit 0]`，末尾"全部检查通过"——证明符号链接路径下 venv、CLI、nvcc 全部可用；该校验输出见 `evidence/verify-console.log`（迁移副本已移出仓内发行，同内容，status=`duplicate`，见 §3.1）。系统盘可用空间由 8.1 GiB 变为 17 GiB。
+
+### 6.2 空间回收（`evidence/paged-kv-before-cleanup.txt`）
+
+删除前的快照：大小 5.5 GiB（全部是 `.venv`）、git HEAD `8e6b0dc`、`## main...origin/main`、未推送提交 0、stash 0、origin URL；处置说明（只删 `.venv`，源码与 `.git` 保留，可用 `uv sync --locked` 重建）。
+
+### 6.3 复现入口
+
+```bash
+ssh lab 'source /root/attnview/env.sh && bash /root/attnview/verify-runtime.sh'   # 环境层全部检查，原始输出见本节 E5 表
+ssh lab 'git -C /root/attnview/vllm rev-parse HEAD'                              # → 98dff2a81d747d1dba01a47f939f48c3526d4206
+ssh lab '/root/attnview/venvs/attnview/bin/python -c "import vllm; print(vllm.__file__)"'
+```
+
+证据发布范围与机械事实以生成索引 `reports/evidence-index.md` 为准。

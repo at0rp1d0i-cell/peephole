@@ -1,13 +1,13 @@
 # 依赖清单变更记录（阶段 02 会话内的 CUDA 修复）
 
 本文件记录**相对阶段 01 冻结清单**的差异，符合"保留修复前记录"的要求。
-冻结快照（均在远端 `evidence/p0-model/`，内容逐字节保留）：
+冻结快照（原始 `pip freeze` 产物位于远端 `evidence/p0-model/`；随仓发行情况见下表）：
 
 | 快照 | 文件 | 含义 |
 | --- | --- | --- |
-| 修复前 | `cuda-upgrade-freeze-before.txt` | 用户授权修复前的原始状态（阶段 01 的结果） |
-| 中间态 | `cuda-upgrade-freeze-after.txt` | 仅把 `nvidia-cuda-runtime` 升到 13.4.92 之后 |
-| **最终态** | `cuda-upgrade-freeze-final.txt` | 全部已授权 CUDA 修复完成后的权威清单 |
+| 修复前 | `requirements.freeze.stage-01.txt`（仓根，随仓发行；原副本 `evidence/p0-model/cuda-upgrade-freeze-before.txt` 已移出仓内发行，status=`duplicate`） | 用户授权修复前的原始状态（阶段 01 的结果） |
+| 中间态 | `evidence/p0-model/cuda-upgrade-freeze-after.txt`（随仓发行） | 仅把 `nvidia-cuda-runtime` 升到 13.4.92 之后 |
+| **最终态** | `requirements.freeze.txt`（仓根，随仓发行；原副本 `evidence/p0-model/cuda-upgrade-freeze-final.txt` 已移出仓内发行，status=`duplicate`） | 全部已授权 CUDA 修复完成后的权威清单 |
 | 交付副本 | `../p0-model/requirements.freeze.txt` | 最终态在素材仓中的副本（197 行） |
 
 ## 差异（修复前 → 最终态，逐行）

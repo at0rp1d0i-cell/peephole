@@ -140,6 +140,10 @@ python3 tools/pub-desensitize.py --check --paths 'evidence/**/*.md'  # 自定义
 
 该文件是**机器生成的证据清单**（`| 文件 | 字节 | sha256 |`，90 行数据行）。其中 15 行登记的是含标识的文件——全部落在 §3 的 31 个文件里——所以那 15 行的字节数与 sha256 都指脱敏**前**的字节，现已失效。它自身命中数 0，因此字节未变、行号稳定。
 
+> **后记（2026-09-21，证据范围收缩）**：该 90 行机械表已删除——机械事实改由生成物
+> [`reports/evidence-index.md`](evidence-index.md) 承载，其值即脱敏后的当前字节。下面这张表是
+> **当时**的登记值与失效说明，作为审计快照保留；§4.5 第 1 行的处置对象（该机械表）已不存在。
+
 | 行 | 被登记的文件 | 记录值（脱敏前，已失效） | 应改为（脱敏后） |
 | ---: | --- | --- | --- |
 | L110 | `evidence/p0-model/e0-baseline.txt` | `8bd30dba9e4ec8a6…`／1,153 B | `1abd77b6f767afc9…`／1,131 B |
@@ -222,6 +226,7 @@ python3 tools/pub-desensitize.py --check --paths 'evidence/**/*.md'  # 自定义
 | 项 | 建议 | 归属 |
 | --- | --- | --- |
 | §4.3 的 15 行 sha256 登记 | 逐行替换为脱敏后值，或在清单头部声明"本清单 sha256 为脱敏前值，见本报告" | `reports/p0-model/evidence-index.md` 的所有者 |
+| ↳ 后记（2026-09-21） | **已失效**：该机械表已删除，机械事实改由生成物 `reports/evidence-index.md` 承载（§4.3 后记） | — |
 | §4.4 的 29 处 commit 登记 | 保持原样（它们是 run 当时的 HEAD 事实），读者用 `reports/git-history-map-20260921.txt` 对照即可；若要更显眼，可在对应清单加一行指向映射表 | 各清单所有者 |
 | §4.2 的 `source.script_sha256` 漂移 | 登记为既存漂移；不改历史 run 的 manifest（权威钉是 `source/` 快照） | 无需动作 |
 

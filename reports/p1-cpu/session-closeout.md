@@ -23,7 +23,7 @@
 - **入口**：`bash tools/p1cpu-run-tests.sh`、`python3 tools/p1cpu-demo.py`、`python3 tools/p1cpu-check-prompt-fidelity.py`。
 - **报告**：`reports/p1-cpu/stage-03-report.md`（含 R1/R2 逐项返工）、`reports/p1-cpu/integration-design.md`
   （调用链、接入点、M1 API 子集建议）。
-- **证据**：`evidence/p1-cpu/`（**15 件**，含 `evidence-index.md` 逐个 sha256），其中
+- **证据**：`evidence/p1-cpu/`（**15 件**；逐个 sha256 见生成索引 `reports/evidence-index.md`，本阶段原机械表 `evidence/p1-cpu/evidence-index.md` 已移出仓内发行，status=`superseded`），其中
   `demo-fixtures.json`（完整原文 19,217 字符 + 各段完整文本）、`prompt-ids-offsets-{da,da_no_mask,vanilla}.json`
   （三臂全量 token ids/offsets）、`fixed-trace.json|md`（115 行 = 114 forward + prefill）、`prompt-facts.json`、
   `extraction.json`、`run.log`、`prompt-fidelity.txt`、`template-kwargs-check.txt`。
@@ -55,7 +55,7 @@
 | R2-b | 撤销 `cut_mid_token` 超限豁免 | 上限只用覆盖口径；唯一豁免是 C1.3 无可用切点的单元 | `54933ff` | `test_cap_holds_by_covering_count_on_adversarial_fixture`、`test_cap_verified_by_independent_overlap_count`（`afd9069`） |
 | R2-c | 空白两侧都可作合法切点 | 空白层同时评估前/后切点（避免固定归属制造超限） | `54933ff` | 同上 |
 | R2-d | overflow focus = 1 | 见 R1-4 | `ae150a0` | 同上 |
-| R2-e | 完整原文/segment/IDs/offsets 落盘并纳入 manifest | `demo-fixtures.json` + `prompt-ids-offsets-*.json`，进入 `evidence-index.md` | `ae150a0` | 15 件索引 |
+| R2-e | 完整原文/segment/IDs/offsets 落盘并纳入 manifest | `demo-fixtures.json` + `prompt-ids-offsets-*.json`，纳入生成索引 `reports/evidence-index.md` | `ae150a0` | 15 件索引 |
 | R2-f | 收尾前读 inbox 未回执项 | 已读 `SUP-002-R1.md`、`SUP-002-R2.md`、`SUP-002-review.md`、`SUP-002-closeout.md` | — | 本文件 + outbox 回执 |
 
 ## 5. 已知失败 / 限制（照实列）
@@ -98,4 +98,4 @@ sink 字面解释的合同回填；多/嵌套答案语义与截断答案的 HTTP
   （与 SUP-002-review 表一致），`prompt-ids-offsets-da_no_mask.json` = `fe235d66882168e62820…`、
   `prompt-ids-offsets-vanilla.json` = `5292ab4329448f4d2698…`
 - 报告：`stage-03-report.md` = `e9fac04de22be3fa13ed…`、`integration-design.md` = `3bcac161fcdc8676d379…`
-- 证据索引：`evidence/p1-cpu/evidence-index.md`（15 件，逐个 sha256）
+- 证据索引：生成索引 `reports/evidence-index.md`（`evidence/p1-cpu/` 15 件，逐个 sha256；原机械表已移出仓内发行，status=`superseded`）

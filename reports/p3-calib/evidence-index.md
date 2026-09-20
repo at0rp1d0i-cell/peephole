@@ -1,6 +1,6 @@
 # 阶段 05 证据索引（`evidence/p3-calib/` 及同批复核目录）
 
-范围：`evidence/p3-calib/` 下的 11 个 run 目录、`masked-prep/`、metadata 探针族、`gate-record.json`、`oracle-original-3a.json`、`traj*.json`，以及 8 个同批独立证据目录（含 7 个 `*local-review*`）。原始大件（张量 dump）留在远端数据盘；**字节不随仓发行**。
+范围：`evidence/p3-calib/` 下的 11 个 run 目录、`masked-prep/`、metadata 探针族、`gate-record.json`、`oracle-original-3a.json`（聚合段入库，全量件树外登记）、`traj*.json`，以及 8 个同批独立证据目录（含 7 个 `*local-review*`）。原始大件（张量 dump）留在远端数据盘；**字节不随仓发行**。本轮另将 7 个 `*local-review*` 目录（`independent-review`）与 `oracle-original-3a.json` 全量件（`detail-only`）移出仓内发行：原始字节归档在数据盘，path + size + sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 ## 0. 边界声明（先读）
 
@@ -8,6 +8,7 @@
 - **stage-05 尚未完成验收**；`smoke_structure`（7 项结构用例）是**草稿而非门禁**，其失败证据按原样保留、含义不因本索引而改变。本索引不得被引用为 `smoke_structure` 已通过的依据。
 - **历史已重写**（2026-09-21 两次 `filter-branch`：AGENTS.md 全历史移除；树内容脱敏）。本索引抄录的 `head` / `pin_commit` 字段是**重写前**的 commit SHA，已被重写作废；old→new 对照见 `reports/git-history-map-20260921.txt`（142 行）。本索引出现（含 §3.4 补记的 2 个复核产物）的**全部 9 个不同 `head` 值均可在该表 old 侧命中**（§3.4）。
 - 大件登记口径：`capture/*.npz` 与 `logits.pt` 均命中 `.gitignore` 的 `*.npz` / `*.pt` 规则，**不入库**；其 文件名 / 字节 / sha256 登记于 §2，并注明哈希来源。
+- **本轮发布范围收缩**：7 个 `*local-review*` 复核目录（`independent-review`）与 `oracle-original-3a.json` 全量件（`detail-only`）已移出仓内发行，规则见 `reports/evidence-registry.json` 的 R1–R9；原件归档在远端数据盘，path + size + sha256 以 `reports/evidence-index.md` 的树外登记表为准。本索引对这些件仍按登记值抄录其数值，**其字节不在仓内**。
 - 路径与文件名按原始字节抄录，未做改写；除既定的脱敏项（§6 注）外不改任何数值与结论。
 - 时间字段一律为该 run 自身 manifest 记录的 CST（`started_cst` / `ended_cst` / `created_cst`）。
 
@@ -21,7 +22,7 @@
 | 交叉核对不一致（声明但缺失） | **7** 条声明点 / 6 个不同路径（§3.1） |
 | 交叉核对：记录哈希 vs 实际 | 逐字一致，0 条不符（§3.2） |
 | 未能判定（manifest 不声明完整清单） | 4 类（§3.3） |
-| 文本层（入库）合计 | 11,648,169 B = run 目录内 1,774,647 + `p3-calib` 顶层非 run 9,126,439 + 8 个复核目录 747,083 |
+| 文本层合计 | 11,648,169 B = run 目录内 1,774,647 + `p3-calib` 顶层非 run 9,126,439 + 8 个复核目录 747,083（后者中 7 个 `*local-review*` 目录已移出仓内发行，见 §6） |
 | 抽样重算大件 | 2 个（2.77 GB）与 manifest 记录对比：1 致 1 无记录（§7） |
 
 ## 1. run 登记（11 个有产物的 run）
@@ -341,13 +342,13 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 | `arm_file.content`（6 个 run） | —（内容比对） | `arm.json` | **6/6 与磁盘 `arm.json` 内容逐字相同** |
 | `force_log.records`（4 个 run） | —（条数比对） | `force.jsonl` | **4/4**：lines=8 == records=8 |
 | `engine_traces.count`（4 个 run） | —（条数比对） | `engine-traces.json` | **4/4**：数组长度 12/12/21/21 == count |
-| `masked-prep` 复核 manifest → `output_sha256` | `ca842c58579d63cb40e623e7cf0628b986b7c21f669afb17653c30d3c1c6e921` | `evidence/p3-calib/masked-prep/crossblock-note.json` 及复核目录同名 `crossblock.json` | **双方一致**（两文件同哈希） |
-| `masked-prep` 复核 manifest → `input_sha256`（3 项） | 自述 | `configs/p2-masked-prep/crossblock.json`、`evidence/p1-cpu/demo-fixtures.json`、`tools/p2-masked-prep-crossblock.py` | 前 **2/3** 与当前工作区一致；第 3 个与**当前**工作区不同 → 见下行 |
+| `masked-prep` 复核 manifest（树外登记 `independent-review`）→ `output_sha256` | `ca842c58579d63cb40e623e7cf0628b986b7c21f669afb17653c30d3c1c6e921` | `evidence/p3-calib/masked-prep/crossblock-note.json` 及复核目录同名 `crossblock.json`（后者已移出仓内发行，哈希见树外登记表） | **双方一致**（两文件同哈希） |
+| `masked-prep` 复核 manifest（树外登记 `independent-review`）→ `input_sha256`（3 项） | 自述 | `configs/p2-masked-prep/crossblock.json`、`evidence/p1-cpu/demo-fixtures.json`、`tools/p2-masked-prep-crossblock.py` | 前 **2/3** 与当前工作区一致；第 3 个与**当前**工作区不同 → 见下行 |
 | 同上，改按**记录 head 提交**核对 | `691b04ad…b35c8e58` | `tools/p2-masked-prep-crossblock.py` @ e5ca9aeb | **一致**：`git show 205fa013…:tools/p2-masked-prep-crossblock.py \| sha256sum` = 691b04ad…（脚本在**其后**的提交里改成了 `a06846faff0dcc71…`） |
 | `gate-record.json` → `source_hashes`（4 项，sha256 前 16 hex） | 自述 | 4 个源文件 | 与**当前工作区**：1/4 一致；与**记录 head 提交 eceb695d**：**4/4 一致** |
 | `p3-masked-smoke/traj-7834-generated.json` → `context_sha256` | `8dfc679f9cf687019f69750191e79be27bc2b062fae15fdb0709abe4ff3e9cf7` | `masked-prep/crossblock-note.json` 的 `context_sha256` | **一致** |
-| `final-v5-artifacts.json` → `manifest_sha256`（`run-disabled-5`、`run-global-5`） | `5cf95762…`、`ba12082e…` | 两个 `manifest.json` | **2/2 一致** |
-| `p2-single/calibration-report.md` → oracle SHA256 前 8 | `3615eaa6…110225` | `evidence/p3-calib/oracle-original-3a.json` | **一致**（8,268,191 B / `3615eaa619134745879b98038a5f8783f925520e2d0ba73e1263cd4ecc110225`） |
+| `final-v5-artifacts.json`（树外登记 `independent-review`）→ `manifest_sha256`（`run-disabled-5`、`run-global-5`） | `5cf95762…`、`ba12082e…` | 两个 `manifest.json` | **2/2 一致** |
+| `p2-single/calibration-report.md` → oracle SHA256 前 8 | `3615eaa6…110225` | 全量件 `evidence/p3-calib/oracle-original-3a.json`（**已移出仓内发行**，`detail-only`）；本行 size + sha256 由入库的聚合段 `evidence/p3-calib/oracle-original-3a.aggregates.json` 自带 | **一致**（8,268,191 B / `3615eaa619134745879b98038a5f8783f925520e2d0ba73e1263cd4ecc110225`） |
 
 `run-original-3a` / `run-original-3b` 的 `host_logits.argmax_matches_sampled` / `trajectory_comparison.identical` 等**语义断言**不在本索引的核对范围内（需要重跑或读 `.pt`），本索引只核对文件层事实。
 
@@ -365,7 +366,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 3.4 `head` 字段 × 历史重写映射
 
-11 个 run 的 manifest 与 `gate-record.json` 共用 **7 个**不同 `head`（下表），复核产物另有 **2 个**（下段）——**共 9 个不同值，全部可在 `reports/git-history-map-20260921.txt` 的 old 侧命中**（该表 142 行，两侧重写后无一相同）。`pin_commit=98dff2a81d747d1dba01a47f939f48c3526d4206` 未出现在该表中（它是 **vLLM 上游 checkout** 的 SHA，不是本仓提交，不受本仓重写影响）。
+11 个 run 的 manifest 与 `gate-record.json` 共用 **7 个**不同 `head`（下表），复核产物另有 **2 个**（下段；两个复核目录均已移出仓内发行，`independent-review`，`head` 按树外登记件自述抄录）——**共 9 个不同值，全部可在 `reports/git-history-map-20260921.txt` 的 old 侧命中**（该表 142 行，两侧重写后无一相同）。`pin_commit=98dff2a81d747d1dba01a47f939f48c3526d4206` 未出现在该表中（它是 **vLLM 上游 checkout** 的 SHA，不是本仓提交，不受本仓重写影响）。
 
 | head（重写前，本索引抄录值） | 出现处 | 重写后 SHA |
 | --- | --- | --- |
@@ -377,7 +378,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 | `291dcbbd1b419588064904120863095a0e003601` | `run-original-r1-2` | `b6d8756ca2fa11a9b27a6f1ea676c3985c066bdf` |
 | `eceb695dedb4cb665d4603340736f8970d20f748` | `gate-record.json`, `run-vanilla-1` | `50fac5602f65274e509f865deff53ddb91847d9d` |
 
-另有两个不出现在 run manifest 中、但出现在复核产物 `head` 字段的值，同样命中映射：`e5ca9aeba07038bc572f589f2effc4988487fd92` → `205fa013dbc4c5ef57ed7bdd09b5fbb9a6d525f6`（`p3-masked-prep-local-review-20260920`）、`9118dafc6832199e281b092b1a3af15f600c6010` → `61a905cb689e8580e6becc5c6291ec0c9fbf884d`（`p3-masked-ref-local-review-20260920`）；`cb57a5d710636e38189f66bb1f5cff0491eadbf5` → `429f4a2ef0da…`（`run-original-2a` 与两个复核产物共用）。
+另有两个不出现在 run manifest 中、但出现在复核产物 `head` 字段的值，同样命中映射：`e5ca9aeba07038bc572f589f2effc4988487fd92` → `205fa013dbc4c5ef57ed7bdd09b5fbb9a6d525f6`（`p3-masked-prep-local-review-20260920`）、`9118dafc6832199e281b092b1a3af15f600c6010` → `61a905cb689e8580e6becc5c6291ec0c9fbf884d`（`p3-masked-ref-local-review-20260920`）；`cb57a5d710636e38189f66bb1f5cff0491eadbf5` → `429f4a2ef0da…`（`run-original-2a` 与两个复核产物共用）。上述两个复核目录本轮已移出仓内发行（`independent-review`），其 `head` 值按树外登记件自述抄录。
 
 ### 3.5 声明枚举 vs 实际：`capture` 段
 
@@ -398,7 +399,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 3.6 已排除的误报类
 
-每个 manifest 的 `git_status_porcelain` 是**运行时 `git status --porcelain` 的快照**，条目形如 `?? evidence/…/`（目录标记）。按路径检查这些字符串会全部报「缺失」，但它们不是文件声明——这些目录**现在都已入库**（`git ls-files` 可见）。本索引按此排除，不计入 §3.1 的不一致数。
+每个 manifest 的 `git_status_porcelain` 是**运行时 `git status --porcelain` 的快照**，条目形如 `?? evidence/…/`（目录标记）。按路径检查这些字符串会全部报「缺失」，但它们不是文件声明——这些路径在快照当时均为未跟踪；就本索引的登记口径：run 目录与 `traj-original-1.json` 现随仓发行，5 个 `*local-review*` 目录与 `evidence/p3-calib/oracle-original-3a.json` 现为树外登记、不随仓发行（§6、§3.2），`vllm-patch/deployed.json` 与 `vllm-patch/orig/` 不在本索引与 `reports/evidence-registry.json` 的登记范围内（此处不判定其跟踪状态）。本索引按此排除，不计入 §3.1 的不一致数。
 
 ## 4. 失败尝试（保留原始日志，不重写为成功）
 
@@ -419,7 +420,9 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ## 5. `evidence/p3-calib/` 顶层非 run 产物
 
-合计 **24** 个文件 / **9,126,439** B。其中 `masked-prep/` 的 9 个文件单列于 §5.1；本表只列顶层散件（15 行），15 + 9 = 24。
+合计 **24** 个文件 / **9,126,439** B（**入库时登记值**；本轮收缩后仓内实际为 **927,463** B = 9,126,439 − 8,268,191 + 69,215，即 oracle 全量件换为聚合段）。其中 `masked-prep/` 的 9 个文件单列于 §5.1；本表只列顶层散件（15 行），15 + 9 = 24。
+
+注（本轮发布范围收缩）：本表数值为入库时的实测登记值。`oracle-original-3a.json` 一行的全量件已移出仓内发行（`detail-only`），入库的对应件为聚合段 `oracle-original-3a.aggregates.json`，其 `full_file` 段自带该全量件的 size + sha256（§3.2 同源）。
 
 | 文件 | 字节 | sha256 | 自述要点（只抄字段，不作判定） |
 | --- | ---: | --- | --- |
@@ -435,13 +438,13 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 | `metadata-probe-gate5.chrome.json` | 34,070 | `524545a739f399d3d1c100398bc5fe6f503b5bd8372d977f2b37d0300cac1b78` | chrome trace（`schemaVersion`/`deviceProperties`/`traceEvents`/…）；**脱敏改动过**（§6 注） |
 | `metadata-probe-gate5.json` | 5,354 | `076fb27be3d6ce90f4fff36872e0208b1e004880d2475dc3d8666fce86ef702b` | 同 gate2 结构；`checks=18`；`failed=[]` |
 | `metadata-probe.json` | 3,478 | `b248242410e5b8b1e15166d76086d4aae4c7b97b9d0f0121825e64711a460611` | 基线探针（`checks=14`、`failed=[]`，**无 `runtime` 段**）；其后 gate2..gate5 加入 `runtime` 段（profiler CUDA activity + sync-debug + chrome trace） |
-| `oracle-original-3a.json` | 8,268,191 | `3615eaa619134745879b98038a5f8783f925520e2d0ba73e1263cd4ecc110225` | `schema`/`generated_at_cst`/`capture`/`metadata`/`numerics`/`comparisons`/`per_layer`/`per_scope`/`per_step`/`non_finite`/`summary`/`warnings` |
+| `oracle-original-3a.json` | 8,268,191 | `3615eaa619134745879b98038a5f8783f925520e2d0ba73e1263cd4ecc110225` | **聚合段 `oracle-original-3a.aggregates.json` 入库；全量件已移出仓内发行（`detail-only`），本行 size + sha256 由聚合段的 `full_file` 段自带**。全量件顶层键（剥离前实测）：`schema`/`generated_at_cst`/`capture`/`metadata`/`numerics`/`comparisons`/`per_layer`/`per_scope`/`per_step`/`non_finite`/`summary`/`warnings` |
 | `traj-original-1.json` | 924 | `da01f10eeae306ddd5f599180a4b56192fe399dc0ab3cd86460098eee5e923af` | `attnview.p2-calib-trajectory/v1`；8 步 token；`arm=original`；`trajectory_source=natural-greedy`；`created_cst=2026-09-18 15:27:48 +0800`；`logits_sha256=24c6ad2f…` |
 | `traj.json` | 88 | `019e8493a3681e6a76d0106b117e922f2933d6d5188d39e99aea76d2f8c7f8c4` | 仅 `tokens`（8 步，与 `traj-original-1.json` 同序同值）；无 schema/head/时间字段 |
 
 ### 5.1 `masked-prep/`（9 个文件 / 687,591 B）
 
-由 `tools/p2-masked-prep-crossblock.py` 离线（`CUDA_VISIBLE_DEVICES=""`）产出，运行记录在 `evidence/p3-masked-prep-local-review-20260920/`（§6）；两者的 `crossblock-note.json` / `crossblock.json` 逐字相同（同 sha256）。
+由 `tools/p2-masked-prep-crossblock.py` 离线（`CUDA_VISIBLE_DEVICES=""`）产出，运行记录在 `evidence/p3-masked-prep-local-review-20260920/`（§6；该目录已移出仓内发行，`independent-review`）；两者的 `crossblock-note.json` / `crossblock.json` 逐字相同（同 sha256）。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -461,6 +464,8 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 这 8 个目录既不属于 `p3-calib` 的 run，也不是其 manifest 产出的；它们记录阶段 01/02/03 的**本地复核**与 `masked` 系列的准备/参考复核。合计 747,083 B。
 
+**发布范围（本轮收缩）**：§6.1 `p3-masked-smoke/` 随仓发行；§6.2–§6.8 的 7 个 `*local-review*` 目录**已移出仓内发行**（`independent-review`），其 path / size / sha256 与原件现登记于 `reports/evidence-index.md` 的树外登记表（原件归档在远端数据盘）。各节的 bytes / sha256 仍按入库时登记值抄录，**不代表其字节在仓内**。
+
 **脱敏注**：其中 5 个文件在 2026-09-21 的树内容脱敏中被改写（容器主机名/GPU UUID/内部路径），改写前后 sha256 见 `/root/autodl-tmp/pass2-hash-table.tsv`：
 `p3-calib-local-review-20260918/metadata-retry.chrome.json`、`p3-calib/metadata-probe-gate2.chrome.json`、`…gate3.chrome.json`、`…gate4.chrome.json`、`…gate5.chrome.json`（只改这 5 个；`metadata-probe-gate4.events.json` 未改）。下表登记的是**改写后**的值。
 
@@ -474,7 +479,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.2 `evidence/p3-masked-prep-local-review-20260920/` — masked 跨块准备复核（离线，含 run manifest 与 run.log）
 
-3 个文件 / 154,966 B。
+3 个文件 / 154,966 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -484,7 +489,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.3 `evidence/p3-masked-ref-local-review-20260920/` — masked 参考实现集成前 findings
 
-1 个文件 / 820 B。
+1 个文件 / 820 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -492,7 +497,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.4 `evidence/p1-gpu-local-review-20260918-1011/` — 阶段 01 GPU 复核（3 个 seed 的 cases + summary + run-manifest）
 
-5 个文件 / 446,675 B。
+5 个文件 / 446,675 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -504,7 +509,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.5 `evidence/p2-single-local-review-params-20260918/` — 阶段 02 params 通道探针
 
-1 个文件 / 2,605 B。
+1 个文件 / 2,605 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -512,7 +517,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.6 `evidence/p2-single-local-review-r1-20260918/` — 阶段 02 R1 findings
 
-1 个文件 / 1,001 B。
+1 个文件 / 1,001 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -520,7 +525,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.7 `evidence/p2-single-local-review-r2-20260918/` — 阶段 02 R2 部署未知态
 
-1 个文件 / 516 B。
+1 个文件 / 516 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -528,7 +533,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 ### 6.8 `evidence/p3-calib-local-review-20260918/` — 阶段 03 校准本地复核（11 件）
 
-11 个文件 / 138,688 B。
+11 个文件 / 138,688 B。**已移出仓内发行**（`independent-review`）：path / size / sha256 见 `reports/evidence-index.md` 的树外登记表。
 
 | 文件 | 字节 | sha256 |
 | --- | ---: | --- |
@@ -558,7 +563,7 @@ manifest `schema=attnview.p2-calib-run/v2`；ended_cst=2026-09-18 15:05:48 +0800
 
 由此得到的两个可引用结论（仅限事实层面）：
 
-1. `manifest.json` 的 `capture.npz_sha256` **确实覆盖 `capture/layers.npz` 且值可复现**（1/1 抽样一致）；该值在 6 个 run 上相同，且 `p3-calib-local-review-20260918/capture-byte-identity.json` 对其中 4 个 run 独立记录了同一哈希。**`forward2..8.npz` 未被抽样**（其值未在任何文件中记录）。
+1. `manifest.json` 的 `capture.npz_sha256` **确实覆盖 `capture/layers.npz` 且值可复现**（1/1 抽样一致）；该值在 6 个 run 上相同，且 `p3-calib-local-review-20260918/capture-byte-identity.json`（该件已移出仓内发行，`independent-review`；§6.8）对其中 4 个 run 独立记录了同一哈希。**`forward2..8.npz` 未被抽样**（其值未在任何文件中记录）。
 2. **55/61 个大件没有可对照的哈希记录**，其中 `logits.pt` 全部 7 个无记录、`forward*.npz` 全部 48 个无记录（`layers.npz` 6 个有记录）。若要把这些大件纳入可核对范围，需要重新生成哈希登记——**本索引不做此事**。
 
 ## 8. 可执行核对命令
@@ -610,6 +615,8 @@ for f in vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py vllm-patch/mani
 done
 
 # 8.8 登记项与仓库跟踪状态（大件不在其中）
+# 注：下列 3 个 *local-review* 目录已移出仓内发行（independent-review），git ls-files 不再列出其文件；
+#     仓内部分只剩 evidence/p3-calib 与 evidence/p3-masked-smoke。树外登记的 path / size / sha256 见 reports/evidence-index.md。
 git ls-files evidence/p3-calib evidence/p3-masked-smoke \
   evidence/p3-masked-prep-local-review-20260920 evidence/p3-masked-ref-local-review-20260920 \
   evidence/p3-calib-local-review-20260918 | wc -l

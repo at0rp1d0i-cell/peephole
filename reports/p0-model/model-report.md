@@ -248,7 +248,8 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
 | `nvidia-cuda-cccl` | 13.3.4.3.1 | 13.3.4.3.1 | **不动**：上游 redist 无 13.4.x（最高 13.3.4.3） |
 
 - 依赖清单：197 行未变，仅上述 3 行版本变化；`pip check` 干净。三段快照与差异见 `dependency-delta.md`
-  与 `requirements.freeze.txt`（修复前的 `cuda-upgrade-freeze-before.txt` 原样保留）。
+  与 `requirements.freeze.txt`（修复前状态见 `requirements.freeze.stage-01.txt`；原 `cuda-upgrade-freeze-before.txt`
+  已移出仓内发行，status=`duplicate`，原始字节归档在数据盘，见 `reports/evidence-index.md` 树外登记表）。
 - 缓存位置：`env.sh` 新增 `VLLM_CACHE_ROOT=$ATTNVIEW_HOME/caches/vllm` 与
   `FLASHINFER_WORKSPACE_BASE=$ATTNVIEW_HOME/caches`；已把系统盘既有的 243 MB(vLLM) + 7 MB(FlashInfer)
   迁到数据盘（现 270 MB + 14 MB），系统盘不再被这两类缓存增长挤占。
@@ -260,7 +261,8 @@ freeze 仅此一行变化）；② 补开发链接 `libcudart.so → libcudart.s
 - **改动范围**（只动项目 venv 与项目 CUDA 前缀；系统 CUDA、驱动、apt、`/etc` 均未触碰）：
   1. `nvidia-cuda-runtime` 13.0.96 → **13.4.92**（与 `nvidia-cuda-nvcc` / `nvidia-cuda-crt` 同版本；
      `pip check` 仍 `No broken requirements found`；`pip freeze` 仅此一行变化，见
-     `evidence/p0-model/cuda-upgrade-freeze-{before,after}.txt`）。
+     `evidence/p0-model/cuda-upgrade-freeze-after.txt` 与 `requirements.freeze.stage-01.txt`（后者与已移出仓内发行的
+     `cuda-upgrade-freeze-before.txt` 逐字节相同，status=`duplicate`，见 `reports/evidence-index.md` 树外登记表））。
   2. 补开发链接：`$ATTNVIEW_CUDA/lib64/libcudart.so → libcudart.so.13`。
   3. 安装**官方同版本**驱动 stub：`cuda_cudart-linux-x86_64-13.4.92-archive.tar.xz`
      （`https://developer.download.nvidia.com/compute/cuda/redist/`，sha256
@@ -341,9 +343,13 @@ CUDA Graph 下读取视图可用性；prefix caching 与 DA 的交互；第二�
 - 证据：`/root/attnview/evidence/p0-model/`（E1/E2/E3/E5/E6 的 JSON 与控制台输出、`e4-metrics.txt`、`e4b-metrics.txt`、
   `e4c`/`e6b` 相关记录、`e4-extract.json`、`e6-extract.json`、`e5b-*` 与 `e5b-sampling-*`、
   `e4-kernel-block-probe.json`（kernel 块大小实测）、
-  `cuda-upgrade-freeze-{before,after,final}.txt` 与 `requirements.freeze.txt`）
+  `cuda-upgrade-freeze-after.txt` 与 `requirements.freeze.txt`；`cuda-upgrade-freeze-{before,final}.txt`
+  已移出仓内发行，status=`duplicate`，原始字节归档在数据盘，见 `reports/evidence-index.md` 树外登记表，
+  对端分别是 `requirements.freeze.stage-01.txt` 与本目录 `requirements.freeze.txt`）
 - 启动前预置基线（含事前推断与事中更正）：`/root/attnview/evidence/p0-model/e4-expected-baseline.md`
-- 环境探针：`/root/attnview/evidence/after-model/env-report-20260917-1910.md`
+- 环境探针：`/root/attnview/evidence/after-model/env-report-20260917-1910.md`（已移出仓内发行，status=`snapshot`，
+  原始字节归档在数据盘，路径/字节/sha256 见 `reports/evidence-index.md` 树外登记表；同组探针首/末两份
+  `evidence/before/env-report-20260917-1559.md` 与 `evidence/after/env-report-20260917-1716.md` 仍随仓发行）
 - 可复跑命令：`/root/attnview/tools/serve-vanilla.sh`（= 本目录 `serve-command.sh` 的实现）；
   kernel 块大小探针：`/root/attnview/tools/e4-kernel-block-probe.sh` + `tools/kbs-probe/sitecustomize.py`
 - CUDA 前缀修复：`/root/attnview/setup-local-cuda.sh` 第 4 步（版本一致性校验 + dev 链接 + 官方驱动 stub + 链接自检）

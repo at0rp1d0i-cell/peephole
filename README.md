@@ -4,9 +4,11 @@
 decode step; the engine reads only those.
 
 > **Status: work in progress.** Construction, correctness checks and measurement are still running; no
-> speedup is claimed here. Both positive and negative results are committed as raw artifacts under
-> [`evidence/`](evidence/) with commentary under [`reports/`](reports/). Claims that are not
-> reproducible from those artifacts should be treated as unverified.
+> speedup is claimed here. Positive and negative results alike are kept as raw artifacts, and
+> [`reports/evidence-index.md`](reports/evidence-index.md) is the only source of truth for which of
+> their bytes ship with this repository: artifacts whose bytes are not distributed stay registered
+> there, out-of-tree. Claims that are not reproducible from the shipped artifacts should be treated as
+> unverified.
 
 ## What this is
 
@@ -48,7 +50,8 @@ program. In Chinese, the closest classical phrasing is 以管窥天（《庄子�
 | `vllm-patch/` | Version-locked patch: modified upstream files, the two files added inside the vLLM package, `manifest.json` with per-file SHA-256 and the pinned revision, and the deployment journal |
 | `tests/` | CPU-runnable tests; they reach the core through `src/` on `sys.path` |
 | `tools/` | Patch generation/deployment, in-kernel calibration drivers, probes and oracles |
-| `reports/`, `evidence/` | Reports and raw artifacts (per-request traces, calibration output, timing runs) with an evidence index |
+| `reports/` | Interpretation, the generated evidence index, and the status source for what ships |
+| `evidence/` | Raw artifacts that ship with the repository (per-request traces, calibration output, timing runs) |
 | `configs/` | Experiment configurations |
 | `env.sh`, `install-runtime.sh`, `verify-runtime.sh`, `setup-local-cuda.sh` | Environment definition, installation, and the runtime verification entry point |
 
@@ -86,10 +89,21 @@ caching, speculative or MTP) instead of degrading quietly.
 
 ## Evidence
 
-Raw per-request and per-run artifacts are kept, not summarized away: `evidence/` holds traces, JSONL /
-JSON outputs, logs and the environment probes; `reports/` holds the interpretation, including the
-cases where the mechanism did not pay off and the differences between the protocol arm and the
+Evidence falls into two classes, and [`reports/evidence-index.md`](reports/evidence-index.md) — a
+generated build product covering `evidence/` and `logs/` — is the only source of truth for which class
+a file is in: its in-tree table lists the bytes that ship with this repository, its out-of-tree table
+registers the rest (path, byte count and sha256; the original bytes are archived on the data disk and
+are not distributed here). **A file that is not in the index does not ship.**
+
+Raw per-request and per-run artifacts are kept, not summarized away: the shipped class holds traces,
+JSONL / JSON outputs, logs and the environment probes; `reports/` holds the interpretation, including
+the cases where the mechanism did not pay off and the differences between the protocol arm and the
 baseline. A claim of speedup requires a quality-constrained measurement, not a drop in counters.
+
+The publication rules in force (R1–R9: which artifacts are committed as the delivery basis, which are
+registration-only, and how duplicates, unaccepted runs and large artifacts are handled) and the status
+vocabulary are stated once — in the index's *Publication rules* and *Status* sections, whose source is
+`reports/evidence-registry.json` — and are not restated here.
 
 ## Provenance
 
@@ -118,5 +132,10 @@ the pinned revision they derive from, and the third-party references are declare
 Contributors and agents should start from the material that ships in this repository:
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for licensing and third-party attribution, and
 [`reports/`](reports/) for the current interpretation, the open gaps and the evidence index. The
-verification entry point is `bash verify-runtime.sh` (runtime checks) followed by
-`python -m pytest tests/ -q` (CPU-side tests); run both before treating a change as done.
+verification entry point is `bash verify-runtime.sh` (runtime checks) and `python -m pytest tests/ -q`
+(CPU-side tests); the evidence gate is `python3 tools/pub-evidence-registry.py --check`, which fails on
+index drift, dangling `evidence/...` references and undeclared byte-identical duplicates, and the index
+itself is regenerated with `python3 tools/pub-evidence-registry.py --write` (`reports/evidence-index.md`
+is a build product — never edit it by hand). Originals of the out-of-tree registrations are archived on
+the data disk at `/root/autodl-tmp/attnview-evidence-archive`. Run all of these before treating a
+change as done.

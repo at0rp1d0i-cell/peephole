@@ -99,7 +99,7 @@ E5 明细（干净非交互会话，`source /root/attnview/env.sh` 后执行）�
 | vLLM CLI | `venvs/attnview/bin/vllm --help` | exit 0，列出 `chat/complete/serve/launch/bench/collect-env/run-batch` |
 | 项目自带 nvcc | `cuda/bin/nvcc --version`、`nvcc -cubin -arch=sm_120` | 13.4；sm_120 cubin 生成成功（5488 字节） |
 
-其余取证：安装成功后再次执行 `scripts/env-probe.sh` → `evidence/after/env-report-20260917-1637.md`；项目自带 CUDA 前缀建立日志 → `evidence/cuda-setup.log`。
+其余取证：安装成功后再次执行 `scripts/env-probe.sh` 刷新环境快照（安装后那次属中间刷新，已移出仓内发行，status=`snapshot`）；仓内保留首/末两份 `evidence/before/env-report-20260917-1559.md`、`evidence/after/env-report-20260917-1716.md`，其余刷新见 `reports/evidence-index.md` 的树外登记表。项目自带 CUDA 前缀建立日志 → `evidence/cuda-setup.log`。
 
 ## 5. 网络事实（原始观测）
 
