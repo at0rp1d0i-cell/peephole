@@ -25,6 +25,10 @@
 - `A6` 生成的索引与磁盘上的 `reports/evidence-index.md` 不一致（索引过期）。
 - `A7` （提示，不判失败）文档引用了**树外登记件**：路径在库中已不存在，表述必须与
   `registered_removed` 的状态一致（不得再写"保留在 evidence/.../"）。
+- `A8` 入库文件没被任何规则覆盖（status 停在默认值 `unclassified`）——状态表把"未分类"定义为
+  门禁失败，因此必须补规则，不能只让它安静地出现在生成物里。
+- `A9` `registered_sets` 的 `count`/`bytes` 与磁盘不一致。口径：`glob` 展开 **减去**已逐个登记的
+  成员（树内上表 / 树外登记表）后必须等于登记值——组级数字不再是无人复算的字面量。
 - 提示（不判失败）：工作区未跟踪、未忽略的产物（进行中的 run），入库前必须先在规则表里分类。
 
 ## 用法
@@ -40,12 +44,13 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import glob as globmod
-import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+
+from _lib import load_json, sha256_file
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATUS_FILE = "reports/evidence-registry.json"
@@ -68,14 +73,6 @@ def run_git(*args: str, stdin: str = None) -> str:
 
 def abs_path(rel: str) -> str:
     return os.path.join(REPO, rel)
-
-
-def sha256_file(rel: str) -> str:
-    h = hashlib.sha256()
-    with open(abs_path(rel), "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def in_scope(path: str) -> bool:
@@ -120,7 +117,7 @@ def build(doc: dict) -> dict:
         {
             "path": p,
             "bytes": os.path.getsize(abs_path(p)),
-            "sha256": sha256_file(p),
+            "sha256": sha256_file(abs_path(p)),
             "status": classify(p, rules, default)[0],
             "note": classify(p, rules, default)[1],
         }
@@ -134,7 +131,7 @@ def build(doc: dict) -> dict:
                 {
                     "path": path,
                     "bytes": os.path.getsize(abs_path(path)),
-                    "sha256": sha256_file(path),
+                    "sha256": sha256_file(abs_path(path)),
                     "glob": entry["glob"],
                     "status": entry["status"],
                     "reason": entry["reason"],
@@ -145,7 +142,7 @@ def build(doc: dict) -> dict:
         {
             "path": p,
             "bytes": os.path.getsize(abs_path(p)),
-            "sha256": sha256_file(p),
+            "sha256": sha256_file(abs_path(p)),
             "status": "pending",
             "note": "工作区未跟踪、未忽略；入库前先在规则表里分类",
         }
@@ -164,11 +161,10 @@ def build(doc: dict) -> dict:
 
 
 def find_violations(model: dict) -> tuple:
-    doc, published, only, pending = (
+    doc, published, only = (
         model["doc"],
         model["published"],
         model["only"],
-        model["pending"],
     )
     errors, notes = [], []
     only_globs = [e["glob"] for e in doc.get("registered_only", [])]
@@ -204,7 +200,8 @@ def find_violations(model: dict) -> tuple:
         if f not in SCAN_FILES and os.path.splitext(f)[1] not in (".md", ".json", ".py", ".sh"):
             continue
         try:
-            text = open(abs_path(f), encoding="utf-8").read()
+            with open(abs_path(f), encoding="utf-8") as fh:
+                text = fh.read()
         except (OSError, UnicodeDecodeError):
             continue
         for token in REF_RE.findall(text):
@@ -224,10 +221,9 @@ def find_violations(model: dict) -> tuple:
 
     def is_ignored(token: str) -> bool:
         if token not in ignored_cache:
-            ignored_cache[token] = bool(
-                run_git("check-ignore", "-q", token) == "" and subprocess.run(
-                    ["git", "-C", REPO, "check-ignore", "-q", token],
-                    capture_output=True,
+            ignored_cache[token] = (
+                subprocess.run(
+                    ["git", "-C", REPO, "check-ignore", "-q", token], capture_output=True
                 ).returncode
                 == 0
             )
@@ -260,6 +256,34 @@ def find_violations(model: dict) -> tuple:
         notes.append(
             f"A7 {f} 引用 {len(tokens)} 个树外登记件，表述需与登记状态一致：" + "、".join(sorted(tokens))
         )
+
+    default_status = doc.get("default_status", "unclassified")
+    unclassified = [r["path"] for r in published if r["status"] == default_status]
+    if unclassified:
+        errors.append(
+            f"A8 入库文件未分类（规则表没有覆盖，status 停在默认值 {default_status!r}，"
+            f"{len(unclassified)} 个）——状态表把未分类定义为门禁失败，必须补规则："
+            + ", ".join(unclassified[:8])
+        )
+
+    # A9：集合登记的 count/bytes 必须能从磁盘复算。
+    # 口径：glob 展开 − 已逐个登记（树内 published / 树外 removed）；登记表里的字面量数字
+    # 一旦与磁盘漂移（多一个 run、把某个成员降级为逐条登记）就必须失败。
+    published_paths = {r["path"] for r in published}
+    removed_paths = {r["path"] for r in model["removed"]}
+    for entry in doc.get("registered_sets", []):
+        expanded = set(expand_glob(entry["glob"]))
+        if not expanded:
+            errors.append(f"A9 集合登记在磁盘上无匹配：{entry['glob']}")
+            continue
+        derived = expanded - published_paths - removed_paths
+        got_count = len(derived)
+        got_bytes = sum(os.path.getsize(abs_path(p)) for p in derived)
+        if (got_count, got_bytes) != (entry["count"], entry["bytes"]):
+            errors.append(
+                f"A9 集合登记与磁盘不一致 `{entry['glob']}`：登记 {entry['count']:,} 个 / "
+                f"{entry['bytes']:,} B，实测 {got_count:,} 个 / {got_bytes:,} B"
+            )
 
     allow = [e["glob"] for e in doc.get("allow_duplicate", [])]
     by_hash = {}
@@ -371,7 +395,8 @@ def render(model: dict, notes: list) -> str:
             f"## 在盘未入库集合（{len(sets)} 组 / {sum(r['bytes'] for r in sets):,} B）",
             "",
             "按 R9 的类型规则排除（张量/序列化大件）；不与任何文档逐条绑定的组只登记组级事实，",
-            "被文档引用的成员在上表逐个登记。",
+            "被文档引用的成员在上表逐个登记。计数口径：`glob` 展开 **减去**已逐个登记的成员"
+            "（树内上表 / 树外登记表），由 A9 逐组复算。",
             "",
             "| glob | 文件数 | 合计字节 | 状态 | 说明 |",
             "| --- | ---: | ---: | --- | --- |",
@@ -413,7 +438,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        doc = json.load(open(abs_path(STATUS_FILE), encoding="utf-8"))
+        doc = load_json(abs_path(STATUS_FILE))
     except (OSError, json.JSONDecodeError) as exc:
         print(f"读取 {STATUS_FILE} 失败：{exc}", file=sys.stderr)
         return 2
@@ -422,6 +447,11 @@ def main(argv=None) -> int:
     model = build(doc)
     errors, notes, _ = find_violations(model)
     rendered = render(model, notes)
+    # 先把违规打印出来，再决定是否落盘：`--write` 也会写出一个已知违规的索引，
+    # 顺序反了会让操作者先看到"written"再看到 FAIL。
+    if errors:
+        for e in errors:
+            print(f"FAIL {e}", file=sys.stderr)
     if args.write:
         with open(abs_path(INDEX_FILE), "w", encoding="utf-8") as fh:
             fh.write(rendered)
@@ -430,23 +460,22 @@ def main(argv=None) -> int:
             f"在盘未入库 {len(model['only'])}）"
         )
     elif os.path.exists(abs_path(INDEX_FILE)):
-        if open(abs_path(INDEX_FILE), encoding="utf-8").read() != rendered:
+        with open(abs_path(INDEX_FILE), encoding="utf-8") as fh:
+            committed = fh.read()
+        if committed != rendered:
             errors.append(f"A6 {INDEX_FILE} 与工作区不一致（重新 --write）")
     else:
         errors.append(f"A6 {INDEX_FILE} 不存在")
 
     if model["pending"]:
         print(
-            "WARN 工作区未分类产物 %d 个（%.2f MiB）：%s%s"
-            % (
-                len(model["pending"]),
-                sum(r["bytes"] for r in model["pending"]) / 1048576,
-                ", ".join(r["path"] for r in model["pending"][:3]),
-                " …" if len(model["pending"]) > 3 else "",
-            )
+            f"WARN 工作区未分类产物 {len(model['pending'])} 个（{sum(r['bytes'] for r in model['pending']) / 1048576:.2f} MiB）："
+            f"{', '.join(r['path'] for r in model['pending'][:3])}{' …' if len(model['pending']) > 3 else ''}"
         )
     if errors:
-        for e in errors:
+        # 上面已经逐条打印过；A6 之类在落盘决定之后才发现，补打一次即可（幂等、无重复风险）。
+        late = [e for e in errors if e.startswith("A6")]
+        for e in late:
             print(f"FAIL {e}", file=sys.stderr)
         return 1
     print("OK 索引与工作区一致，无悬空引用与未声明重复")

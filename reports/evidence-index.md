@@ -392,7 +392,7 @@
 ## 在盘未入库集合（3 组 / 17,027,432,838 B）
 
 按 R9 的类型规则排除（张量/序列化大件）；不与任何文档逐条绑定的组只登记组级事实，
-被文档引用的成员在上表逐个登记。
+被文档引用的成员在上表逐个登记。计数口径：`glob` 展开 **减去**已逐个登记的成员（树内上表 / 树外登记表），由 A9 逐组复算。
 
 | glob | 文件数 | 合计字节 | 状态 | 说明 |
 | --- | ---: | ---: | --- | --- |
@@ -438,10 +438,10 @@
 - A7 reports/p1-cpu/session-closeout.md 引用 2 个树外登记件，表述需与登记状态一致：evidence/p1-cpu/evidence-index.md（superseded）、evidence/p1-cpu（superseded）
 - A7 reports/p1-cpu/stage-03-report.md 引用 2 个树外登记件，表述需与登记状态一致：evidence/p1-cpu/evidence-index.md（superseded）、evidence/p1-cpu（superseded）
 - A7 reports/p1-gpu/session-closeout.md 引用 2 个树外登记件，表述需与登记状态一致：evidence/p1-gpu-local-review-20260918-1011（independent-review）、evidence/p1-gpu（superseded）
-- A7 reports/publication-checklist.md 引用 2 个树外登记件，表述需与登记状态一致：evidence/p1-gpu（superseded）、evidence/p3-calib/oracle-original-3a.json（detail-only）
 - A7 .gitmessage 引用 1 个树外登记件，表述需与登记状态一致：evidence/p3-calib/run-disabled-5（remote-only）
 - A7 README.md 引用 1 个树外登记件，表述需与登记状态一致：evidence（duplicate）
 - A7 configs/p1-gpu/read-view-check.json 引用 1 个树外登记件，表述需与登记状态一致：evidence/p1-gpu（superseded）
+- A7 reports/publication-checklist.md 引用 1 个树外登记件，表述需与登记状态一致：evidence/p1-gpu（superseded）
 - 同哈希（4,118 B，小于阈值、保留）：evidence/after/pip_freeze.txt, evidence/p0-model/cuda-upgrade-freeze-after.txt
 - 同哈希（4,625 B，小于阈值、保留）：evidence/p0-model/e3-protocol-console.txt, evidence/p0-model/e3-protocol-tokens.json
 - 同哈希（allow_duplicate 声明）：evidence/p1-cpu/prompt-da.txt, evidence/p1-cpu/prompt-da_no_mask.txt
