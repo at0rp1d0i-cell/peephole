@@ -129,6 +129,11 @@ def main() -> int:
     ln = int(exp["first_decode_kv_len"])
     step1 = report["steps"].get(f"decode_step1_kv_len{ln}")
     if step1:
+        exp_eff = (cfg.get("expected_from_order") or {}).get("first_decode_effective_read_tokens") or {}
+        for mode, want in exp_eff.items():
+            got = step1["modes"][mode]["effective_read_tokens"]
+            checks.append({"name": f"首 decode 有效尾长 == note（{mode}）", "ok": got == want,
+                           "got": got, "want": want, "kv_len": int(exp["first_decode_kv_len"])})
         checks.append({"name": "local 可见块 == note", "ok": step1["modes"]["local"]["visible_blocks"] == exp["local_blocks"],
                        "got": step1["modes"]["local"]["visible_blocks"]})
         checks.append({"name": "focus1 可见块 == note", "ok": step1["modes"]["focus1"]["visible_blocks"] == exp["focus1_blocks"],
