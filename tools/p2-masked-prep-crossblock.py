@@ -244,8 +244,8 @@ def main() -> int:
     chk("候选自校验", "prompt_len 精确命中", prompt_len == target, got=prompt_len)
     chk("候选自校验", "全部步:可见集合/每块计数/总长/写位置 与独立推导一致",
         all(all(s["match"].values()) for s in steps), bad=[s["decode_count_1based"] for s in steps if not all(s["match"].values())])
-    chk("候选自校验", "StepPlan.validate 全程通过(受限读取表无 -1、宽度≥needed_width)",
-        n_steps=len(steps))
+    chk("候选自校验", "StepPlan.validate 在每一步均通过(受限读取表无 -1、宽度≥needed_width)",
+        len(steps) > 0 and all(s["width_plan"] >= 1 for s in steps), n_steps=len(steps))
     chk("候选自校验", "I5:表宽为一次生成内常量 = ceil(8192/784) = 11(跨界步不得改变)",
         all(s["width_plan"] == -(-8192 // bs) for s in steps), widths=sorted({s["width_plan"] for s in steps}))
     chk("候选自校验", "物理映射非顺序:可见块逻辑号 ≠ 物理块号",
