@@ -123,7 +123,8 @@ def main() -> int:
         if mode == "global":
             spans.append((0, kv))
         elif mode == "focus":
-            spans += [tuple(layout.segment_span(int(r) - 1)) for r in refs]
+            # 镜像合同 readview.build_read_view:`declared_spans.append(layout.segment_span(ref))`(不做 -1)
+            spans += [tuple(layout.segment_span(int(r))) for r in refs]
         positions = sorted({p for s, e in spans for p in range(max(0, s), min(e, kv))})
         ind_blocks = blocks_of(positions, bs)                          # 独立可见块
         ind_counts = [max(0, min(kv, (b + 1) * bs) - b * bs) for b in ind_blocks]  # 独立每块有效数
@@ -187,19 +188,37 @@ def main() -> int:
 
     negs = []
     # 构造失败类(额外样例,不替代安全错块)
-    for label, mode, alloc, kv_extra in (("A 声明已分配但未写入的块(needed_width 与可见块数不一致)", "local", alloc_n, 0),
-                                         ("B 可见块超出已分配前缀(数据面拒绝)", "global", prompt_len // bs, 2)):
-        try:
-            v = build_read_view(ViewInputs(mode=mode, refs=(), layout=layout, attention_kv_len=prompt_len + kv_extra,
-                                           canonical_blocks=tuple(range(alloc)), kernel_block_size=bs,
-                                           max_width=max_width, effect_step=0))
-            tb = read_table_from_read_view(v, tuple(range(alloc)))
-            run_plan(v.mode, list(tb.visible_blocks), list(tb.effective_per_block), tb.seqused_k, tb.tail_len, tb.attention_kv_len)
-            negs.append({"label": label, "kind": "构造失败测试", "rejected": False, "error_type": None})
-        except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
-            negs.append({"label": label, "kind": "构造失败测试", "rejected": True, "error_type": type(exc).__name__, "error": str(exc)[:200]})
-        except Exception as exc:  # noqa: BLE001
-            negs.append({"label": label, "kind": "构造失败测试", "rejected": False, "unexpected_error": f"{type(exc).__name__}: {exc}"[:200]})
+    # A:手工计划——把"已分配但尚未写入"的下一块(计数 0)声明为可见 ⇒ needed_width 与可见块数不一致
+    v_probe = build_read_view(ViewInputs(mode="local", refs=(), layout=layout, attention_kv_len=prompt_len,
+                                         canonical_blocks=canonical, kernel_block_size=bs,
+                                         max_width=max_width, effect_step=0))
+    tb_probe = read_table_from_read_view(v_probe, canonical)
+    unwritten = prompt_len // bs + 1
+    a_vis = list(tb_probe.visible_blocks) + [unwritten]
+    a_counts = list(tb_probe.effective_per_block) + [0]
+    try:
+        run_plan("local", a_vis, a_counts, tb_probe.seqused_k, tb_probe.tail_len, prompt_len)
+        negs.append({"label": "A 声明已分配但未写入的块可见(计数 0)", "kind": "构造失败测试", "rejected": False, "error_type": None})
+    except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
+        negs.append({"label": "A 声明已分配但未写入的块可见(计数 0)", "kind": "构造失败测试", "rejected": True,
+                     "error_type": type(exc).__name__, "error": str(exc)[:200]})
+    except Exception as exc:  # noqa: BLE001
+        negs.append({"label": "A 声明已分配但未写入的块可见(计数 0)", "kind": "构造失败测试", "rejected": False,
+                     "unexpected_error": f"{type(exc).__name__}: {exc}"[:200]})
+    # B:可见块超出已分配前缀(数据面拒绝)
+    try:
+        v = build_read_view(ViewInputs(mode="global", refs=(), layout=layout, attention_kv_len=prompt_len + 2,
+                                       canonical_blocks=tuple(range(prompt_len // bs)), kernel_block_size=bs,
+                                       max_width=max_width, effect_step=0))
+        tb = read_table_from_read_view(v, tuple(range(prompt_len // bs)))
+        run_plan(v.mode, list(tb.visible_blocks), list(tb.effective_per_block), tb.seqused_k, tb.tail_len, tb.attention_kv_len)
+        negs.append({"label": "B 可见块超出已分配前缀(数据面拒绝)", "kind": "构造失败测试", "rejected": False, "error_type": None})
+    except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
+        negs.append({"label": "B 可见块超出已分配前缀(数据面拒绝)", "kind": "构造失败测试", "rejected": True,
+                     "error_type": type(exc).__name__, "error": str(exc)[:200]})
+    except Exception as exc:  # noqa: BLE001
+        negs.append({"label": "B 可见块超出已分配前缀(数据面拒绝)", "kind": "构造失败测试", "rejected": False,
+                     "unexpected_error": f"{type(exc).__name__}: {exc}"[:200]})
     # 安全错块:从**受限(local)有效视图**派生的跨界步计划,把一个已写可见完整块换成另一已写完整块
     restricted = next(s for s in steps if s["mode"] == "local")
     honest_vis, honest_counts = restricted["visible_blocks_independent"], restricted["counts_independent"]

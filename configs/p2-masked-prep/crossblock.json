@@ -2,8 +2,8 @@
   "note": "SUP-004-masked-prep-R2:真实 renderer 跨块夹具(合法声明+C3.2 生效步)+安全负对照,纯 CPU;I5:max_width 固定 ceil(8192/784)=11;canonical 用非顺序物理映射(phys=100+2*logical)",
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
-  "target_prompt_len": 7836,
-  "target_reason": "prompt_len=7836 ⇒ 第 d 个 decode 的 KV=7836+d;首次写入块 10 需 KV=7841 ⇒ d=5,此时已处于受限模式(local);总长 ≤8192",
+  "target_prompt_len": 7834,
+  "target_reason": "prompt_len=7834 ⇒ 第 d 个 decode KV=7834+d;首次写入块 10 需 KV=7841 ⇒ d=7,落在 local 生效(第 6 个 decode 起)之后;总长 ≤8192",
   "filler_unit": "这是用于把公开合成上下文长度调整到块边界的附加说明段落。",
   "max_filler_units": 400,
   "generation_script": [
