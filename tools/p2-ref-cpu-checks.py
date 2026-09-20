@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -87,12 +88,13 @@ def main() -> int:
     # --- 2. 不完整尾块 + 当前 token ---
     kv_len = PROMPT_LEN + 7            # 7841:不是 block_size 的整数倍
     mask = independent_visible_positions(mode="local", refs=(), kv_len=kv_len, prompt_len=PROMPT_LEN,
-                                         sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS)
-    chk("可见位置含当前 token 且以 kv_len-1 结尾", mask.positions[-1] == kv_len - 1
-        and mask.current_token_position == kv_len - 1, last=mask.positions[-1], kv_len=kv_len)
-    chk("可见位置全部 < kv_len(不读未写位置)", all(p < kv_len for p in mask.positions))
+                                         sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS,
+                                         block_size=block_size)
+    chk("可见位置含当前 token 且以 kv_len-1 结尾", mask.read_positions[-1] == kv_len - 1
+        and mask.current_token_position == kv_len - 1, last=mask.read_positions[-1], kv_len=kv_len)
+    chk("可见位置全部 < kv_len(不读未写位置)", all(p < kv_len for p in mask.read_positions))
     q = torch.randn(heads, d, dtype=torch.bfloat16)
-    kk2, vv2 = gather_positions(k, v, block_table, block_size, mask.positions)
+    kk2, vv2 = gather_positions(k, v, block_table, block_size, mask.read_positions)
     fp32, casted = dense_attention_fp32(q, kk2, vv2, scale=scale)
     # 逐位置朴素实现(第三实现自检)
     group = heads // kv_heads
@@ -110,20 +112,21 @@ def main() -> int:
     chk("cast 结果与未 cast FP32 的差异被记录(比较对象明确)",
         float((casted.to(torch.float32) - fp32).abs().max()) >= 0.0,
         fp32_to_bf16_max_abs=float((casted.to(torch.float32) - fp32).abs().max()))
-    detail["visible_positions_sample"] = {"count": len(mask.positions), "first": mask.positions[:3],
-                                          "last": mask.positions[-3:]}
+    detail["visible_positions_sample"] = {"count": len(mask.read_positions), "first": mask.read_positions[:3],
+                                          "last": mask.read_positions[-3:]}
 
     # --- 3. 精确结构反例(独立真值检出,不主张数值可检出) ---
-    honest = set(mask.positions)
+    honest = set(mask.read_positions)
     impostor = sorted(([p for p in range(min(honest), max(honest)) if p not in honest][:1] or [0])
-                      + [p for p in mask.positions if p != min(honest)])
+                      + [p for p in mask.read_positions if p != min(honest)])
     chk("结构反例:替换一个可见位置后被独立真值检出(集合不同)", set(impostor) != honest,
         removed=min(honest), added=impostor[0])
     tail_mask = independent_visible_positions(mode="local", refs=(), kv_len=kv_len, prompt_len=PROMPT_LEN,
-                                             sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS)
-    shrunk = tuple(p for p in list(tail_mask.positions)[:-1])
-    chk("结构反例:尾长 −1(少读当前 token)被独立真值检出", set(shrunk) != set(tail_mask.positions)
-        and mask.positions[-1] not in shrunk, dropped=mask.positions[-1])
+                                             sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS,
+                                             block_size=block_size)
+    shrunk = tuple(p for p in list(tail_mask.read_positions)[:-1])
+    chk("结构反例:尾长 −1(少读当前 token)被独立真值检出", set(shrunk) != set(tail_mask.read_positions)
+        and mask.read_positions[-1] not in shrunk, dropped=mask.read_positions[-1])
     try:
         gather_positions(k, v, block_table, block_size, (kv_len + block_size,))
         chk("结构反例:越界位置被拒绝", False)
@@ -162,6 +165,27 @@ def main() -> int:
                                        block_table=block_table, block_size=block_size, mask=mask)
     chk("参考实现原地写入传入 output(数据指针不变且内容非零)", output.data_ptr() == ptr
         and float(output.abs().max()) > 0.0, max_abs=float(output.abs().max()))
+    # --- 与已验收 28 步夹具的独立块集/有效长度逐步机械比较 ---
+    acc = Path(cfg.get("accepted_fixture", "evidence/p3-calib/masked-prep/crossblock-note.json"))
+    if acc.exists():
+        fx = json.loads(acc.read_text())
+        segs_fx = [tuple(x) for x in fx["segment_spans"]]
+        bad = []
+        for s_ in fx["steps"]:
+            mm = independent_visible_positions(mode=s_["mode"], refs=s_["refs"], kv_len=s_["kv_len"],
+                                               prompt_len=fx["prompt_len"], sink_span=tuple(fx["sink_span"]),
+                                               local_window_span=tuple(fx["local_window_span"]),
+                                               segment_spans=segs_fx, block_size=block_size)
+            if list(mm.blocks) != s_["visible_blocks_independent"] or sum(mm.effective_per_block) != s_["total_independent"]:
+                bad.append({"decode": s_["decode_count_1based"],
+                            "got_blocks": list(mm.blocks), "want_blocks": s_["visible_blocks_independent"],
+                            "got_total": sum(mm.effective_per_block), "want_total": s_["total_independent"]})
+        chk("与已验收 28 步夹具逐步一致:外扩后块集与有效读取长度",
+            not bad and len(fx["steps"]) == 28, bad=bad[:3], n_steps=len(fx["steps"]),
+            accepted_sha256=hashlib.sha256(acc.read_bytes()).hexdigest()[:16])
+    else:
+        chk("已验收夹具存在(用于逐步机械比较)", False, path=str(acc))
+
     chk("参考写入值与 FP32 参考 cast 后逐元素一致",
         bool(torch.equal(output, dense_attention_fp32(q, kk2, vv2, scale=scale, dtype=torch.bfloat16)[1])))
 
@@ -196,10 +220,13 @@ def main() -> int:
     chk("两请求状态对象独立(互不影响)", s1 is not s2 and s1.generated_tokens == 1 and s2.generated_tokens == 0,
         s1=s1.generated_tokens, s2=s2.generated_tokens)
     m1 = independent_visible_positions(mode="local", refs=(), kv_len=PROMPT_LEN + 1, prompt_len=PROMPT_LEN,
-                                       sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS)
+                                       sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS,
+                                       block_size=block_size)
     m2 = independent_visible_positions(mode="global", refs=(), kv_len=PROMPT_LEN + 1, prompt_len=PROMPT_LEN,
-                                       sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS)
-    chk("两请求各自独立推导 mask(不共享残留状态)", m1.positions != m2.positions and len(m2.positions) > len(m1.positions))
+                                       sink_span=SINK, local_window_span=LOCAL, segment_spans=SEGMENTS,
+                                       block_size=block_size)
+    chk("两请求各自独立推导 mask(不共享残留状态)",
+        m1.read_positions != m2.read_positions and len(m2.read_positions) > len(m1.read_positions))
     tok = tok  # noqa: B018  (占位,避免误删)
 
     # --- 8. GQA 头映射拒绝 ---
