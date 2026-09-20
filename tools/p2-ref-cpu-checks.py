@@ -74,9 +74,9 @@ def make_real_metadata(block_table_2d: torch.Tensor, seq_lens_values, num_tokens
         "block_table": block_table_2d,
         "slot_mapping": torch.zeros(num_tokens, dtype=torch.int64),
         "use_cascade": False,
-        "num_decode_reqs": 1,
+        "num_decode_reqs": 0,          # pin 可能全 0:不作相位证据(相位由 is_prefilling_np 提供)
         "num_prefill_reqs": 0,
-        "num_decode_tokens": int(num_tokens),
+        "num_decode_tokens": 0,
         "num_prefill_tokens": 0,
     }
     kw = {}
@@ -125,6 +125,7 @@ def main() -> int:
         checks.append({"name": name, "ok": bool(ok), **extra})
 
     bridge, decls = load_timeline(cfg, fixture)
+    bridge.is_prefilling_by_step = {i: False for i in range(64)}   # harness 提供的相位证据(decode)
     detail["declarations"] = [{"parse_index_0based": p, "mode": m, "refs": list(r)} for p, m, r in bridge.declarations]
 
     # ---------- 1. 位置:语义 vs 块外扩;与已验收夹具逐步一致 ----------
@@ -191,10 +192,12 @@ def main() -> int:
             md = meta_for(step)
             sw.current_request_id, sw.current_step = "req-A", step
             for layer, impl in enumerate(impls):
-                impl.forward(layer, q, None, None, native_kv, md, out_a)
+                impl.forward(layer, q, None, None, native_kv, md, out_a,
+                             output_scale=None, output_block_scale=None)   # pin attention.py:770
             sw.current_request_id, sw.current_step = "req-B", step
             for layer, impl in enumerate(impls):
-                impl.forward(layer, q, None, None, native_kv, md, out_b)
+                impl.forward(layer, q, None, None, native_kv, md, out_b,
+                             output_scale=None, output_block_scale=None)
     finally:
         at.restore()
 
@@ -243,50 +246,109 @@ def main() -> int:
     except ReferenceError as exc:
         chk("多 token 输入被拒绝(仅单 token decode)", True, error=str(exc)[:80])
     # 门禁:scale 不一致 / 额外参数 / 非 BF16 / 几何不一致
-    impl_bad = StandInImpl("bad", scale + 0.5)
-    sw_bad = TestOnlyReferenceSwitch(enabled=True, request_id="req-S", layers=(0,), steps=(6,), scale=scale)
-    at_bad = TestOnlyReferenceAttachment(sw_bad, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
-    errs = {}
+    native_storage = native_kv.untyped_storage().data_ptr()
+    kc2, vc2 = unpack_native_kv(native_kv, d)
+    chk("unpack 不复制整个缓存:保留 stride 视图(共享 storage,未做 contiguous)",
+        kc2.untyped_storage().data_ptr() == native_storage and vc2.untyped_storage().data_ptr() == native_storage,
+        strides=list(kc2.stride()))
+
+    impl_d = StandInImpl("d", scale)
+    sw_d = TestOnlyReferenceSwitch(enabled=False, request_id="req-A", scale=scale)
+    at_d = TestOnlyReferenceAttachment(sw_d, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
     try:
-        at_bad.wrap_all([impl_bad])
-        sw_bad.current_request_id, sw_bad.current_step = "req-S", 6
-        try:
-            impl_bad.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16))
-        except ReferenceError as exc:
-            errs["scale_mismatch"] = str(exc)
-        sw_bad.enabled, sw_bad.restore = True, None
+        at_d.wrap_all([impl_d])
+        sw_d.current_request_id, sw_d.current_step = "req-A", 6
+        before = impl_d.calls
+        impl_d.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16),
+                       output_scale=None, output_block_scale=None)
     finally:
-        at_bad.restore()
-    chk("门禁:impl.scale 与开关 scale 不一致即拒绝(不从 head_dim 推导)", "不一致" in errs.get("scale_mismatch", ""),
-        error=errs.get("scale_mismatch", "")[:90])
-    impl_x = StandInImpl("x", scale)
-    at_x = TestOnlyReferenceAttachment(TestOnlyReferenceSwitch(enabled=True, request_id="req-X", layers=(0,), steps=(6,), scale=scale),
-                                       bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
-    extra_ok = False
+        at_d.restore()
+    chk("未启用:显式 None 参数下按原实现直通,且不触发参考恢复",
+        impl_d.calls == before + 1 and not at_d.restored and at_d.passthrough() == {(0, 6)})
+
+    md_zero = make_real_metadata(torch.tensor([block_row_a, block_row_b], dtype=torch.int32),
+                                 [bridge.kv_len_at(6)] * 2, 1, len(block_row_a))
+    out_zero = torch.zeros(1, heads, d, dtype=torch.bfloat16)
+    info_zero = perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge,
+                                                   request_idx=0, query=q, kv_cache=native_kv, attn_metadata=md_zero,
+                                                   output=out_zero, head_size=d, impl_scale=scale)
+    chk("有效 decode 且计数器全 0:通过(单请求由 query_start_loc;相位由 is_prefilling_np)",
+        float(out_zero.abs().max()) > 0.0 and info_zero["num_decode_reqs"] == 0)
+
+    bridge.is_prefilling_by_step[6] = True
     try:
-        at_x.wrap_all([impl_x])
-        at_x.switch.current_request_id, at_x.switch.current_step = "req-X", 6
+        perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
+                                           query=q, kv_cache=native_kv, attn_metadata=md_zero,
+                                           output=torch.zeros(1, heads, d, dtype=torch.bfloat16), head_size=d,
+                                           impl_scale=scale)
+        chk("单 token 的末尾 prefill chunk 被拒绝(相位来自 is_prefilling_np)", False)
+    except ReferenceError as exc:
+        chk("单 token 的末尾 prefill chunk 被拒绝(相位来自 is_prefilling_np)", "prefill" in str(exc),
+            error=str(exc)[:80])
+    bridge.is_prefilling_by_step[6] = False
+
+    impl_q = StandInImpl("q", scale)
+    sw_q = TestOnlyReferenceSwitch(enabled=True, request_id="req-Q", layers=(0,), steps=(6,), scale=scale)
+    at_q = TestOnlyReferenceAttachment(sw_q, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
+    q_err = None
+    try:
+        at_q.wrap_all([impl_q])
+        sw_q.current_request_id, sw_q.current_step = "req-Q", 6
         try:
-            impl_x.forward(0, q, None, None, native_kv, meta_for(6),
-                           torch.zeros(1, heads, d, dtype=torch.bfloat16), None, None)   # output_scale/output_block_scale
+            impl_q.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16),
+                           output_scale=torch.ones(1), output_block_scale=None)
         except ReferenceError as exc:
-            extra_ok = "额外参数" in str(exc)
+            q_err = str(exc)
     finally:
-        at_x.restore()
-    chk("门禁:量化/特殊特性(额外 output_scale/output_block_scale)不被静默丢弃", extra_ok)
-    md6 = make_real_metadata(torch.tensor([block_row_a, block_row_b], dtype=torch.int32),
-                             [bridge.kv_len_at(6), bridge.kv_len_at(6)], 1, len(block_row_a))
-    for label, kw, want in (("非 BF16 输出", {"output": torch.zeros(1, heads, d, dtype=torch.float16)}, "BF16"),
-                            ("KV 块长与 kernel_block_size 不一致", {"kv_cache": torch.randn(16, kv_heads, 512, 2 * d, dtype=torch.bfloat16)}, "块长")):
-        arg = dict(query=q, kv_cache=native_kv, attn_metadata=md6,
-                   output=torch.zeros(1, heads, d, dtype=torch.bfloat16))
-        arg.update(kw)
+        at_q.restore()
+    chk("目标请求:非 None 的 output_scale 被拒绝且 forward 已恢复",
+        q_err is not None and "output_scale" in q_err and at_q.restored == [0] and sw_q.enabled is False,
+        error=(q_err or "")[:80])
+
+    for label, mut in (("seq_lens 缺失", None),
+                       ("seq_lens 形状错", torch.zeros(2, 2, dtype=torch.int32))):
+        md_bad = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
+        setattr(md_bad, "seq_lens", mut)
         try:
             perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
-                                               head_size=d, impl_scale=scale, **arg)
-            chk(f"门禁:{label} 被拒绝", False)
+                                               query=q, kv_cache=native_kv, attn_metadata=md_bad,
+                                               output=torch.zeros(1, heads, d, dtype=torch.bfloat16), head_size=d,
+                                               impl_scale=scale)
+            chk(f"门禁:{label} 被拒绝(fail closed)", False)
         except ReferenceError as exc:
-            chk(f"门禁:{label} 被拒绝", want in str(exc), error=str(exc)[:90])
+            chk(f"门禁:{label} 被拒绝(fail closed)", "seq_lens" in str(exc), error=str(exc)[:80])
+
+    md_cnt = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
+    md_cnt.num_decode_reqs, md_cnt.num_decode_tokens = 2, 2
+    try:
+        perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
+                                           query=q, kv_cache=native_kv, attn_metadata=md_cnt,
+                                           output=torch.zeros(1, heads, d, dtype=torch.bfloat16), head_size=d,
+                                           impl_scale=scale)
+        chk("门禁:计数器已填充但与单请求冲突时拒绝", False)
+    except ReferenceError as exc:
+        chk("门禁:计数器已填充但与单请求冲突时拒绝", "计数器" in str(exc), error=str(exc)[:80])
+
+    br_no_phase = TimelineBridge(prompt_len=bridge.prompt_len, kernel_block_size=bridge.kernel_block_size,
+                                 sink_span=bridge.sink_span, local_window_span=bridge.local_window_span,
+                                 segment_spans=bridge.segment_spans, declarations=bridge.declarations)
+    impl_np = StandInImpl("np", scale)
+    sw_np = TestOnlyReferenceSwitch(enabled=True, request_id="req-NP", layers=(0,), steps=(6,), scale=scale)
+    at_np = TestOnlyReferenceAttachment(sw_np, bridge=br_no_phase, request_idx=0, head_size=d, layers=(0,), steps=(6,))
+    np_err = None
+    try:
+        at_np.wrap_all([impl_np])
+        sw_np.current_request_id, sw_np.current_step = "req-NP", 6
+        try:
+            impl_np.forward(0, q, None, None, native_kv, md_zero, torch.zeros(1, heads, d, dtype=torch.bfloat16),
+                            output_scale=None, output_block_scale=None)
+        except ReferenceError as exc:
+            np_err = str(exc)
+    finally:
+        at_np.restore()
+    chk("缺少相位证据时拒绝(不得用单 token/q_len 代替)", np_err is not None and "相位" in np_err,
+        error=(np_err or "")[:80])
+
     bad_md = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32),
                                 [bridge.kv_len_at(6) + 3], 1, len(block_row_a))
     try:
