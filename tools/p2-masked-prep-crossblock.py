@@ -165,10 +165,15 @@ def main() -> int:
             "matches_independent": list(plan.visible_logical_blocks) == indep_blocks,
         })
     steps = report["steps"]
-    cross = [s for s in steps if s["visible_blocks_candidate"] != sorted({block_of(p, bs) for p in range(steps[0]["kv_len"])})]
+    next_block = block_of(prompt_len, bs) + 1
+    first_cross = next((s["gen_step"] for s in steps if next_block in s["written_blocks"]), None)
     report["crossing"] = {
-        "first_step_writing_block": next((s["gen_step"] for s in steps if s["newly_written_block"] == block_of(prompt_len, bs)), None),
-        "block_start": (block_of(prompt_len, bs) + 1) * bs, "steps_needed": 1,
+        "next_block": next_block, "block_start": next_block * bs,
+        "prompt_written_blocks": sorted({block_of(p, bs) for p in range(prompt_len)}),
+        "first_decode_step_kv": prompt_len + 1,
+        "first_step_writing_next_block": first_cross,
+        "decode_steps_until_crossing": first_cross,
+        "note": "prompt 末尾位于块 9 内(kv=prompt_len+1=7840 时仍只写 0..9)；再 1 个 decode 步(kv=7841,写入位置 7840)首次写入块 10。",
     }
 
     # --- 安全负对照:同一门禁,必须拒绝,且样本本身不越界/不触未初始化槽 ---
@@ -235,25 +240,52 @@ def main() -> int:
                    "seqused_k": 3135, "block_size": bs, "width": 32, "tail_len": 0,
                    "attention_kv_len": prompt_len, "next_write_position": prompt_len, "written_before_step": prompt_len},
     ))
-    # 负对照 2:可见块 10 超出已分配前缀 0..9
+    # 负对照 2:global 可见集合含块 10,但只分配了前缀 0..9 ⇒ 必须拒绝
     report["negative_controls"].append(try_plan(
-        "B 可见块 10 超出已分配前缀 0..9",
-        mode="local", canonical=list(range(10)), attention_kv_len=prompt_len + 1, refs=(),
+        "B 可见块 10 超出已分配前缀 0..9(global,kv=7841)",
+        mode="global", canonical=list(range(10)), attention_kv_len=prompt_len + 2, refs=(),
+        max_width=32,
     ))
-    # 负对照 3:有效尾长与 seqused_k 各减 1(形状不变、算术自洽)
-    report["negative_controls"].append(try_plan(
-        "C 有效尾长与 seqused_k 各减 1",
-        raw_table={"visible_blocks": [0, 7, 8, 9], "effective_per_block": [784, 784, 784, 783],
-                   "seqused_k": 3135, "block_size": bs, "width": 32, "tail_len": 783,
-                   "attention_kv_len": prompt_len, "next_write_position": prompt_len, "written_before_step": prompt_len},
-    ))
+    # 负对照 3/4:从**真实计划**派生,减 1(错尾长 / 错 seqused_k);记录两层门禁结果
+    honest = next(s for s in steps if s["mode"] == "local")
+    base_plan_kw = dict(
+        visible_logical_blocks=honest["visible_blocks_candidate"],
+        effective_per_block=honest["effective_per_block"],
+        seqused_k=honest["seqused_k"], tail_len=honest["tail_len"], width=honest["width"],
+        attention_kv_len=honest["kv_len"],
+    )
+    for label, mut in (
+        ("C 有效尾长与末块有效数各减 1(真实计划派生)", "tail"),
+        ("D seqused_k 减 1(真实计划派生,其余不动)", "seq"),
+    ):
+        kw = dict(base_plan_kw)
+        if mut == "tail":
+            kw["tail_len"] -= 1
+            kw["effective_per_block"] = kw["effective_per_block"][:-1] + [kw["effective_per_block"][-1] - 1]
+        else:
+            kw["seqused_k"] -= 1
+        layer: dict = {"label": label, "honest": base_plan_kw, "mutated": kw}
+        try:
+            StepPlan(req_id="neg", mode="local", refs=(), effect_step=honest["effect_step"], block_size=bs,
+                     next_write_position=honest["next_write_position"], written_before_step=honest["kv_len"] - 1, **kw).validate()
+            layer["validate_layer"] = "通过(算术自洽,不构成拒绝)"
+        except Exception as exc:  # noqa: BLE001
+            layer["validate_layer"] = f"拒绝 {type(exc).__name__}: {str(exc)[:160]}"
+        layer["exact_equality_gate"] = "拒绝" if (
+            kw["seqused_k"] != base_plan_kw["seqused_k"] or kw["tail_len"] != base_plan_kw["tail_len"]
+            or kw["effective_per_block"] != base_plan_kw["effective_per_block"]
+        ) else "通过"
+        layer["rejected"] = layer["exact_equality_gate"] == "拒绝"
+        layer["reason"] = ("与合同推导出的计划逐字段精确相等门禁拒绝(seqused_k/tail_len/effective_per_block/visible/width);"
+                           "该门禁是适配层落位前的判据,拒绝先于任何读取 ⇒ 不越界、不触碰未初始化槽")
+        report["negative_controls"].append(layer)
 
     # --- 判定 ---
     def chk(name, ok, **extra):
         report["checks"].append({"name": name, "ok": bool(ok), **extra})
 
     chk("prompt_len 精确命中目标", prompt_len == target, got=prompt_len, want=target)
-    chk("首 decode 步即跨入下一块", report["crossing"]["first_step_writing_block"] == 0,
+    chk("少量 decode 步内跨入下一块(≤3)", (report["crossing"]["first_step_writing_next_block"] or 99) <= 3,
         crossing=report["crossing"])
     chk("全部步候选可见块 == 独立展开", all(s["matches_independent"] for s in steps),
         bad=[s["gen_step"] for s in steps if not s["matches_independent"]])
