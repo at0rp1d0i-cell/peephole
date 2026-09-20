@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import sys
@@ -19,8 +18,10 @@ from pathlib import Path
 
 from huggingface_hub import HfApi
 
+from _lib import MODEL_REVISION
+
 CANDIDATES = [
-    ("Qwen/Qwen3.8-27B", "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0", True),
+    ("Qwen/Qwen3.8-27B", MODEL_REVISION, True),
     ("Qwen/Qwen3.6-27B", "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9", False),
 ]
 # 工作单 §3 E1 记录的对照值

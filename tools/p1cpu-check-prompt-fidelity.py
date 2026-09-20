@@ -233,7 +233,8 @@ def check_prompt(name: str, mine: str, ref: str) -> list[str]:
     ref_rows: list[list[str]] = []
     unassigned = 0
     hyphenations = [0]
-    for index, (mine_block, ref_block) in enumerate(zip(mine_tables, ref_tables)):
+    # 表格块数不一致时上面已记入 failures：这里逐块比较公共前缀，不重复抛错（strict=False 是有意截断）。
+    for index, (mine_block, ref_block) in enumerate(zip(mine_tables, ref_tables, strict=False)):
         rows_a, _ = cells_by_columns(mine_block, hyphenations)
         rows_b, unassigned_b = cells_by_columns(ref_block, hyphenations)
         if len(rows_a) != len(rows_b):

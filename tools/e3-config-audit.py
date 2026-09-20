@@ -11,21 +11,18 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path
 
 from transformers import AutoTokenizer
 
+from _lib import sha256_file
+
 SAMPLE_MESSAGES = [
     {"role": "system", "content": "You are a precise assistant. Answer with a single short sentence."},
     {"role": "user", "content": "Name the capital of France."},
 ]
-
-
-def sha256(p: Path) -> str:
-    return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
 def main() -> int:
@@ -126,7 +123,7 @@ def main() -> int:
             "metadata_total_size": tensor_bytes,
             "plan_quoted_tensor_bytes": 55_562_855_904,
             "matches_plan": tensor_bytes == 55_562_855_904,
-            "num_shards": len(sorted({v for v in weight_map.values()})),
+            "num_shards": len(set(weight_map.values())),
         },
         "tokenizer_config": {
             "tokenizer_class": tcfg["tokenizer_class"],
@@ -142,7 +139,7 @@ def main() -> int:
                 str(k): {"content": v["content"], "special": v["special"]}
                 for k, v in sorted(tcfg["added_tokens_decoder"].items(), key=lambda x: int(x[0]))
             },
-            "chat_template_sha256": sha256(snap / "chat_template.jinja"),
+            "chat_template_sha256": sha256_file(snap / "chat_template.jinja"),
             "chat_template_in_tokenizer_config_identical": tcfg["chat_template"]
             == (snap / "chat_template.jinja").read_text(),
             "chat_template_flags": {
@@ -156,7 +153,7 @@ def main() -> int:
                 else None,
             },
             "file_sha256": {
-                f.name: sha256(f)
+                f.name: sha256_file(f)
                 for f in sorted(snap.iterdir())
                 if f.is_file() and not f.name.startswith("model-")
             },

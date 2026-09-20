@@ -15,10 +15,9 @@ token 半开区间，因为合同 C1.7 要求 span 以最终渲染与 tokenizati
 
 from __future__ import annotations
 
-import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from .prompts import (
     BOOTSTRAP_USER_TURN,
@@ -83,14 +82,6 @@ class ArmPrompt:
         if not 1 <= index <= len(self.segment_spans):
             raise SpanMappingError(f"segment 编号越界：{index}（共 {len(self.segment_spans)}）")
         return self.segment_spans[index - 1]
-
-
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def sha256_file(path: str | Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def build_messages(

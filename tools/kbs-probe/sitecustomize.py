@@ -50,8 +50,10 @@ if _OUT:  # 只在显式请求时装钩子
                     payload["num_blocks"] = getattr(kv_cfg, "num_blocks", None)
                 mgr = payload.get("kv_manager_block_sizes") or []
                 kern = payload["kernel_block_sizes"] or []
+                # mgr 只有在拿到 kv_cache_config 时才有值（缺失时为空表），组数也可能不等：
+                # 这里只比较公共前缀，不以长度不一致为由判 hybrid（strict=False 是有意截断）。
                 payload["hybrid_splitting_used"] = (
-                    None if not kern else any(k != m for k, m in zip(kern, mgr))
+                    None if not kern else any(k != m for k, m in zip(kern, mgr, strict=False))
                 )
                 # 允许拿到全部后端能力（用于复核 Case 1 判据）
                 groups = getattr(self, "attn_groups", None)

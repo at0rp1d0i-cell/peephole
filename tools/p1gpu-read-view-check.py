@@ -21,23 +21,24 @@ import json
 import math
 import platform
 import sys
-import time
 from pathlib import Path
 
 import torch
 from vllm.vllm_flash_attn import flash_attn_varlen_func
 
+from _lib import now_cst
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from attnview.gpucheck import summarize  # noqa: E402
+from attnview.gpukv import next_write_slot, read_table_from_read_view  # noqa: E402
 from attnview.gpuoracle import (  # noqa: E402
     attention_fp32,
     attention_sdpa_fp32,
     build_oracle_view,
     gather_positions,
 )
-from attnview.gpukv import next_write_slot, read_table_from_read_view  # noqa: E402
 from attnview.readview import TokenLayout, ViewInputs, build_read_view  # noqa: E402
 
 SENTINEL = 8.0
@@ -490,7 +491,7 @@ class CaseRunner:
             oracles.append(self.oracle(row["mode"], tuple(row.get("refs", [])), int(row["kv_len"]), prompt_len))
         width = max(t.width for t in tables)
         block_table = torch.tensor([t.padded_row(width) for t in tables], dtype=torch.int32, device="cuda")
-        seqused_k = torch.tensor([t.seqused_k for t in tables], dtype=torch.int32, device="cuda")
+        _ = torch.tensor([t.seqused_k for t in tables], dtype=torch.int32, device="cuda")
         k_before, v_before = k_gpu.clone(), v_gpu.clone()
         ptr_before = (str(k_gpu.device), k_gpu.data_ptr(), str(v_gpu.device), v_gpu.data_ptr())
         out, _, _ = run_candidate(q2, k_gpu, v_gpu, tables, self.scale)
@@ -499,7 +500,7 @@ class CaseRunner:
         k_unchanged = bool(torch.equal(k_before, k_after))
         v_unchanged = bool(torch.equal(v_before, v_after))
         row_isolation = []
-        for index, (row, table, oracle) in enumerate(zip(rows, tables, oracles)):
+        for index, (row, table, oracle) in enumerate(zip(rows, tables, oracles, strict=True)):
             single, _, _ = run_candidate(q2[index: index + 1], k_gpu, v_gpu, [table], self.scale)
             row_isolation.append(float((single[0].float() - out[index].float()).abs().max().item()))
             k_sel, v_sel = gather_positions(k_true, v_true, oracle.positions)
@@ -573,8 +574,8 @@ class CaseRunner:
             expected_blocks_config=case.get("expect_blocks"),
         )
         measurement.pop("_masked_output", None)
-        measurement["note"] = ("单 query 越读负对照：诚实 seqused_k=%d，人为 +100 读到尾块哨兵；"
-                               "本记录**必须**被 attnview.gpucheck 拒绝" % honest.seqused_k)
+        measurement["note"] = (f"单 query 越读负对照：诚实 seqused_k={honest.seqused_k}，人为 +100 读到尾块哨兵；"
+                               "本记录**必须**被 attnview.gpucheck 拒绝")
         return {
             "id": "negative_control_overread", "seed": self.seed, "kind": "control",
             "mode": case["mode"], "kv_len": kv_len, "fill_verified_positions": verified,
@@ -654,16 +655,17 @@ def write_manifest(out_dir: Path, config_path: Path, *, start: str, end: str | N
     return payload
 
 
-def now_cst() -> str:
-    import datetime
-
-    return datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/p1-gpu/read-view-check-v2.json")
-    parser.add_argument("--evidence", default="evidence/p1-gpu-v2")
+    # 不给默认值：v1 已撤回、v2 已被取代（expect_blocks 漏块且未被代码读取），
+    # 而 `evidence/p1-gpu-v6/` 是当前交付轮 —— 旧的默认值会让"照默认重跑"落在被取代的代次上，
+    # 或把产物写进已交付的轮次目录。两处都必须显式给出。
+    parser.add_argument(
+        "--config", required=True,
+        help="当前配置（当前为 configs/p1-gpu/read-view-check-v3.json；配置须先提交再运行）")
+    parser.add_argument(
+        "--evidence", required=True,
+        help="本轮证据目录：用**新**目录，不要指向已交付的轮次（如 evidence/p1-gpu-v6）")
     parser.add_argument("--only", default=None)
     args = parser.parse_args()
 
@@ -721,7 +723,6 @@ def main() -> int:
         boundary = CaseRunner(cfg, boundary_case, seed).check_boundary_rejection()
         control_records.append(boundary)
 
-        verdict = (not ctl_summary.ok) and numeric_failed and boundary["rejected_before_kernel"]
         print(f"seed{seed} 负对照：tail_1 越读 +100（诚实 {ctl_record['honest_seqused_k']} → "
               f"{ctl_record['control_seqused_k']}，仍在 {ctl_record['table_width']} 列表内、尾块 {ctl_record['tail_len']}）"
               f"门禁拒绝={'是' if not ctl_summary.ok else '否'} 数值判据失败={'是' if numeric_failed else '否'}；"

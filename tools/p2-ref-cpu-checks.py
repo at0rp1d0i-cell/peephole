@@ -125,7 +125,7 @@ def main() -> int:
         checks.append({"name": name, "ok": bool(ok), **extra})
 
     bridge, decls = load_timeline(cfg, fixture)
-    bridge.is_prefilling_by_step = {i: False for i in range(64)}   # harness 提供的相位证据(decode)
+    bridge.is_prefilling_by_step = dict.fromkeys(range(64), False)   # harness 提供的相位证据(decode)
     detail["declarations"] = [{"parse_index_0based": p, "mode": m, "refs": list(r)} for p, m, r in bridge.declarations]
 
     # ---------- 1. 位置:语义 vs 块外扩;与已验收夹具逐步一致 ----------
@@ -201,7 +201,7 @@ def main() -> int:
     finally:
         at.restore()
 
-    exp = {(l, s) for l in (0, 1) for s in (6, 7)}
+    exp = {(layer, s) for layer in (0, 1) for s in (6, 7)}
     chk("真实签名下:目标请求的 (layer, step) 全部被参考覆盖", at.missing(exp) == set()
         and at.unexpected(exp) == set(), overrode=sorted(at.overrode()))
     chk("真实签名下:非目标请求经同一挂接全部直通", at.passthrough("req-B") == exp
@@ -309,7 +309,7 @@ def main() -> int:
     for label, mut in (("seq_lens 缺失", None),
                        ("seq_lens 形状错", torch.zeros(2, 2, dtype=torch.int32))):
         md_bad = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
-        setattr(md_bad, "seq_lens", mut)
+        md_bad.seq_lens = mut
         try:
             perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
                                                query=q, kv_cache=native_kv, attn_metadata=md_bad,

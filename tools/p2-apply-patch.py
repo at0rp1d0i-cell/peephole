@@ -43,18 +43,16 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from _lib import now_cst, sha256_file, venv_site_packages
 
 DEFAULT_REPO = Path(__file__).resolve().parent.parent
 PKG_SRC_REL = Path("vllm/vllm")  # 源码 checkout 的包根
-PKG_INSTALL_REL = Path("venvs/attnview/lib/python3.12/site-packages/vllm")  # 运行时副本
-PKG_INSTALL_PACKAGE_REL = Path("venvs/attnview/lib/python3.12/site-packages/attnview")
 
 
 class Layout:
@@ -65,8 +63,10 @@ class Layout:
         self.journal = self.patch_root / "deployed.json"
         self.manifest_path = self.patch_root / "manifest.json"
         self.pkg_src = repo / PKG_SRC_REL
-        self.pkg_install = repo / PKG_INSTALL_REL
-        self.pkg_installed_package = repo / PKG_INSTALL_PACKAGE_REL
+        # 运行时副本：venv 的 site-packages（`venvs/attnview/lib/python3.*/`，次版本不写进代码）
+        site_packages = venv_site_packages(repo)
+        self.pkg_install = site_packages / "vllm"
+        self.pkg_installed_package = site_packages / "attnview"
 
     def load_manifest(self) -> dict:
         if not self.manifest_path.is_file():
@@ -75,14 +75,6 @@ class Layout:
 
     def load_journal(self) -> dict | None:
         return json.loads(self.journal.read_text()) if self.journal.is_file() else None
-
-
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def now_cst() -> str:
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +0800")
 
 
 def plan_targets(layout: Layout, manifest: dict) -> list[dict]:

@@ -23,14 +23,20 @@ spec = importlib.util.spec_from_file_location("gpu_check", ROOT / "tools" / "p1g
 gpu_check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gpu_check)
 
-from attnview.gpuoracle import attention_fp32, build_oracle_view, gather_positions  # noqa: E402
 from attnview.gpukv import read_table_from_read_view  # noqa: E402
+from attnview.gpuoracle import attention_fp32, build_oracle_view, gather_positions  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/p1-gpu/read-view-check-v3.json")
-    parser.add_argument("--evidence", default="evidence/p1-gpu-v3")
+    # 不给默认值：负对照要写进**同一轮**的证据目录（`control-manifest.json` 与主运行并列），
+    # 旧默认值指向一个已被取代的代次名。两个参数都必须显式给出。
+    parser.add_argument(
+        "--config", required=True,
+        help="与主运行同一份配置（当前为 configs/p1-gpu/read-view-check-v3.json）")
+    parser.add_argument(
+        "--evidence", required=True,
+        help="与主运行同一轮的证据目录（负对照产物写在该目录内）")
     args = parser.parse_args()
     out_dir = ROOT / args.evidence
     manifest = gpu_check.write_manifest(out_dir, ROOT / args.config, start=gpu_check.now_cst(),

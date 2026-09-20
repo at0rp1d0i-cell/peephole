@@ -21,11 +21,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import statistics
 import sys
+
+from _lib import load_json, sha256_file
 
 AGGREGATE_SUFFIX = ".aggregates.json"
 # 仓内全量件的规范相对路径：聚合段与它的相对位置绑定，因此 `--check` 的比对对象
@@ -34,14 +35,6 @@ DEFAULT_SOURCE = "evidence/p3-calib/oracle-original-3a.json"
 OMITTED_KEY = "comparisons"
 # 逐比较行按 scope 选择性保留：被报告直接引用的 scope 必须留在聚合段里。
 PUBLISHED_SCOPES = ("decode",)
-
-
-def sha256_file(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def quantiles(values: list) -> dict:
@@ -130,13 +123,13 @@ def main(argv=None) -> int:
         print(f"全量件不存在：{args.source}", file=sys.stderr)
         return 2
 
-    derived = derive(json.load(open(args.source, encoding="utf-8")), args.source)
+    derived = derive(load_json(args.source), args.source)
 
     if args.check:
         if not os.path.exists(target):
             print(f"聚合段不存在：{target}", file=sys.stderr)
             return 2
-        committed = json.load(open(target, encoding="utf-8"))
+        committed = load_json(target)
         committed_full = committed.get("full_file", {})
         problems = []
         if committed_full.get("sha256") != derived["full_file"]["sha256"]:

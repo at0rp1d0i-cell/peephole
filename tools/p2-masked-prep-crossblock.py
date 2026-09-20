@@ -21,10 +21,12 @@ import json
 import sys
 from pathlib import Path
 
+from _lib import MODEL_REVISION
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots" / MODEL_REVISION
 CONTRACT_ERRORS = ("AttnViewConfigError", "ReadViewError", "GpuKvError")
 
 
@@ -51,7 +53,6 @@ def main() -> int:
     from attnview.state import RequestProtocolState
     from attnview.step_plan import AttnViewConfigError, StepPlan
 
-    exc_names = {"AttnViewConfigError": AttnViewConfigError, "ReadViewError": ReadViewError, "GpuKvError": GpuKvError}
     tok = AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False)
     base, question, fine = fixture["document"], fixture["question"], cfg["fine_char"]
 
@@ -92,7 +93,7 @@ def main() -> int:
     max_width = -(-int(cfg["max_total_len"]) // bs)                      # = 11
     # canonical 物理映射**非顺序**,以区分逻辑块号与物理块号(不得默认相同)。
     canonical = tuple(int(cfg["physical_block_base"]) + int(cfg["physical_block_stride"]) * i for i in range(alloc_n))
-    phys_of = {i: p for i, p in enumerate(canonical)}
+    phys_of = dict(enumerate(canonical))
     d_cross = (prompt_len // bs + 1) * bs + 1 - prompt_len  # 第 d 个 decode 首次写下一块
 
     report: dict = {
@@ -158,7 +159,6 @@ def main() -> int:
                         tail_len=int(table.tail_len), attention_kv_len=int(table.attention_kv_len),
                         next_write_position=int(table.next_write_position),
                         written_before_step=int(view.written_before_step)).validate()
-        phys_row = [phys_of[int(b)] for b in plan.visible_logical_blocks]
         actual_row = list(table.padded_row(max_width))
         expected_row = [canonical[int(b)] for b in ind_blocks] or [0]
         expected_row = expected_row + [expected_row[-1]] * (max_width - len(expected_row))
@@ -211,8 +211,8 @@ def main() -> int:
     # ---------- 负对照 ----------
     def audit(vis, counts, kv, alloc):
         rows = []
-        for b, c in zip(vis, counts):
-            start, wrote = b * bs, max(0, min(kv, b * bs + bs) - b * bs)
+        for b, c in zip(vis, counts, strict=True):
+            wrote = max(0, min(kv, b * bs + bs) - b * bs)
             rows.append({"block": int(b), "claimed": int(c), "written": wrote, "allocated": b < alloc,
                          "slot_written": bool(b < alloc and 0 <= int(c) <= wrote)})
         return {"rows": rows, "all_slots_written": all(r["slot_written"] for r in rows),
@@ -261,7 +261,7 @@ def main() -> int:
     restricted = next(s for s in steps if s["mode"] == "local")
     honest_vis, honest_counts = restricted["visible_blocks_independent"], restricted["counts_independent"]
     kv_r = restricted["kv_len"]
-    full = [b for b, c in zip(honest_vis, honest_counts) if c == bs]
+    full = [b for b, c in zip(honest_vis, honest_counts, strict=True) if c == bs]
     outside = [b for b in range(kv_r // bs + 1) if b not in honest_vis and max(0, min(kv_r, b * bs + bs) - b * bs) == bs]
     if full and outside:
         # 选**后段**的可见完整块 与 **中段**的已写不可见完整块(更接近 R2 示例:不可见不等于不可读)
@@ -338,7 +338,7 @@ def main() -> int:
     chk("候选自校验", "I5:表宽为一次生成内常量 = ceil(8192/784) = 11(跨界步不得改变)",
         all(s["width_plan"] == -(-8192 // bs) for s in steps), widths=sorted({s["width_plan"] for s in steps}))
     chk("候选自校验", "物理映射非顺序:可见块逻辑号 ≠ 物理块号",
-        all(a != b for a, b in zip(sorted(phys_of), sorted(canonical))) and len(set(canonical)) == len(canonical),
+        all(a != b for a, b in zip(sorted(phys_of), sorted(canonical), strict=True)) and len(set(canonical)) == len(canonical),
         sample=[(0, canonical[0]), (1, canonical[1])])
     chk("独立审计", "三种模式均实际出现", modes_seen == ["focus", "global", "local"], modes=modes_seen)
     rec_tag = str(cfg["global_recovery_after_tag"])

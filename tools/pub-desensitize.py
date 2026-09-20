@@ -237,11 +237,11 @@ class Scanner:
             rx = _COMPILED[rule.name]
             n = 0
 
-            def repl(m: re.Match, *, _rule: Rule = rule) -> str:
+            def repl(m: re.Match, *, _rule: Rule = rule, _text: str = text) -> str:
                 nonlocal n
                 n += 1
                 self.distinct[_rule.name].add(m.group(0))
-                hits.append(Hit(rel, _rule.name, text.count("\n", 0, m.start()) + 1))
+                hits.append(Hit(rel, _rule.name, _text.count("\n", 0, m.start()) + 1))
                 return m.expand(_rule.replacement)
 
             text = rx.sub(repl, text)

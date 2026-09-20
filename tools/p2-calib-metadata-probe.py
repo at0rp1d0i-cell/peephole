@@ -254,7 +254,7 @@ def main() -> int:
     none_override = mod.fa_override_for_step(runner, sched_global, batch, group_tables)
     check("无计划的一步返回 None（调用方走 canonical/global）", none_override is None, None)
     check("global 步后输入张量仍未变",
-          all(before[k] == fingerprint(t) for k, t in zip(before, group_tables)), None)
+          all(before[k] == fingerprint(t) for k, t in zip(before, group_tables, strict=True)), None)
 
     # --- 运行期 H2D/同步实测（calibration #2 要求；插桩计数不能替代本项）-------------
     # 汇总结论**只从导出的 chrome trace 里读**：`prof.events()` 给的是 FunctionEvent，

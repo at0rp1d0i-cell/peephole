@@ -15,8 +15,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+from _lib import now_cst
 
 REQUIRED_MODULES = ("vllm", "msgspec")
 
@@ -33,10 +34,6 @@ PAYLOAD = {
 }
 
 
-def _now_cst() -> str:
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +0800")
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence", default="evidence/p2-single")
@@ -44,7 +41,7 @@ def main() -> int:
 
     out_dir = Path(args.evidence)
     out_dir.mkdir(parents=True, exist_ok=True)
-    report: dict = {"date_cst": _now_cst(), "argv": sys.argv, "payload": PAYLOAD, "checks": []}
+    report: dict = {"date_cst": now_cst(), "argv": sys.argv, "payload": PAYLOAD, "checks": []}
     ok_all = True
 
     def check(name: str, ok: bool, detail: str) -> None:
@@ -53,9 +50,10 @@ def main() -> int:
         report["checks"].append({"check": name, "ok": bool(ok), "detail": detail})
         print(f"[{'OK' if ok else 'FAIL'}] {name}: {detail}")
 
-    import vllm  # noqa: E402
     from vllm.sampling_params import SamplingParams  # noqa: E402
     from vllm.v1.serial_utils import MsgpackDecoder, MsgpackEncoder  # noqa: E402
+
+    import vllm  # noqa: E402
 
     report["version"] = {
         "vllm": getattr(vllm, "__version__", None),

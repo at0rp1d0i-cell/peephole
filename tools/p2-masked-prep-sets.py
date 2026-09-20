@@ -16,14 +16,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import sys
 from pathlib import Path
+
+from _lib import MODEL_REVISION
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots" / MODEL_REVISION
 
 
 def block_of(token_index: int, block_size: int) -> int:
@@ -72,7 +73,7 @@ def main() -> int:
         "sink_span": sink_span == exp["sink_span"],
     }
     if not all(facts.values()):
-        raise RuntimeError(f"重渲染事实与 note 不一致，拒绝继续：{facts}\n实际={dict(prompt_len=prompt_len, segment_spans=seg_spans, local_window_span=local_span, sink_span=sink_span)}")
+        raise RuntimeError(f"重渲染事实与 note 不一致，拒绝继续：{facts}\n实际={ {'prompt_len': prompt_len, 'segment_spans': seg_spans, 'local_window_span': local_span, 'sink_span': sink_span} }")
 
     report: dict = {
         "config": str(args.config), "fixture": cfg["fixture"], "block_size": block_size,
@@ -125,7 +126,6 @@ def main() -> int:
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
 
     checks = []
-    step0 = report["steps"][f"decode_step0_kv_len{prompt_len}"]
     ln = int(exp["first_decode_kv_len"])
     step1 = report["steps"].get(f"decode_step1_kv_len{ln}")
     if step1:

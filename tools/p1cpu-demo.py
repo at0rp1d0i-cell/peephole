@@ -22,12 +22,13 @@ import random
 import sys
 from pathlib import Path
 
+from _lib import MODEL_REVISION, sha256_file, sha256_text
+
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from attnview.extract import extract_public_output, public_stream_accounting  # noqa: E402
-from attnview.parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL  # noqa: E402
-from attnview.prompt import render_arm, sha256_file, sha256_text  # noqa: E402
+from attnview.prompt import render_arm  # noqa: E402
 from attnview.readview import TokenLayout  # noqa: E402
 from attnview.reference import declared_positions, reference_visible_positions  # noqa: E402
 from attnview.segmenter import build_offsets_index, join_segments, segment_context  # noqa: E402
@@ -37,7 +38,7 @@ from attnview.trace import build_step_trace, independence_summary  # noqa: E402
 TOKENIZER_DIR = (
     REPO
     / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots"
-    / "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    / MODEL_REVISION
 )
 
 QUESTION = "What was the approval year of the Falcon program, and what was its budget?"
@@ -285,7 +286,7 @@ def main() -> int:
                    "replacement_chars": sum(p.count("\ufffd") for p in per_token)}
     if not incremental["equal_to_full_decode"]:
         first_diff = next(
-            (i for i, (a, b) in enumerate(zip(joined, mixed)) if a != b), min(len(joined), len(mixed))
+            (i for i, (a, b) in enumerate(zip(joined, mixed, strict=False)) if a != b), min(len(joined), len(mixed))
         )
         incremental["first_diff_index"] = first_diff
         incremental["context"] = {"joined": repr(joined[max(0, first_diff - 10): first_diff + 10]),
@@ -615,7 +616,7 @@ def main() -> int:
 
 def _render_trace_markdown(trace: dict) -> str:
     lines = [
-        "# 固定声明轨迹（da 臂，kernel/manager 块 = %d）" % trace["kernel_block_size"],
+        f"# 固定声明轨迹（da 臂，kernel/manager 块 = {trace['kernel_block_size']}）",
         "",
         f"- request_id: `{trace['request_id']}`；prompt_len = {trace['prompt_len']}；"
         f"生成 {trace['generation_tokens']} token；最大 kv_len = {trace['kv_len_max']}"
@@ -642,7 +643,7 @@ def _render_trace_markdown(trace: dict) -> str:
         ) or "—"
         token_text = (row["input_token_text"] or "").replace("|", "\\|").replace("\n", "\\n")
         lines.append(
-            "| {step} | {tok} | {events} | {mode} | {wpos} | {kv} | {raw} | {vis} | {lb} | {pb} | {tail} | {ntok} |".format(
+            "| {step} | {tok} | {events} | {mode} | {wpos} | {wbefore} | {kv} | {nwpos} | {raw} | {vis} | {lb} | {pb} | {tail} | {ntok} |".format(
                 step=row["decode_step"],
                 tok=f"{row['input_token_index']}:`{token_text}`" if row["input_token_index"] is not None else "prefill",
                 events=events,

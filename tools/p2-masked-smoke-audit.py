@@ -1,34 +1,27 @@
 #!/usr/bin/env python3
 """CPU-only post-run observations at four captured decode points; no pass threshold."""
 import argparse
-import hashlib
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 
+from _lib import sha256_file
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
-from attnview.smoke_structure import expectations_from_config
-from attnview.reference_dense import dense_attention_fp32
-
-
-def sha(path):
-    h = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+from attnview.reference_dense import dense_attention_fp32  # noqa: E402
+from attnview.smoke_structure import expectations_from_config  # noqa: E402
 
 
 def error_metrics(actual, reference):
     diff = actual.float() - reference.float()
-    return dict(max_abs=float(diff.abs().max()), rms=float(diff.square().mean().sqrt()),
-                relative_l2=float(diff.norm() / reference.float().norm().clamp_min(1e-30)),
-                nonfinite=int((~torch.isfinite(actual)).sum()))
+    return {"max_abs": float(diff.abs().max()), "rms": float(diff.square().mean().sqrt()),
+            "relative_l2": float(diff.norm() / reference.float().norm().clamp_min(1e-30)),
+            "nonfinite": int((~torch.isfinite(actual)).sum())}
 
 
 def main():
@@ -43,7 +36,7 @@ def main():
     if not manifest.get("masked_structure", {}).get("ok"):
         raise RuntimeError("structure gate must pass before interpreting captured numeric errors")
     for path, digest in manifest["sources"]["input_hashes"].items():
-        if sha(REPO / path) != digest:
+        if sha256_file(REPO / path) != digest:
             raise RuntimeError(f"input changed: {path}")
     fixture = manifest["fixture_evidence"]
     timeline = REPO / fixture["timeline_config"]
@@ -56,7 +49,7 @@ def main():
         block_size=config["block_size"], total_steps=29,
         **{key: payload[key] for key in ("prompt_len", "sink_span", "local_window_span", "segment_spans")})
     capture_path = args.run / "capture/layers.npz"
-    digest = sha(capture_path)
+    digest = sha256_file(capture_path)
     if digest != manifest["capture"]["npz_sha256"]:
         raise RuntimeError("capture hash mismatch")
     rows, tensor_bytes = [], 0
@@ -72,7 +65,7 @@ def main():
                 if d not in (6, 7, 20, 25):
                     continue
                 exp = expected[d + 1]
-                positions = [p for block, count in zip(exp.blocks, exp.effective_per_block)
+                positions = [p for block, count in zip(exp.blocks, exp.effective_per_block, strict=True)
                              for p in range(block * config["block_size"], block * config["block_size"] + count)]
                 k, v = torch.cat(k_parts), torch.cat(v_parts)
                 assert len(k) == exp.kv_len == len(v)
@@ -80,14 +73,14 @@ def main():
                 out = torch.from_numpy(arrays[f"decode_out_step{d}_L{layer}"])[:, 0]
                 ref, cast = dense_attention_fp32(q, k[positions], v[positions],
                                                 scale=float(arrays[f"scale_L{layer}"]), dtype=torch.bfloat16)
-                rows.append(dict(layer=layer, decode=d, mode=exp.mode, read_length=len(positions),
-                                 candidate_vs_fp32=error_metrics(out, ref),
-                                 candidate_vs_bf16_reference=error_metrics(out, cast)))
+                rows.append({"layer": layer, "decode": d, "mode": exp.mode, "read_length": len(positions),
+                             "candidate_vs_fp32": error_metrics(out, ref),
+                             "candidate_vs_bf16_reference": error_metrics(out, cast)})
     logits = torch.load(args.run / "logits.pt", weights_only=False)
     result = {
         "audit_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
-        "audit_script_sha256": sha(Path(__file__)), "run_head": manifest["head"],
-        "manifest_sha256": sha(manifest_path), "capture_sha256": digest,
+        "audit_script_sha256": sha256_file(Path(__file__)), "run_head": manifest["head"],
+        "manifest_sha256": sha256_file(manifest_path), "capture_sha256": digest,
         "capture_file_bytes": capture_path.stat().st_size, "capture_array_bytes": tensor_bytes,
         "boundary": "Local attention arithmetic on candidate-trajectory Q/K/V; not independent model logits, cache-write-content verification, quality or performance acceptance. No numeric pass threshold.",
         "observations": rows,

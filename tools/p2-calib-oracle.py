@@ -64,17 +64,17 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import re
 import statistics
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
 import torch
+
+from _lib import now_cst, sha256_file
 
 SCHEMA = "attnview.p2-calib-oracle/v1"
 COMPUTE_DTYPE = "float32"
@@ -107,18 +107,6 @@ _DECODE_V = re.compile(r"^v_current_step(\d+)_L(\d+)$")
 
 class CaptureError(Exception):
     """捕获文件缺件/不合规（对应退出码 2）。"""
-
-
-def now_cst() -> str:
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +0800")
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------- 捕获加载
@@ -217,7 +205,6 @@ def load_capture(path: Path) -> dict:
     meta = {
         "prompt_len": prompt_len,
         "scale": scale,
-        "scale_source": "capture",
         "num_heads": num_heads,
         "num_kv_heads": num_kv_heads,
         "head_dim": head_dim,
@@ -373,7 +360,7 @@ def load_capture(path: Path) -> dict:
     for step in sorted(decode_steps):
         record = decode_steps[step]
         if step != expected_step:
-            absent_steps = [s for s in range(expected_step, step)]
+            absent_steps = list(range(expected_step, step))
             if not absent_steps:  # 例：步号从 0 开始或出现重复编号
                 problems.append(
                     f"decode 链步号异常：出现 step{step}，而链要求从 step1 起连续编号 → 拒绝该步及其后的步"
@@ -619,9 +606,9 @@ def _comparison_item(
                     "elements": int(out_row.numel()),
                 }
             )
-        item.update({key: None for key in METRIC_KEYS})
+        item.update(dict.fromkeys(METRIC_KEYS))
         if extended:
-            item.update({key: None for key in EXTENDED_NUMERIC_KEYS})
+            item.update(dict.fromkeys(EXTENDED_NUMERIC_KEYS))
             item.update({"elements": int(out_row.numel()), "rel_err_is_allclose_rtol": False})
     else:
         item.update(_metrics(ref_row, out_row))

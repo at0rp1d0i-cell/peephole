@@ -14,10 +14,12 @@ import json
 import sys
 from pathlib import Path
 
+from _lib import MODEL_REVISION
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots" / MODEL_REVISION
 
 
 def sha256_token_ids(ids) -> str:

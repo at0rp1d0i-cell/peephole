@@ -12,17 +12,10 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
-
-def sha256_file(p: Path, chunk: int = 8 << 20) -> str:
-    h = hashlib.sha256()
-    with p.open("rb") as fh:
-        while block := fh.read(chunk):
-            h.update(block)
-    return h.hexdigest()
+from _lib import sha256_file
 
 
 def main() -> int:
