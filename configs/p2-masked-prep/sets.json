@@ -13,6 +13,7 @@
     "first_decode_kv_len": 7281,
     "local_blocks": [0, 7, 8, 9],
     "focus1_blocks": [0, 1, 2, 7, 8, 9],
-    "excluded_complete_context_blocks_by_local_and_focus1": [3, 4, 5, 6]
+    "excluded_complete_context_blocks_by_local_and_focus1": [3, 4, 5, 6],
+    "first_decode_effective_read_tokens": {"local": 2577, "focus1": 4145}
   }
 }

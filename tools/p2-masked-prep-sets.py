@@ -100,8 +100,16 @@ def main() -> int:
                 f"seg{i+1}": blocks_of_span(s, min(e, kv_len), block_size)
                 for i, (s, e) in enumerate(seg_spans)
             }
+            # effective_read_tokens：**可见块集合**覆盖的 token 数（块粒度、截到 kv_len）；
+            # 与 positions_count（语义 span 的 token 数）是两个不同口径，必须并列报告。
+            eff = sum(
+                max(0, min(kv_len, (b + 1) * block_size) - b * block_size)
+                for b in visible
+            )
             per_mode[mode] = {
                 "positions_count": len(positions),
+                "effective_read_tokens": eff,
+                "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
                 "visible_blocks": visible,
                 "excluded_written_blocks": excluded,
                 "segment_token_spans": seg_spans,
