@@ -37,30 +37,14 @@ def main() -> int:
     ap.add_argument("--arm", default="patched-masked")
     args = ap.parse_args()
 
-    from transformers import AutoTokenizer
+    from attnview.fixture_rebuild import rebuild_prompt
 
-    from attnview.prompt import _tokenize_with_offsets, render_arm
-    from attnview.segmenter import build_offsets_index, segment_context
-
-    doc = json.loads(args.doc_fixture.read_text())
     fx = json.loads(args.expect.read_text())
-    tcfg = json.loads(args.timeline_config.read_text())
-    ctx = doc["document"] + ("\n\n" + tcfg["filler_unit"]) * int(fx["filler_units"]) + tcfg["fine_char"] * int(fx["fine_units"])
-    ctx_hash = hashlib.sha256(ctx.encode("utf-8")).hexdigest()
-    if ctx_hash != fx["context_sha256"]:
-        raise SystemExit(f"重建 context 哈希不一致,拒绝:got={ctx_hash[:16]} want={fx['context_sha256'][:16]}")
-    tok = AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False)
-    _ids, offsets = _tokenize_with_offsets(tok, ctx)
-    segs = segment_context(ctx, build_offsets_index(offsets))
-    prompt = render_arm("da", segs, doc["question"], ctx, tok, enable_thinking=False)
-    ids = [int(t) for t in prompt.token_ids]
-    got = {"prompt_len": len(ids), "segment_spans": [list(x) for x in prompt.segment_spans],
-           "local_window_span": list(prompt.scaffold.local_window_span), "sink_span": list(prompt.scaffold.sink_span),
-           "token_ids_sha256": hashlib.sha256(bytes(str(list(ids)), "utf-8")).hexdigest()}
-    want = {k: fx[k] for k in got}
-    if got != want:
-        raise SystemExit(f"重渲染不一致,拒绝:got={got} want={want}")
 
+    prompt, _payload, evidence = rebuild_prompt(doc_fixture=args.doc_fixture, expect_fixture=args.expect,
+                                                timeline_config=args.timeline_config, snapshot=SNAPSHOT)
+    ids = [int(t) for t in prompt.token_ids]
+    ctx_hash = evidence["context_sha256"]
     consumed = [int(s["token_id"]) for s in fx["steps"]]              # 28 个被后继 forward 消费
     terminal = int(fx["steps"][-1]["token_id"])                       # 终止采样 token(不被消费)
     tokens = [[[t]] for t in consumed + [terminal]]
