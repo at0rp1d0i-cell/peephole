@@ -1,4 +1,7 @@
-"""SUP-004 smoke:masked 结构检查的 CPU 用例(真实 harness 驱动,不加载模型/不跑 GPU)。
+"""SUP-004 smoke:masked 结构检查草稿的 CPU 用例。
+
+**注意**:`smoke_structure.py` 目前是**草稿、非门禁**(NATIVE-053),核心比较与 trace 判据需重做,
+因此这些用例暂时 `@unittest.skip`,避免把"看似通过"当证据。重做要求见 closeout §2b。
 
 复用既有 `LayerCaptureTest._armed`/`FakeModel`/`FakeRunner`(真实 `_begin_step`/`_end_step`),
 为 fake runner 补上**固定 pin 形状**的字段(`block_tables.input_block_tables`/`input_buffers.slot_mappings`),
@@ -38,6 +41,7 @@ class FakeExecState:
         self.slot_mappings_by_layer = slots
 
 
+@unittest.skip("结构检查草稿:比较与 trace 判据待按 NATIVE-053/closeout §2b 重做后启用")
 class StructureCheckTest(unittest.TestCase):
     PROMPT = PROMPT
     DECODES = DECODES
@@ -54,7 +58,6 @@ class StructureCheckTest(unittest.TestCase):
         model = self.model_cls(impls, prompt_len=self.PROMPT)
         capture, runner = self._h._armed(model, impls, prompt_len=self.PROMPT)
         # 固定 pin 形状的字段:`block_tables.input_block_tables` 与 `execute_model_state.slot_mappings_by_layer`
-        runner.block_tables = FakeTables([[3, 5, 7, 9] * 8])
         runner.execute_model_state = FakeExecState(torch.arange(4096, dtype=torch.int64))
         runner.next_step(list(range(self.PROMPT)))
         model.forward(positions=torch.arange(self.PROMPT, dtype=torch.int64))
@@ -62,6 +65,9 @@ class StructureCheckTest(unittest.TestCase):
             runner.next_step([self.PROMPT + i - 1])
             model.forward(positions=torch.tensor([self.PROMPT + i - 1], dtype=torch.int64))
         capture.disarm()
+        # canonical 行由**真实观测到的物理行**构造(happy path 期望==实际),便于后续篡改反例
+        observed = [int(x) for x in (capture.positions[1]["view"] or {}).get("block_table_head", [])]
+        runner.block_tables = FakeTables([observed or [0, 0]])
         return capture, runner
 
     def _expectations(self):
@@ -90,6 +96,30 @@ class StructureCheckTest(unittest.TestCase):
                                                   prompt_len=self.PROMPT, block_size=4, representative_decodes=(6, 7))
         self.assertIn("override.step=6 ⇒ capture forward=7 存在", [c["name"] for c in checks])
         self.assertEqual(evidence["trace"]["mapping"], "override.step = decode_index; forward = decode_index + 1")
+
+    def test_tampered_physical_block_fails(self):
+        capture, runner = self._lifecycle()
+        runner.block_tables.input_block_tables = [[99, 99]]      # 篡改一个物理块
+        with self.assertRaises(StructureError):
+            check_capture_structure(capture=capture, expectations=self._expectations(), runner=runner,
+                                    trace={"override_steps": []}, prompt_len=self.PROMPT, block_size=4,
+                                    representative_decodes=(6, 7))
+
+    def test_tampered_read_length_fails(self):
+        capture, runner = self._lifecycle()
+        capture.positions[2]["view"] = dict(capture.positions[2]["view"], seq_lens_first=999)   # 篡改读取长度
+        with self.assertRaises(StructureError):
+            check_capture_structure(capture=capture, expectations=self._expectations(), runner=runner,
+                                    trace={"override_steps": []}, prompt_len=self.PROMPT, block_size=4,
+                                    representative_decodes=(6, 7))
+
+    def test_tampered_position_fails(self):
+        capture, runner = self._lifecycle()
+        capture.positions[2]["positions"] = [12345]              # 篡改位置
+        with self.assertRaises(StructureError):
+            check_capture_structure(capture=capture, expectations=self._expectations(), runner=runner,
+                                    trace={"override_steps": []}, prompt_len=self.PROMPT, block_size=4,
+                                    representative_decodes=(6, 7))
 
     def test_missing_trace_fails_closed(self):
         capture, runner = self._lifecycle()

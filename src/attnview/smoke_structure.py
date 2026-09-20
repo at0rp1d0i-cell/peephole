@@ -1,4 +1,10 @@
-"""masked smoke 的**结构检查**（纯 CPU，独立预期来自 config 声明 + 原始 spans）。
+"""masked smoke 的**结构检查草稿**（纯 CPU，独立预期来自 config 声明 + 原始 spans）。
+
+**状态：草稿，不是门禁（NATIVE-053 认定不可验收，尚未接入 `_run`）。** 已知缺陷：
+- 逐步快照在**运行结束后**读 runner 的最后一份可变表，并非在本步 `model.forward` 内采集；
+- canonical 行用 `rows[0]`（会整行转 int，且硬选 GDN 组，pin `gpu/block_table.py:73-75` 是 `list[Tensor]`）；
+- trace 门禁未 fail-closed：空/空壳 trace 被当作"无覆写"的证明，且未区分"DA 受限覆写 trace"与"enforce_global 标记"。
+重做要求见 `outbox/SUP-004-masked-smoke-closeout.md` §2b（逐步比**值**：seq_lens/物理行/slot/位置；FA 组由 FullAttentionSpec 确定；缺字段/缺 trace/缺受限覆写即失败）。
 
 要点（NATIVE-050/052）：
 - 独立预期**不调用候选筛选 helper**：可见位置用 `reference_dense.independent_visible_positions`
@@ -119,6 +125,13 @@ def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpecta
     missing_steps = [f for f in expectations if f not in positions]
     if missing_steps:
         raise StructureError(f"capture 缺少步 {missing_steps[:8]}（缺步即失败）")
+    canon_row = _physical_row_from_runner(runner, decode_index=1)
+
+    def expect_block_row(exp: StepExpectation) -> list[int]:
+        if max(exp.blocks) >= len(canon_row):
+            raise StructureError(f"预期逻辑块 {max(exp.blocks)} 超出 canonical 行长度 {len(canon_row)}")
+        return [canon_row[b] for b in exp.blocks]
+
     for forward, exp in sorted(expectations.items()):
         layers = records.get(forward) or {}
         if not layers:
@@ -127,24 +140,42 @@ def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpecta
             raise StructureError(
                 f"第 {forward} 步记录 {len(layers)} 层，与要求的 {want_layers} 层不一致（缺层/漏层即失败）")
         meta = positions[forward]
-        # q_len 的真实来源:`record_meta`(标量,搬运前独立记录);兼容 positions 里带 q_len 的实现。
         rec_meta = (capture.__dict__.get("record_meta", {}) or {}).get(forward) or {}
-        if rec_meta:
-            got_len = int(next(iter(rec_meta.values()))["q_len"])
-        elif isinstance(meta, dict) and "q_len" in meta:
-            got_len = int(meta["q_len"])
-        else:
-            raise StructureError(f"capture 第 {forward} 步缺少 q_len 证据(record_meta 与 positions 都没有):fail closed")
+        got_len = int(next(iter(rec_meta.values()))["q_len"]) if rec_meta else int(meta.get("q_len", -1))
+        # 1) 相位(真实 `phase`,由 positions+is_prefilling_np 判定)
+        want_phase = "prefill" if forward == 1 else "decode"
+        got_phase = str(meta.get("phase", "<missing>"))
+        if got_phase != want_phase:
+            raise StructureError(f"第 {forward} 步 phase={got_phase!r} 与预期 {want_phase!r} 不符")
+        # 2) q_len 与真实绝对位置(逐值比较)
         want_len = prompt_len if forward == 1 else 1
         if got_len != want_len:
             raise StructureError(f"第 {forward} 步 q_len={got_len} 与预期 {want_len} 不符")
-        view = meta.get("view") if isinstance(meta, dict) else None
-        evidence["steps"][forward] = {"mode_expected": exp.mode, "kv_len_expected": exp.kv_len,
-                                      "blocks_expected": list(exp.blocks), "total_expected": exp.total_read,
-                                      "q_len": got_len, "view": view}
-        chk(f"step{forward} 位置证据存在", True)
-        chk(f"step{forward} 预期长度自洽(Σ每块计数=读取集合大小)",
-            exp.total_read == len(range(0, 0)) + exp.total_read)
+        got_pos = [int(x) for x in meta.get("positions", [])]
+        want_pos = list(range(prompt_len)) if forward == 1 else [prompt_len + (forward - 2)]
+        if got_pos != want_pos:
+            raise StructureError(f"第 {forward} 步 positions={got_pos[:6]} 与预期 {want_pos[:6]} 不符")
+        # 3) 读取长度:受限模式必须等于独立预期的总读取长度;global 等于 canonical 上界
+        view = meta.get("view") or {}
+        if not view.get("observable"):
+            raise StructureError(f"第 {forward} 步 view 不可观察({view.get('reason')}):无证据即失败")
+        want_read = exp.kv_len if exp.mode == "global" else exp.total_read
+        if int(view.get("seq_lens_first", -1)) != int(want_read):
+            raise StructureError(
+                f"第 {forward} 步 seq_lens_first={view.get('seq_lens_first')} 与预期读取长度 {want_read} 不符"
+                f"(mode={exp.mode}, canonical 上界={exp.kv_len})")
+        # 4) 物理块行逐列比较(期望 = canonical 映射后的预期逻辑块)
+        got_row = [int(x) for x in view.get("block_table_head", [])][: len(exp.blocks)]
+        want_row = expect_block_row(exp)
+        if got_row != want_row:
+            raise StructureError(f"第 {forward} 步物理行 {got_row} 与预期 {want_row} 不符(错块即失败)")
+        evidence["steps"][forward] = {"phase": got_phase, "mode_expected": exp.mode, "q_len": got_len,
+                                      "positions": got_pos, "read_len": int(view.get("seq_lens_first")),
+                                      "read_len_expected": int(want_read), "blocks_expected": list(exp.blocks),
+                                      "physical_row": got_row, "physical_row_expected": want_row,
+                                      "total_expected": exp.total_read}
+        chk(f"step{forward} 相位/位置/q_len/读取长度/物理行 与独立预期一致", True,
+            f"mode={exp.mode} read={view.get('seq_lens_first')} blocks={list(exp.blocks)}")
     # canonical 行与 slot_mappings 的真实观测（缺失即失败，不猜）
     canon = _physical_row_from_runner(runner, decode_index=1)
     # 真实 slot 映射(pin `model_runner.py:771`):`execute_model_state.slot_mappings_by_layer`
