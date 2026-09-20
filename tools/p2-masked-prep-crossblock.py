@@ -85,8 +85,11 @@ def main() -> int:
     layout = TokenLayout(prompt_len=prompt_len, segment_spans=tuple(tuple(s) for s in arm.segment_spans),
                          local_window_span=tuple(arm.scaffold.local_window_span), sink_span=tuple(arm.scaffold.sink_span))
     alloc_n = prompt_len // bs + 8
-    canonical = tuple(range(alloc_n))
-    max_width = (prompt_len + bs - 1) // bs + 4
+    # I5:表宽在**一次生成内是常量**,取总长上限 8192 对应的宽度(跨界步不得改变表宽)。
+    max_width = -(-int(cfg["max_total_len"]) // bs)                      # = 11
+    # canonical 物理映射**非顺序**,以区分逻辑块号与物理块号(不得默认相同)。
+    canonical = tuple(int(cfg["physical_block_base"]) + int(cfg["physical_block_stride"]) * i for i in range(alloc_n))
+    phys_of = {i: p for i, p in enumerate(canonical)}
     d_cross = (prompt_len // bs + 1) * bs + 1 - prompt_len  # 第 d 个 decode 首次写下一块
 
     report: dict = {
@@ -132,6 +135,7 @@ def main() -> int:
                         tail_len=int(table.tail_len), attention_kv_len=int(table.attention_kv_len),
                         next_write_position=int(table.next_write_position),
                         written_before_step=int(view.written_before_step)).validate()
+        phys_row = [phys_of[int(b)] for b in plan.visible_logical_blocks]
         report["steps"].append({
             "gen_index_0based": t, "decode_count_1based": t + 1, "token_id": tid, "token_text": text,
             "kv_len": kv, "written_len_independent": written,
@@ -144,6 +148,7 @@ def main() -> int:
             "total_candidate": int(plan.seqused_k), "total_independent": sum(ind_counts),
             "write_position_candidate": int(plan.next_write_position), "write_position_independent": written,
             "first_write_into_next_block": (kv - 1) == report["next_block_start"],
+            "width_plan": int(plan.width), "physical_row_expected": phys_row,
             "match": {"visible": list(plan.visible_logical_blocks) == ind_blocks,
                       "counts": list(plan.effective_per_block) == ind_counts,
                       "total": int(plan.seqused_k) == sum(ind_counts),
@@ -236,7 +241,13 @@ def main() -> int:
     chk("候选自校验", "prompt_len 精确命中", prompt_len == target, got=prompt_len)
     chk("候选自校验", "全部步:可见集合/每块计数/总长/写位置 与独立推导一致",
         all(all(s["match"].values()) for s in steps), bad=[s["decode_count_1based"] for s in steps if not all(s["match"].values())])
-    chk("候选自校验", "StepPlan.validate 全程通过(受限读取表无 -1、宽度≥needed_width)", True)
+    chk("候选自校验", "StepPlan.validate 全程通过(受限读取表无 -1、宽度≥needed_width)",
+        n_steps=len(steps))
+    chk("候选自校验", "I5:表宽为一次生成内常量 = ceil(8192/784) = 11(跨界步不得改变)",
+        all(s["width_plan"] == -(-8192 // bs) for s in steps), widths=sorted({s["width_plan"] for s in steps}))
+    chk("候选自校验", "物理映射非顺序:可见块逻辑号 ≠ 物理块号",
+        all(a != b for a, b in zip(sorted(phys_of), sorted(canonical))) and len(set(canonical)) == len(canonical),
+        sample=[(0, canonical[0]), (1, canonical[1])])
     chk("独立审计", "三种模式均实际出现", modes_seen == ["focus", "global", "local"], modes=modes_seen)
     chk("独立审计", "存在 global 恢复后的 forward(闭标签生效到实际 forward)",
         any(s["mode"] == "global" for s in steps[1:]) and len([s for s in steps if s["mode"] == "global"]) >= 2,

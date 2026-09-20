@@ -1,5 +1,5 @@
 {
-  "note": "SUP-004-masked-prep-R2:真实 renderer 跨块夹具(合法声明+C3.2 生效步)+安全负对照,纯 CPU",
+  "note": "SUP-004-masked-prep-R2:真实 renderer 跨块夹具(合法声明+C3.2 生效步)+安全负对照,纯 CPU;I5:max_width 固定 ceil(8192/784)=11;canonical 用非顺序物理映射(phys=100+2*logical)",
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
   "target_prompt_len": 7836,
@@ -40,5 +40,8 @@
   ],
   "fine_char": "。",
   "max_fine_units": 80,
-  "out_default": "evidence/p3-calib/masked-prep/crossblock-r2.json"
+  "out_default": "evidence/p3-calib/masked-prep/crossblock-r2.json",
+  "max_total_len": 8192,
+  "physical_block_base": 100,
+  "physical_block_stride": 2
 }
