@@ -93,7 +93,8 @@ def _physical_row_from_runner(runner: Any, *, decode_index: int) -> list[int]:
 
 def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpectation], runner: Any,
                             trace: dict | None, prompt_len: int, block_size: int,
-                            representative_decodes: Iterable[int]) -> tuple[list[dict], dict]:
+                            representative_decodes: Iterable[int],
+                            expected_layers: int | None = None) -> tuple[list[dict], dict]:
     """逐步核对 capture 与独立预期；返回 (`checks`, `evidence`)。任何缺失/不符即抛 `StructureError`。"""
     positions = _require(capture, "positions", where="capture")
     records = _require(capture, "records", where="capture")
@@ -104,16 +105,22 @@ def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpecta
     def chk(name: str, ok: bool, detail: str = "") -> None:
         checks.append({"name": name, "ok": bool(ok), "detail": detail})
 
+    # 层数要求:显式传入(真实运行 = 16 个 FA 层)或由**prefill 步**自洽推导;不得凭空假设。
+    prefill_layers = len(records.get(1) or {})
+    if prefill_layers == 0:
+        raise StructureError("capture 的 prefill 步没有任何层记录(缺层即失败)")
+    want_layers = int(expected_layers) if expected_layers is not None else prefill_layers
+
     missing_steps = [f for f in expectations if f not in positions]
     if missing_steps:
         raise StructureError(f"capture 缺少步 {missing_steps[:8]}（缺步即失败）")
     for forward, exp in sorted(expectations.items()):
         layers = records.get(forward) or {}
-        expected_layers = 16 if forward in rep or forward == 1 else None
         if not layers:
             raise StructureError(f"第 {forward} 步没有任何层记录（缺层即失败）")
-        if expected_layers is not None and len(layers) < expected_layers:
-            raise StructureError(f"第 {forward} 步只记录 {len(layers)} 层，少于要求的 {expected_layers}")
+        if len(layers) != want_layers:
+            raise StructureError(
+                f"第 {forward} 步记录 {len(layers)} 层，与要求的 {want_layers} 层不一致（缺层/漏层即失败）")
         meta = positions[forward]
         got_len = int(_require(meta, "q_len", where=f"capture.positions[{forward}]"))
         want_len = prompt_len if forward == 1 else 1
