@@ -1,0 +1,141 @@
+test_accepted_fixture_binds_script_and_terminal_sample (tests.test_p2_reference_run.ReferenceLifecycleTest.test_accepted_fixture_binds_script_and_terminal_sample) ... ok
+test_canonical_padding_and_native_stride_gather (tests.test_p2_reference_run.ReferenceLifecycleTest.test_canonical_padding_and_native_stride_gather) ... ok
+test_corrupt_actual_layer_inputs_fail (tests.test_p2_reference_run.ReferenceLifecycleTest.test_corrupt_actual_layer_inputs_fail) ... ok
+test_dense_gqa_reads_only_expanded_positions_including_current_token (tests.test_p2_reference_run.ReferenceLifecycleTest.test_dense_gqa_reads_only_expanded_positions_including_current_token) ... ok
+test_disabled_and_non_target_preserve_known_none_kwargs (tests.test_p2_reference_run.ReferenceLifecycleTest.test_disabled_and_non_target_preserve_known_none_kwargs) ... ok
+test_feature_gate_rejects_special_attention_and_geometry (tests.test_p2_reference_run.ReferenceLifecycleTest.test_feature_gate_rejects_special_attention_and_geometry) ... ok
+test_missing_steps_or_ledger_identity_are_rejected (tests.test_p2_reference_run.ReferenceLifecycleTest.test_missing_steps_or_ledger_identity_are_rejected) ... ok
+test_real_begin_end_global_prefill_decode_write_and_restore (tests.test_p2_reference_run.ReferenceLifecycleTest.test_real_begin_end_global_prefill_decode_write_and_restore) ... ok
+test_real_run_failure_keeps_partial_evidence_and_restores (tests.test_p2_reference_run.ReferenceLifecycleTest.test_real_run_failure_keeps_partial_evidence_and_restores) ... ok
+test_real_run_reference_manifest_and_independent_new_requests (tests.test_p2_reference_run.ReferenceLifecycleTest.test_real_run_reference_manifest_and_independent_new_requests) ... ok
+test_reference_cli_rejects_default_short_prompt (tests.test_p2_reference_run.ReferenceLifecycleTest.test_reference_cli_rejects_default_short_prompt) ... ok
+test_request_phase_position_and_stale_prepare_fail_before_attention (tests.test_p2_reference_run.ReferenceLifecycleTest.test_request_phase_position_and_stale_prepare_fail_before_attention) ... ok
+test_unknown_none_and_return_only_restore_methods (tests.test_p2_reference_run.ReferenceLifecycleTest.test_unknown_none_and_return_only_restore_methods) ... ok
+test_arm_file_absent_means_not_armed (tests.test_p2_calib_hooks.CalibHookTest.test_arm_file_absent_means_not_armed)
+文件不存在 ⇒ 所有钩子不介入、不写任何文件（warmup 期间的真实状态）。 ... ok
+test_arm_file_created_after_warmup_arms_hooks (tests.test_p2_calib_hooks.CalibHookTest.test_arm_file_created_after_warmup_arms_hooks)
+真实流程：warmup 期间文件不存在 ⇒ 不命中；engine 就绪后写入文件 ⇒ 目标请求被强制。 ... ok
+test_capture_logits_saves_full_vocab_fp32 (tests.test_p2_calib_hooks.CalibHookTest.test_capture_logits_saves_full_vocab_fp32) ... ok
+test_exhausted_trajectory_raises_only_for_bound_request (tests.test_p2_calib_hooks.CalibHookTest.test_exhausted_trajectory_raises_only_for_bound_request) ... ok
+test_force_tokens_rejects_shape_mismatch_and_flat_format (tests.test_p2_calib_hooks.CalibHookTest.test_force_tokens_rejects_shape_mismatch_and_flat_format) ... ok
+test_force_tokens_replaces_in_place_and_logs_raw (tests.test_p2_calib_hooks.CalibHookTest.test_force_tokens_replaces_in_place_and_logs_raw) ... ok
+test_logits_step_counter_is_independent_from_force (tests.test_p2_calib_hooks.CalibHookTest.test_logits_step_counter_is_independent_from_force)
+`logits_step` 与 `force_step` 互不影响：每个都从 1 起、各自独立递增。 ... ok
+test_override_trace_accepts_inference_tensor_without_fabricated_version (tests.test_p2_calib_hooks.CalibHookTest.test_override_trace_accepts_inference_tensor_without_fabricated_version) ... ok
+test_override_trace_records_inputs_and_noop_without_arm (tests.test_p2_calib_hooks.CalibHookTest.test_override_trace_records_inputs_and_noop_without_arm) ... ok
+test_prefill_discard_does_not_consume_trajectory (tests.test_p2_calib_hooks.CalibHookTest.test_prefill_discard_does_not_consume_trajectory)
+`num_sampled == 0` 的未完成 prefill 步：不消耗轨迹、不改写、不写日志。 ... ok
+test_second_request_does_not_pollute_main_artifacts (tests.test_p2_calib_hooks.CalibHookTest.test_second_request_does_not_pollute_main_artifacts)
+主请求跑完后，另一个 req_id 的消费步：不改写、不写日志、不追加 trace/logits 记录。 ... ok
+test_warmup_with_sampling_first_does_not_steal_binding (tests.test_p2_calib_hooks.CalibHookTest.test_warmup_with_sampling_first_does_not_steal_binding)
+有采样的 warmup 先出现：不得改写、不得写日志；随后目标请求才被强制且 `step` 从 1 起。 ... ok
+test_summary_is_not_fooled_by_non_memcpy_events (tests.test_p2_calib_hooks.ChromeTraceSummaryTest.test_summary_is_not_fooled_by_non_memcpy_events)
+`cpu_op`/`kernel` 等事件没有 bytes/stream，不得被算进拷贝汇总。 ... ok
+test_summary_reads_bytes_and_stream_from_gpu_memcpy (tests.test_p2_calib_hooks.ChromeTraceSummaryTest.test_summary_reads_bytes_and_stream_from_gpu_memcpy) ... ok
+test_noop_engine_cleanup_is_failure (tests.test_p2_calib_hooks.CleanupCheckTest.test_noop_engine_cleanup_is_failure) ... ok
+test_scripted_engine_cleanup_passes_with_documented_substitutes (tests.test_p2_calib_hooks.CleanupCheckTest.test_scripted_engine_cleanup_passes_with_documented_substitutes)
+pin 真实 id 语义下（internal≠external、输出用 external、abort 默认按 external）清理验收必须通过。 ... ok
+test_cumulative_engine_requires_explicit_mode (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_cumulative_engine_requires_explicit_mode) ... ok
+test_cumulative_equal_length_snapshot_adds_nothing (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_cumulative_equal_length_snapshot_adds_nothing)
+反例 2：显式 CUMULATIVE 的等长重复快照 ⇒ 零新增（不得重复追加）。 ... ok
+test_cumulative_prefix_mismatch_and_shorter_row_are_errors (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_cumulative_prefix_mismatch_and_shorter_row_are_errors)
+反例 3：累计行前缀不符 ⇒ 报错；行变短 ⇒ 报错。 ... ok
+test_delta_mode_never_loses_tokens (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_delta_mode_never_loses_tokens)
+反例 1：显式 DELTA 下 `seen=[11]` + 行 `[11,12]` ⇒ 必须新增 **2** 个（11、12），不得丢 11。 ... ok
+test_drives_with_delta_mode_are_exact (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_drives_with_delta_mode_are_exact)
+DELTA 引擎：步内多 token 的行不得被截断为 1 个（反例 1 的端到端形态）。 ... ok
+test_sampling_params_request_delta_against_pin_default (tests.test_p2_calib_hooks.CumulativeOutputRegressionTest.test_sampling_params_request_delta_against_pin_default) ... ok
+test_manifest_tree_mismatch_is_refused (tests.test_p2_calib_hooks.DeploymentFingerprintTest.test_manifest_tree_mismatch_is_refused) ... ok
+test_original_arm_requires_pin_and_installed_at_pre (tests.test_p2_calib_hooks.DeploymentFingerprintTest.test_original_arm_requires_pin_and_installed_at_pre) ... ok
+test_patched_arm_requires_both_copies_at_post (tests.test_p2_calib_hooks.DeploymentFingerprintTest.test_patched_arm_requires_both_copies_at_post)
+真实反例：apply 同时改写两副本 ⇒ checkout 与 installed **都**必须 == post 才通过。 ... ok
+test_force_log_flags_warmup_pollution (tests.test_p2_calib_hooks.DriverGuardTest.test_force_log_flags_warmup_pollution) ... ok
+test_output_dir_refuses_to_overwrite_existing_run (tests.test_p2_calib_hooks.DriverGuardTest.test_output_dir_refuses_to_overwrite_existing_run) ... ok
+test_trajectory_must_match_prompt (tests.test_p2_calib_hooks.DriverGuardTest.test_trajectory_must_match_prompt) ... ok
+test_natural_global_mode_needs_no_mark (tests.test_p2_calib_hooks.EnforceGlobalMarkTest.test_natural_global_mode_needs_no_mark)
+① B 全程协议模式 global、enforce_global=True、marks=[] ⇒ **通过**。 ... ok
+test_non_global_mode_requires_mark (tests.test_p2_calib_hooks.EnforceGlobalMarkTest.test_non_global_mode_requires_mark)
+② 某步协议模式 local 且被 enforce_global 覆写 ⇒ 必须有 mark；缺则失败。 ... ok
+test_unobservable_mode_is_failure_not_silent_pass (tests.test_p2_calib_hooks.EnforceGlobalMarkTest.test_unobservable_mode_is_failure_not_silent_pass)
+模式不可观察时不得静默当成功（不能据此断言 marks 是否应存在）。 ... ok
+test_accounting_requires_canonical_global_view (tests.test_p2_calib_hooks.LayerCaptureTest.test_accounting_requires_canonical_global_view)
+执行视图必须是 canonical/global：FA metadata 的 seq_lens[0] 必须 == 本步最后位置 + 1。 ... ok
+test_accounting_two_token_request_passes_for_both_arm_types (tests.test_p2_calib_hooks.LayerCaptureTest.test_accounting_two_token_request_passes_for_both_arm_types)
+回归防线（本地复核指出）：单次 prefill 已采出 g0 ⇒ 2 个 token = 1 次 decode 步。 ... ok
+test_capture_requires_real_scale_and_positions (tests.test_p2_calib_hooks.LayerCaptureTest.test_capture_requires_real_scale_and_positions)
+缺 `impl.scale` 或缺真实 `positions` ⇒ 明确报错，不得用推导值/`range(q_len)` 顶替。 ... ok
+test_dump_capture_export_keys_for_decode_history (tests.test_p2_calib_hooks.LayerCaptureTest.test_dump_capture_export_keys_for_decode_history) ... ok
+test_dump_capture_rejects_missing_prefill_step (tests.test_p2_calib_hooks.LayerCaptureTest.test_dump_capture_rejects_missing_prefill_step) ... ok
+test_each_step_is_flushed_to_disk_immediately (tests.test_p2_calib_hooks.LayerCaptureTest.test_each_step_is_flushed_to_disk_immediately) ... ok
+test_find_fa_layers_fails_loudly_without_matching_module (tests.test_p2_calib_hooks.LayerCaptureTest.test_find_fa_layers_fails_loudly_without_matching_module) ... ok
+test_find_fa_layers_uses_runner_attn_groups_layer_names (tests.test_p2_calib_hooks.LayerCaptureTest.test_find_fa_layers_uses_runner_attn_groups_layer_names)
+真实层级是嵌套的（`language_model.model.layers.*.self_attn.attn`）， ... ok
+test_logical_positions_require_consistent_real_quantities (tests.test_p2_calib_hooks.LayerCaptureTest.test_logical_positions_require_consistent_real_quantities)
+R2 §B：三者必须齐备且一致 —— 本步 `InputBatch.num_tokens` ↔ 逻辑位置缓冲长度 ↔ 捕获 q_len。 ... ok
+test_logical_positions_take_valid_prefix_of_larger_buffer (tests.test_p2_calib_hooks.LayerCaptureTest.test_logical_positions_take_valid_prefix_of_larger_buffer)
+容量 > num_tokens 属正常：只取本步**有效前缀**（前 num_tokens 个），尾部残留不得进参考。 ... ok
+test_mixed_prefill_decode_marker_is_rejected (tests.test_p2_calib_hooks.LayerCaptureTest.test_mixed_prefill_decode_marker_is_rejected) ... ok
+test_mrope_axes_are_recorded_but_logical_positions_come_from_real_buffer (tests.test_p2_calib_hooks.LayerCaptureTest.test_mrope_axes_are_recorded_but_logical_positions_come_from_real_buffer)
+真实反例回归：`model inputs.positions` 是 **mRoPE 三轴**（本机 original 实测 (3, 1505)）， ... ok
+test_other_request_window_is_not_captured (tests.test_p2_calib_hooks.LayerCaptureTest.test_other_request_window_is_not_captured) ... ok
+test_phase_authoritative_evidence_unavailable_is_error (tests.test_p2_calib_hooks.LayerCaptureTest.test_phase_authoritative_evidence_unavailable_is_error)
+取不到 `is_prefilling_np[目标行]` ⇒ 直接报错，**不得**用 q_len/max_query_len 兜底。 ... ok
+test_phase_evidence_disagreement_and_mixed_counters_are_rejected (tests.test_p2_calib_hooks.LayerCaptureTest.test_phase_evidence_disagreement_and_mixed_counters_are_rejected)
+证据与真实位置相位不一致 ⇒ 报错；计数器有值且 prefill/decode 并存 ⇒ 报错。 ... ok
+test_positions_must_be_contiguous_absolute (tests.test_p2_calib_hooks.LayerCaptureTest.test_positions_must_be_contiguous_absolute)
+位置不是本步 token 的真实连续绝对位置时拒绝记录（不静默接受错误来源）。 ... ok
+test_single_token_prefill_via_authoritative_evidence (tests.test_p2_calib_hooks.LayerCaptureTest.test_single_token_prefill_via_authoritative_evidence)
+相位**唯一权威证据** = 本步 `InputBatch.is_prefilling_np[目标行]`（pin `model_runner.py:1138,1345`）。 ... ok
+test_steps_layers_positions_and_metadata_are_real (tests.test_p2_calib_hooks.LayerCaptureTest.test_steps_layers_positions_and_metadata_are_real) ... ok
+test_assign_request_id_appends_random_suffix (tests.test_p2_calib_hooks.PinAssignRequestIdTest.test_assign_request_id_appends_random_suffix) ... W0921 02:43:26.862000 226297 venvs/attnview/lib/python3.12/site-packages/torch/utils/cpp_extension.py:178] No CUDA runtime is found, using CUDA_HOME='/usr/local/cuda-12.8'
+ok
+test_assign_request_id_suffix_is_per_call_random (tests.test_p2_calib_hooks.PinAssignRequestIdTest.test_assign_request_id_suffix_is_per_call_random) ... ok
+test_abort_by_external_works_and_internal_without_flag_does_not (tests.test_p2_calib_hooks.PinIdBoundaryTest.test_abort_by_external_works_and_internal_without_flag_does_not) ... ok
+test_override_trace_semantics_by_arm (tests.test_p2_calib_hooks.PinIdBoundaryTest.test_override_trace_semantics_by_arm)
+global/disabled 臂：无 override 记录算通过；有记录或"必须有记录"的断言都算失败。 ... ok
+test_submit_returns_internal_id_and_output_uses_external (tests.test_p2_calib_hooks.PinIdBoundaryTest.test_submit_returns_internal_id_and_output_uses_external) ... ok
+test_preflight_exception_lands_in_manifest_and_error_txt (tests.test_p2_calib_hooks.PreflightFailureLandingTest.test_preflight_exception_lands_in_manifest_and_error_txt) ... ok
+test_freeze_copies_script_and_records_hashes (tests.test_p2_calib_hooks.RunSourceFreezeTest.test_freeze_copies_script_and_records_hashes) ... ok
+test_modified_script_is_detected (tests.test_p2_calib_hooks.RunSourceFreezeTest.test_modified_script_is_detected) ... ok
+test_watchdog_marks_manifest_ended (tests.test_p2_calib_hooks.WatchdogTest.test_watchdog_marks_manifest_ended)
+超时也必须补上 manifest 的 `ended_cst`/`exit_code`（不能只留起时记录）。 ... ok
+test_watchdog_saves_evidence_and_exits_nonzero (tests.test_p2_calib_hooks.WatchdogTest.test_watchdog_saves_evidence_and_exits_nonzero) ... ok
+test_driver_gate_records_failure (tests.test_p2_smoke_structure.StructureCheckTest.test_driver_gate_records_failure) ... ok
+test_each_corruption_fails (tests.test_p2_smoke_structure.StructureCheckTest.test_each_corruption_fails) ... ok
+test_real_lifecycle_and_buffer_reuse (tests.test_p2_smoke_structure.StructureCheckTest.test_real_lifecycle_and_buffer_reuse) ... ok
+test_real_run_calls_gate_and_failure_exits_nonzero_after_cleanup (tests.test_p2_smoke_structure.StructureCheckTest.test_real_run_calls_gate_and_failure_exits_nonzero_after_cleanup) ... ok
+test_true_fixture_expectations (tests.test_p2_smoke_structure.StructureCheckTest.test_true_fixture_expectations) ... ok
+test_end_step_produces_positions_for_all_steps (tests.test_p2_smoke_bounded_capture.BoundedCaptureLifecycleTest.test_end_step_produces_positions_for_all_steps) ... ok
+test_exports_exactly_default_representative_decodes (tests.test_p2_smoke_bounded_capture.BoundedCaptureLifecycleTest.test_exports_exactly_default_representative_decodes) ... ok
+test_bounded_scalars_recorded_even_without_tensors (tests.test_p2_smoke_bounded_capture.BoundedCaptureTest.test_bounded_scalars_recorded_even_without_tensors) ... ok
+test_byte_budget_is_exact (tests.test_p2_smoke_bounded_capture.BoundedCaptureTest.test_byte_budget_is_exact)
+精确核对导出字节 = prefill KV**一次** + 各 decode 追加 KV + 仅代表点 Q/out(不再只看非零)。 ... ok
+test_default_config_exports_exactly_representative_decodes (tests.test_p2_smoke_bounded_capture.BoundedCaptureTest.test_default_config_exports_exactly_representative_decodes)
+**默认配置**(REPRESENTATIVE_DECODES=6/7/20/25)+ 连续 prefill=1..decode=28:导出恰好这 4 个 decode 的 Q/out。 ... ok
+test_dump_capture_reports_bytes_without_prefill_q_out (tests.test_p2_smoke_bounded_capture.BoundedCaptureTest.test_dump_capture_reports_bytes_without_prefill_q_out)
+默认代表点下 dump 成功:无 prefill Q/out,但代表 decode 的 Q/out 与全部位置键齐备。 ... ok
+test_legacy_mode_unchanged (tests.test_p2_smoke_bounded_capture.BoundedCaptureTest.test_legacy_mode_unchanged) ... ok
+test_effective_value_asserts_prompt_len (tests.test_p2_smoke_llm_kwargs.LlmKwargsAndEffectiveTest.test_effective_value_asserts_prompt_len) ... ok
+test_effective_value_read_after_construction (tests.test_p2_smoke_llm_kwargs.LlmKwargsAndEffectiveTest.test_effective_value_read_after_construction) ... ok
+test_effective_value_unavailable_is_recorded_not_raised (tests.test_p2_smoke_llm_kwargs.LlmKwargsAndEffectiveTest.test_effective_value_unavailable_is_recorded_not_raised) ... ok
+test_legacy_arms_unchanged (tests.test_p2_smoke_llm_kwargs.LlmKwargsAndEffectiveTest.test_legacy_arms_unchanged) ... ok
+test_masked_fixes_prefill_bound (tests.test_p2_smoke_llm_kwargs.LlmKwargsAndEffectiveTest.test_masked_fixes_prefill_bound) ... ok
+test_enforce_false_rejects_present_marks (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_false_rejects_present_marks) ... ok
+test_enforce_false_rejects_true_config (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_false_rejects_true_config) ... ok
+test_enforce_false_requires_false_config_and_no_marks (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_false_requires_false_config_and_no_marks) ... ok
+test_enforce_true_all_global_accepts_empty_marks (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_true_all_global_accepts_empty_marks) ... ok
+test_enforce_true_with_bad_mark_fails (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_true_with_bad_mark_fails) ... ok
+test_enforce_true_with_non_global_steps_requires_compliant_mark (tests.test_p2_smoke_cleanup_checks.CleanupEnforceChecksTest.test_enforce_true_with_non_global_steps_requires_compliant_mark) ... ok
+test_builder_matches_accepted_fixture (tests.test_p2_smoke_fixture.SmokeFixtureBuilderTest.test_builder_matches_accepted_fixture) ... ok
+test_builder_rejects_tampered_expectation (tests.test_p2_smoke_fixture.SmokeFixtureBuilderTest.test_builder_rejects_tampered_expectation) ... ok
+test_trajectory_binds_to_same_prompt (tests.test_p2_smoke_fixture.SmokeFixtureBuilderTest.test_trajectory_binds_to_same_prompt) ... ok
+test_trajectory_rejects_other_prompt (tests.test_p2_smoke_fixture.SmokeFixtureBuilderTest.test_trajectory_rejects_other_prompt) ... ok
+
+----------------------------------------------------------------------
+Ran 99 tests in 17.656s
+
+OK
+{"arm": "patched-reference", "startup_s": 0.0, "request_s": 0.15, "steps": 29, "tokens": [102026, 111563, 111892, 27, 2359, 29, 97625, 141260, 98162, 510, 2359, 29, 102039, 27, 16900, 10642, 63261, 420, 17, 731, 101751, 103759, 510, 16900, 29, 96150, 97400, 104516, 104516], "failures": []}
+{"arm": "patched-reference", "startup_s": 0.0, "request_s": 0.14, "steps": 29, "tokens": [102026, 111563, 111892, 27, 2359, 29, 97625, 141260, 98162, 510, 2359, 29, 102039, 27, 16900, 10642, 63261, 420, 17, 731, 101751, 103759, 510, 16900, 29, 96150, 97400, 104516, 104516], "failures": []}
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": []}
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": ["masked_structure"]}

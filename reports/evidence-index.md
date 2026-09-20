@@ -28,10 +28,10 @@
 | `unclassified` | 未分类——门禁失败 |
 | `pending` | 工作区未跟踪——入库前先分类 |
 
-树内产物 **268 个 / 14,558,166 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
+树内产物 **278 个 / 14,638,877 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
 树外登记件的原件归档在 `/root/autodl-tmp/attnview-evidence-archive`（远端数据盘），字节与 sha256 以本表为准；仓内不发行其字节。
 
-## 树内：随仓发行（268 个 / 14,558,166 B）
+## 树内：随仓发行（278 个 / 14,638,877 B）
 
 | 文件 | 字节 | sha256 | 说明 |
 | --- | ---: | --- | --- |
@@ -150,6 +150,16 @@
 | `evidence/p3-calib/metadata-probe-gate5.json` | 5,354 | `076fb27be3d6ce90f4fff36872e0208b1e004880d2475dc3d8666fce86ef702b` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/metadata-probe.json` | 3,478 | `b248242410e5b8b1e15166d76086d4aae4c7b97b9d0f0121825e64711a460611` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/oracle-original-3a.aggregates.json` | 69,215 | `c1ce771697c9d4e1a571198f92e5d1acf3631547795ec780f352cf294097830b` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/affected-unittest.log` | 19,821 | `560b0374843b30e5ba421dc7010762afc755e2f4733ab0c8f52b7c79f30659d8` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/bridge-checks-postcommit.json` | 9,667 | `6759e259e244b99d56dec1a342116e46010f03a37f553821ab18220ac483df28` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/bridge-checks-postcommit.log` | 41 | `c603c816b9a8661124ddea52a9ea30c49c109b8edd8178d98722fcf8bef133c2` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/bridge-checks.json` | 9,665 | `d0de8e62ece98bcb8a2662490cd96f1b84a40dcd94108e1c114638009b1af826` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/bridge-checks.log` | 169 | `75ddb84b790930d52b474a9af270020526365b075080dcd24a2fa485948098b4` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/deployment-verify.log` | 31 | `91bef6e2d6db9bdce8093a4e2d90a158c82a07490d42ad52114336ac76d424ef` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/precommit-gates.log` | 1,731 | `3f1cad87264cd76d40b0c049e3351cb2cdefba292cfffa2f6751fd0fb115ff3e` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/pytest-collection.log` | 33,579 | `52d7836820e2f09d10d9d531047f332f972d0f71f52829f258451910cebdb8f1` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/summary.json` | 2,030 | `95261d989567989cbcbd21ee1ac1eb0c96e0e3062f3f5846678b7532e8b78591` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/validation.json` | 3,977 | `0015fd11792e0942b8089e949de9bc626c50ff693a07b66cd767be7632657c56` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/run-disabled-3/error.txt` | 1,294 | `479194f61d0f8f0fc109d14b63715691d3eff74085a8d2190007fd8c5e48332d` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/run-disabled-3/source/p2-calib-run.py` | 122,620 | `8758db24e91e6ce6ff89af372ae9b6fbb5fa391bab86633b0bc3e9eb763cf2e3` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/run-disabled-4/arm.json` | 813 | `771161e7a4eba15ecb0c5d0566e3a4281a4fd4ae732f1aa8df55b55d23a46f59` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
@@ -468,5 +478,5 @@
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/state.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/state.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/step_plan.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/step_plan.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/trace.py
-- 入库 268 个 / 树外登记 78 个 / 在盘未入库 0 个
+- 入库 278 个 / 树外登记 78 个 / 在盘未入库 0 个
 - 引用扫描面：reports, configs + README.md, CONTRIBUTING.md, .gitmessage

@@ -1,0 +1,39 @@
+== CPU 测试
+.......................................... [ 11%]
+.................................................................. [ 30%]
+........................................................... [ 47%]
+................................................................................................................................................................ [ 92%]
+............................                                             [100%]
+=============================== warnings summary ===============================
+tests/test_p2_adapter_override.py: 14 warnings
+  /root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+   ok: CPU 测试
+== 静态检查
+All checks passed!
+   ok: 静态检查
+== 补丁树一致
+校验通过：8 个改写文件、2 个新文件、7 个包文件与落盘产物一致（未写文件）
+   ok: 补丁树一致
+== 证据索引
+OK 索引与工作区一致，无悬空引用与未声明重复
+   ok: 证据索引
+== 脱敏
+仓库 /root/autodl-tmp/attnview
+扫描 414 个文本文件；规则集 3/6 条（默认三条：主机名 / GPU UUID / 协调目录）；模式 check
+
+规则命中汇总（文件 / 规则 / 次数）
+FILE                                                             RULE                    N  LINES
+
+规则小计（只打印计数与去重个数，不打印原值）
+
+合计 0 处 / 0 个文件
+
+[check] 0 命中
+   ok: 脱敏
+== 入库体积 ≤10MB
+   ok: 入库体积 ≤10MB
+== 密钥模式扫描
+   ok: 密钥模式扫描

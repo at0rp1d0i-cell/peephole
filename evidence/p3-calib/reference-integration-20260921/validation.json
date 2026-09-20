@@ -1,0 +1,122 @@
+{
+  "head": "84116a26094f78fd07bef901aa003b015e719ade",
+  "source": {
+    "src/attnview/reference_run.py": {
+      "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+      "bytes": 9316,
+      "matches_commit": true
+    },
+    "src/attnview/reference_bridge.py": {
+      "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+      "bytes": 13929,
+      "matches_commit": true
+    },
+    "src/attnview/reference_dense.py": {
+      "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+      "bytes": 12528,
+      "matches_commit": true
+    },
+    "src/attnview/reference_hook.py": {
+      "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+      "bytes": 7759,
+      "matches_commit": true
+    },
+    "tools/p2-calib-run.py": {
+      "sha256": "f38197c8e6acf5817fa3324bb900f1995f65b0dc3d22863ef8d6d53c52010017",
+      "bytes": 147486,
+      "matches_commit": true
+    },
+    "tools/_lib.py": {
+      "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+      "bytes": 4103,
+      "matches_commit": true
+    },
+    "tests/test_p2_reference_run.py": {
+      "sha256": "97c7c95aa9ac91a3200b5efcf303f56e1fd0fc5ecc3f4e88efadddd2d35dd445",
+      "bytes": 24425,
+      "matches_commit": true
+    },
+    "tests/test_p2_calib_hooks.py": {
+      "sha256": "3aeb860e06fea3a74971d0affea8029eecdca897eeed131b83659e8c388a3e80",
+      "bytes": 96067,
+      "matches_commit": true
+    },
+    "configs/p2-ref-cpu/checks.json": {
+      "sha256": "14dcaeffe627c8369e0fc564cddd0ef41bf185327a096a1ea120e40254d529ba",
+      "bytes": 776,
+      "matches_commit": true
+    },
+    "configs/p2-masked-prep/crossblock.json": {
+      "sha256": "ba9450fd544068cd8841ede9f41fca595aef69e1fc6773fde01494402588519a",
+      "bytes": 2912,
+      "matches_commit": true
+    },
+    "evidence/p3-masked-smoke/traj-7834-generated.json": {
+      "sha256": "5b15d841fff0436a7714b52dbc36dd140270ded0eb3c9669d72f632cb6f549ea",
+      "bytes": 1812,
+      "matches_commit": true
+    }
+  },
+  "scope": "CPU integration only; no model loading or GPU execution",
+  "status_porcelain": [
+    " M CONTRIBUTING.md",
+    " M README.md",
+    "M  reports/evidence-index.md",
+    " M reports/p2-single/masked-reference-design.md",
+    "M  reports/publication-checklist.md",
+    " M requirements.dev.txt",
+    " M src/attnview/extract.py",
+    " M src/attnview/gpucheck.py",
+    " M src/attnview/reference.py",
+    " M src/attnview/segmenter.py",
+    "M  tools/pub-evidence-registry.py",
+    "?? pyproject.toml",
+    "?? tools/gates.sh",
+    "?? tools/git-hooks/pre-commit"
+  ],
+  "runs": [
+    {
+      "command": [
+        "/root/autodl-tmp/attnview/venvs/attnview/bin/python",
+        "-m",
+        "unittest",
+        "tests.test_p2_reference_run",
+        "tests.test_p2_calib_hooks",
+        "tests.test_p2_smoke_structure",
+        "tests.test_p2_smoke_bounded_capture",
+        "tests.test_p2_smoke_llm_kwargs",
+        "tests.test_p2_smoke_cleanup_checks",
+        "tests.test_p2_smoke_fixture",
+        "-v"
+      ],
+      "environment": {
+        "CUDA_VISIBLE_DEVICES": "",
+        "PYTHONPATH": "src:tools:tests",
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1"
+      },
+      "exit_code": 0,
+      "elapsed_s": 20.116904735565186,
+      "log": "affected-unittest.log"
+    },
+    {
+      "command": [
+        "/root/autodl-tmp/attnview/venvs/attnview/bin/python",
+        "tools/p2-ref-cpu-checks.py",
+        "--config",
+        "configs/p2-ref-cpu/checks.json",
+        "--out",
+        "/tmp/attnview-reference-bridge-20260921-final.json"
+      ],
+      "environment": {
+        "CUDA_VISIBLE_DEVICES": "",
+        "PYTHONPATH": "src:tools:tests"
+      },
+      "exit_code": 0,
+      "elapsed_s": 7.468303680419922,
+      "log": "bridge-checks.log"
+    }
+  ],
+  "source_unchanged_after_validation": true,
+  "head_after_validation": "d7510298c2d943dfa153237349476c364b0da432"
+}
