@@ -22,7 +22,16 @@
 - `flash_attn.py` 的 `forward_includes_kv_cache_update=False`；`do_kv_cache_update` 经真实 `slot_mapping` 写 KV。
 - 不支持的量化/特殊 attention 特性**直接拒绝**（`ReferenceError`），不静默近似；GQA 头数不整除即拒绝。
 
-## 4. CPU 覆盖（22 项，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）
+## 3b. 端到端挂接路径（本单要求的实现，已落地）
+| 文件 | 作用 |
+| --- | --- |
+| `src/attnview/reference_hook.py` | `TestOnlyReferenceAttachment`：沿用 harness 模式 `original = impl.forward` → 安装同签名 wrapper → `restore()` **恢复原方法本身并断言身份**；`finally` 上下文；**覆盖账本** `(layer, step, action)`；异常即 `restore()` + 关闭开关 |
+| `reference_dense.perform_reference_attention()` | 参考路径入口：从 harness 风格 `attn_metadata` 取几何 → 独立 mask → 物理块表 gather → FP32 → **cast 到 `output.dtype`** → **原地写入 output**（返回 None）；返回真实指标 |
+- **位置两类分开**（工作单 §2 要求）：`semantic_positions`（协议语义并集）与 **`read_positions`（向块边界外扩后截断到 KV 有效长度）**；dense 参考只用后者。实测 local、kv 7841：语义 **1087** → 读取 **2353**（块 (0, 8, 9, 10)，每块 [784,784,784,1]）。
+- **生命周期**：参考臂与候选臂各自独立请求/KV/GDN 状态对象；同一时刻仅一个活跃请求；prefill 复用以"两次独立请求自然得到相同初态"为前提，不复用上一请求残留。
+- **真实指标（非恒真）**：`output_dtype=torch.bfloat16`、`fp32_to_output_max_abs=0.0004484206438064575`、`rms=5.590420914813876e-05`、`rel_l2=0.0016386855859309435`、`ref_abs_max=0.1426146924495697`、`non_finite_count=0`（由挂接路径落盘，未设通过阈值）。
+
+## 4. CPU 覆盖（20 项，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）
 - 非顺序物理映射:gather 行 == 物理块表映射出的行
 - 逻辑块号 ≠ 物理块号(映射确实非顺序)
 - 可见位置含当前 token 且以 kv_len-1 结尾
@@ -48,7 +57,7 @@
 
 ## 5. 尚缺的实机证据
 - 真实模型的 attention/logits 数值、GDN 传播、图模式/FA2 实际后端、KV 排布与 RoPE 观测点、GQA 头映射在真实张量上的正确性、覆盖期间的写回与恢复在真实引擎中的行为。
-- 本检查用**桩件**模拟 `unified_attention_with_output` 的接线语义；**不以桩件通过宣称真实模型或 GPU 接线正确**。
+- 本检查用**桩件 impl + 挂接驱动**模拟 harness 接线（`unified_attention_with_output` 忽略返回值、消费原 output 缓冲）；**未在真实引擎/GPU 上验证**，不以桩件通过宣称实机接线正确。表宽/后端/捕获状态/真实 slot_mapping 写 KV 等仍属实机范围。
 - 数值合同（容差）**未冻结、未内置通过阈值**；输出仅给 max_abs/RMS/相对 L2/参考幅度/非有限计数与 FP32-vs-cast 差异。
 
 ## 6. 可复跑入口
