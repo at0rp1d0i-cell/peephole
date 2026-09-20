@@ -1459,6 +1459,27 @@ def drive_cleanup_rounds(llm, req_id: str, *, max_rounds: int = 16) -> dict:
     }
 
 
+def arm_llm_overrides(arm: str) -> dict:
+    """按臂的 LLM kwargs 覆盖(纯函数,便于 CPU 测试)。仅 masked 臂固定 prefill 上界,旧三臂不变。"""
+    return {"max_num_batched_tokens": 8192} if arm == "patched-masked" else {}
+
+
+def read_max_num_batched_tokens(llm, *, prompt_len: int):
+    """**构造成功之后**读取真实生效值;缺失记 unavailable;并断言 >= prompt_len。"""
+    try:
+        cfg = getattr(getattr(llm, "llm_engine", None), "vllm_config", None)
+        sched = getattr(cfg, "scheduler_config", None)
+        value = None if sched is None else getattr(sched, "max_num_batched_tokens", None)
+    except Exception as exc:  # noqa: BLE001
+        return f"unavailable: {type(exc).__name__}"
+    if value is None:
+        return "unavailable: None"
+    if int(value) < int(prompt_len):
+        raise RuntimeError(
+            f"校准: max_num_batched_tokens={value} < prompt_len={prompt_len} —— prompt 无法单次 prefill")
+    return int(value)
+
+
 def cleanup_enforce_checks(*, enforce_global: bool, config_enforce_global, marks, non_global_steps,
                            observed_modes) -> list[tuple[str, bool, str]]:
     """cleanup 阶段按臂的 enforce_global 预期(纯函数,便于 CPU 控制流测试)。
@@ -1654,7 +1675,9 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
                     any(state.get("in_configs") for state in observable),
                     f"B 在运行中确有请求级协议状态：{[ {k: s.get(k) for k in ('in_registry', 'in_configs', 'in_detok')} for s in observable ]}",
                 )
-                cfg_flags = [state.get("config_enforce_global") for state in observable]
+                # 只取**确有请求级配置**(in_configs)的可观察状态;缺失即 None,不得顶替判定
+                relevant = [state for state in observable if state.get("in_configs")]
+                cfg_flags = [state.get("config_enforce_global") for state in relevant]
                 payload_flag = cfg_flags[0] if cfg_flags else None
                 # 只有"协议模式**非 global** 且执行被 enforce_global 覆写"的步才留下 mark。
                 marks = [mark for state in observable for mark in state.get("enforce_global_steps", ())
@@ -2075,7 +2098,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         enforce_eager=True,
         max_model_len=MAX_MODEL_LEN,
         # 7834-token prompt 必须**单次 prefill**;仅 masked 臂固定该项,旧三臂 kwargs 不变。
-        **({"max_num_batched_tokens": 8192} if args.arm == "patched-masked" else {}),
+        **arm_llm_overrides(args.arm),
         max_num_seqs=1,
         enable_prefix_caching=False,
         gpu_memory_utilization=0.85,
@@ -2091,16 +2114,12 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         print(f"警告: 无法构造 AttentionConfig(flash_attn_version=2): {exc}", file=sys.stderr)
     manifest["config"]["llm_kwargs"] = {k: str(v) for k, v in llm_kwargs.items()}
     manifest["config"]["max_num_batched_tokens_requested"] = llm_kwargs.get("max_num_batched_tokens")
-    try:   # 记录**真实生效值**(不是只看传入 kwargs)
-        _sc = getattr(getattr(llm, "llm_engine", None), "vllm_config", None)
-        _sc = getattr(_sc, "scheduler_config", None)
-        manifest["config"]["max_num_batched_tokens_effective"] = (
-            None if _sc is None else getattr(_sc, "max_num_batched_tokens", None))
-    except Exception as exc:  # noqa: BLE001
-        manifest["config"]["max_num_batched_tokens_effective"] = f"unavailable: {type(exc).__name__}"
 
     with Watchdog(STARTUP_BUDGET_S, "startup", out, manifest_path) as startup_watch:
         llm = LLM(**llm_kwargs)
+    # 真实生效值必须在**构造成功之后**读(此前写在构造前,llm 未赋值 ⇒ 必记 UnboundLocalError)
+    manifest["config"]["max_num_batched_tokens_effective"] = read_max_num_batched_tokens(
+        llm, prompt_len=len(prompt_ids))
     startup_s = startup_watch.elapsed
     if startup_s > STARTUP_BUDGET_S:  # 双保险（看门狗正常路径下已退出）
         raise BudgetExceeded(f"启动耗时 {startup_s:.1f}s 超过预算 {STARTUP_BUDGET_S}s")
