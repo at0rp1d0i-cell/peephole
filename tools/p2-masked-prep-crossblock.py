@@ -226,9 +226,10 @@ def main() -> int:
     full = [b for b, c in zip(honest_vis, honest_counts) if c == bs]
     outside = [b for b in range(kv_r // bs + 1) if b not in honest_vis and max(0, min(kv_r, b * bs + bs) - b * bs) == bs]
     if full and outside:
-        swap_vis = sorted([outside[0] if b == full[0] else b for b in honest_vis])
-        swap_counts = [bs if b != full[0] else c for b, c in zip(swap_vis, honest_counts)]
-        swap_counts = [c for _b, c in zip(honest_vis, honest_counts)]  # 形状不变的计数序列
+        # 选**后段**的可见完整块 与 **中段**的已写不可见完整块(更接近 R2 示例:不可见不等于不可读)
+        victim, impostor = full[-1], outside[len(outside) // 2]
+        swap_vis = sorted([impostor if b == victim else b for b in honest_vis])
+        swap_counts = list(honest_counts)  # 形状/计数序列不变,仅逻辑块号被替换
         swap_audit = audit(swap_vis, swap_counts, kv_r, alloc_n)
         internal = None
         try:
@@ -237,7 +238,7 @@ def main() -> int:
         except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
             internal = f"合同异常 {type(exc).__name__}"
         negs.append({
-            "label": f"安全错块:把已写可见完整块 {full[0]} 换成已写但不可见的完整块 {outside[0]}(受限视图派生)",
+            "label": f"安全错块:把已写可见完整块 {victim} 换成已写但不可见的完整块 {impostor}(受限视图派生)",
             "kind": "派生样本(读取另一个已写且已分配块)", "candidate_visible": swap_vis,
             "independent_expected_visible": honest_vis,
             "internal_consistency": internal, "slot_audit": swap_audit,
