@@ -339,39 +339,17 @@ def deployment_fingerprint(arm: str, *, installed_root: Path | None = None, pin_
 # --------------------------------------------------------------------------- #
 
 
-def build_prompt_from_fixture(fixture_path: Path):
-    """按已验收夹具重渲染 prompt 并**逐项校验**;任一不一致即拒绝运行。"""
-    from transformers import AutoTokenizer
+def build_prompt_from_fixture(doc_fixture: Path, expect_fixture: Path, timeline_config: Path):
+    """按已验收夹具重建 prompt(与轨迹生成器**共享** `attnview.fixture_rebuild`),逐项校验。"""
+    from attnview.fixture_rebuild import rebuild_prompt
 
-    from attnview.prompt import _tokenize_with_offsets, render_arm
-    from attnview.segmenter import build_offsets_index, segment_context
-
-    fx = json.loads(Path(fixture_path).read_text())
-    tokenizer = AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False)
-    _ids, offsets = _tokenize_with_offsets(tokenizer, fx["document"])
-    segments = segment_context(fx["document"], build_offsets_index(offsets))
-    prompt = render_arm("da", segments, fx["question"], fx["document"], tokenizer,
-                        tokenizer_hash=_sha_or_none(SNAPSHOT / "tokenizer.json") or "",
-                        template_hash=_sha_or_none(SNAPSHOT / "chat_template.jinja") or "",
-                        enable_thinking=False)
-    ids = [int(t) for t in prompt.token_ids]
-    got = {
-        "prompt_len": len(ids),
-        "segment_spans": [list(x) for x in prompt.segment_spans],
-        "local_window_span": list(prompt.scaffold.local_window_span),
-        "sink_span": list(prompt.scaffold.sink_span),
-        "token_ids_sha256": hashlib.sha256(bytes(str(list(ids)), "utf-8")).hexdigest(),
-    }
-    want = {k: fx[k] for k in ("prompt_len", "segment_spans", "local_window_span", "sink_span", "token_ids_sha256")}
-    if got != want:
-        raise RuntimeError(f"校准: 夹具重渲染与已验收值不一致,拒绝运行 —— got={got} want={want}")
-    payload = {
-        "protocol": "v1.0", "prompt_len": len(ids),
-        "segment_spans": [list(x) for x in prompt.segment_spans],
-        "local_window_span": list(prompt.scaffold.local_window_span),
-        "sink_span": list(prompt.scaffold.sink_span),
-    }
-    return prompt, payload, {"fixture": str(fixture_path), "checked": got}
+    prompt, payload, evidence = rebuild_prompt(
+        doc_fixture=doc_fixture, expect_fixture=expect_fixture, timeline_config=timeline_config,
+        snapshot=SNAPSHOT,
+        tokenizer_hash=_sha_or_none(SNAPSHOT / "tokenizer.json") or "",
+        template_hash=_sha_or_none(SNAPSHOT / "chat_template.jinja") or "",
+    )
+    return prompt, payload, evidence
 
 
 def build_prompt() -> tuple[object, dict]:
@@ -2048,9 +2026,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                          "patched-global = 真实带载荷且 enforce_global=True；patched-masked = 真实带载荷且 enforce_global=False(诊断)")
     ap.add_argument("--out", type=Path, required=True, help="本次运行的**新**输出目录（已存在且非空即拒绝）")
     ap.add_argument("--max-tokens", type=int, default=8)
-    ap.add_argument("--fixture", type=Path,
-                    help="已验收夹具 JSON(document/question/prompt_len/segment_spans/local_window_span/sink_span/"
-                         "token_ids_sha256):按真实 renderer 重渲染并逐项校验,不一致即拒绝。仅 patched-masked 臂可用。")
+    ap.add_argument("--doc-fixture", type=Path,
+                    help="含 document/question 的夹具(evidence/p1-cpu/demo-fixtures.json)。仅 patched-masked 臂可用。")
+    ap.add_argument("--expect-fixture", type=Path,
+                    help="已验收产物(filler_units/fine_units/context_sha256/prompt_len/spans/token 哈希)。")
+    ap.add_argument("--timeline-config", type=Path,
+                    help="提供 filler_unit/fine_char 的配置(configs/p2-masked-prep/crossblock.json)。")
     ap.add_argument("--emit-trajectory", type=Path, help="把本次主请求的 token 序列写成强制轨迹")
     ap.add_argument("--force-trajectory", type=Path, help="按给定轨迹强制（同轨迹回放；original 臂禁止）")
     ap.add_argument("--compare-to", type=Path, help="与给定轨迹**逐 token** 比对（original×2 机械断言）")
@@ -2476,10 +2457,13 @@ def main(argv: list[str] | None = None) -> int:
     if arm_path.exists():
         raise RuntimeError(f"校准: {arm_path} 已存在 —— 本次运行必须从「文件不存在」开始")
 
-    if args.fixture is not None:
+    if args.doc_fixture is not None or args.expect_fixture is not None or args.timeline_config is not None:
         if args.arm != "patched-masked":
-            raise RuntimeError(f"校准: --fixture 仅 patched-masked 臂使用(当前 {args.arm})——不改变旧三臂输入")
-        prompt, payload, fixture_evidence = build_prompt_from_fixture(args.fixture)
+            raise RuntimeError(f"校准: fixture 参数仅 patched-masked 臂使用(当前 {args.arm})——不改变旧三臂输入")
+        if not (args.doc_fixture and args.expect_fixture and args.timeline_config):
+            raise RuntimeError("校准: 需同时给出 --doc-fixture / --expect-fixture / --timeline-config")
+        prompt, payload, fixture_evidence = build_prompt_from_fixture(
+            args.doc_fixture, args.expect_fixture, args.timeline_config)
     else:
         prompt, payload = build_prompt()
         fixture_evidence = None
