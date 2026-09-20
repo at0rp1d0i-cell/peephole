@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import torch
 
@@ -37,14 +38,16 @@ __all__ = [
 ]
 
 # --------------------------------------------------------------------------- #
-# 校准专用钩子（仅当环境变量设置时生效；普通运行**零影响**，不引入分支成本以外的行为）
+# 校准专用钩子（默认**未 armed**：控制文件不存在时完全零影响，不引入分支成本以外的行为）
 #
+# - `ATTNVIEW_CALIB_ARM`：**控制文件**（唯一的 armed 开关）。内容
+#   `{"target_req_id", "tokens", "force_log", "logits_path", "trace_path"}`；
+#   三个钩子都只对 `target_req_id` 生效，未 armed 一律直接返回；
 # - `ATTNVIEW_CALIB_FORCE`：JSON 文件 `{"tokens": [[t], ...]}`，按步给强制轨迹；
 # - `ATTNVIEW_CALIB_FORCE_LOG`：把每步的**原始采样**与**强制值**逐行写成 JSONL；
 # - `ATTNVIEW_CALIB_TRACE`：把每步覆写后的 FA metadata 与 canonical/非 FA 输入不变证据写成 JSONL。
 # --------------------------------------------------------------------------- #
 
-_CALIB_LOGITS = "ATTNVIEW_CALIB_LOGITS"
 _CALIB_ARM = "ATTNVIEW_CALIB_ARM"
 _CALIB_FORCE_LOG = "ATTNVIEW_CALIB_FORCE_LOG"
 _CALIB_TRACE = "ATTNVIEW_CALIB_TRACE"
@@ -103,36 +106,6 @@ def _calib_tokens(arm: Mapping[str, Any]) -> list[list[list[int]]]:
 def _append_jsonl(path: str, record: Mapping[str, Any]) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
-def calibration_capture_logits(logits: torch.Tensor, input_batch: Any) -> bool:
-    """测试专用：保存**完整** logits（不是 top-k 归一化后的近似）。
-
-    调用点必须在 worker `GPUModelRunner.sample` 里 `self.model.compute_logits(...)` **之后**、
-    grammar/sampler **就地改写之前**（pin `model_runner.py:1421-1432`）—— 归一化或截断后的 top-k
-    无法用于全词表最大绝对误差/RMS，也会漏掉尾部的非有限值。
-
-    落盘 `ATTNVIEW_CALIB_LOGITS` 指向的 `.pt`（`torch.save`，追加成 dict 列表）：
-    `{"step": i, "req_ids": [...], "logits": fp32 CPU 张量[num_rows, vocab]}`。
-    未设置该环境变量时完全不介入（普通请求零影响）。本钩子含显式 D2H 同步，属校准专用。
-    """
-    path = os.environ.get(_CALIB_LOGITS)
-    if not path:
-        return False
-    _CALIB_STATE["step"] = int(_CALIB_STATE.get("step", 0))
-    record = {
-        "step": int(_CALIB_STATE["step"]) + 1,
-        "req_ids": list(getattr(input_batch, "req_ids", ()) or ()),
-        "logits": logits.detach().to("cpu", dtype=torch.float32),
-        "shape": list(logits.shape),
-        "dtype_on_device": str(logits.dtype),
-        "sync_note": "本钩子含显式 D2H 同步（保存完整 logits），属校准专用，非稳态行为",
-    }
-    target = Path(path)
-    existing = torch.load(target, weights_only=False) if target.exists() else []
-    existing.append(record)
-    torch.save(existing, target)
-    return True
 
 
 def calibration_force_tokens(sampler_output: Any, req_ids: Sequence[str], num_sampled: Any) -> bool:

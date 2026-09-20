@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from .gpukv import GpuKvError, read_table_from_read_view, validate_mapping
 from .readview import (
@@ -75,7 +76,7 @@ class DaRequestConfig:
     enforce_global: bool = False
 
     @staticmethod
-    def from_extra_args(extra_args: Mapping[str, Any] | None) -> "DaRequestConfig":
+    def from_extra_args(extra_args: Mapping[str, Any] | None) -> DaRequestConfig:
         if not extra_args:
             raise AttnViewConfigError("extra_args 为空：内部请求必须携带协议配置")
         if not isinstance(extra_args, Mapping):
@@ -162,7 +163,7 @@ class Geometry:
     blocks_per_kv_block: int
     max_model_len: int
 
-    def validate(self) -> "Geometry":
+    def validate(self) -> Geometry:
         if self.kernel_block_size <= 0:
             raise AttnViewConfigError(f"kernel_block_size 必须为正：{self.kernel_block_size}")
         if self.num_kv_groups <= 0:
@@ -253,7 +254,7 @@ class StepPlan:
         """后端按前缀语义实际会索引的列数 = `ceil(seqused_k / kernel_block_size)`。"""
         return -(-self.seqused_k // self.block_size) if self.block_size > 0 else 0
 
-    def validate(self) -> "StepPlan":
+    def validate(self) -> StepPlan:
         if self.seqused_k <= 0:
             raise AttnViewConfigError(f"seqused_k 必须为正：{self.seqused_k}")
         if self.needed_width != len(self.visible_logical_blocks):

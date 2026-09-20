@@ -13,8 +13,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterator
+from collections.abc import Iterator
+from dataclasses import dataclass
 
 from .parser import (
     MODE_FOCUS,

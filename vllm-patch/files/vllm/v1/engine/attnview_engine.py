@@ -17,12 +17,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 from attnview.decode import IncrementalDetokenizer
-from attnview.state import ProtocolRegistry
 from attnview.readview import MODE_GLOBAL
+from attnview.state import ProtocolRegistry
 from attnview.step_plan import (
     EXTRA_ARG_KEY,
     AttnViewConfigError,
@@ -31,7 +32,6 @@ from attnview.step_plan import (
     UnsupportedConfig,
     build_step_plan,
     check_supported_config,
-    trace_from_plan,
 )
 
 __all__ = [
@@ -590,7 +590,7 @@ class AttnViewEngine:
         """
         if not self._configs:
             self._pending = None
-            setattr(scheduler_output, "da_step_plans", None)
+            scheduler_output.da_step_plans = None
             return None
         manager = getattr(self._scheduler, "kv_cache_manager", None)
         if manager is None:
@@ -598,7 +598,7 @@ class AttnViewEngine:
         self._pending = self.build_plans(
             scheduler_output, blocks_of=lambda r: manager.get_block_ids(r)
         ) or None
-        setattr(scheduler_output, "da_step_plans", self._pending)
+        scheduler_output.da_step_plans = self._pending
         return self._pending
 
     @staticmethod

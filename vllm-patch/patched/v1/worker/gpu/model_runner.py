@@ -1424,7 +1424,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # attnview 校准: 测试专用完整 logits 捕获 —— 必须在 `compute_logits` **之后**、
         # grammar/sampler 就地改写 **之前**（否则拿到的是被掩码/采样器改过的张量；
         # 归一化/截断后的 top-k 无法用于全词表误差与尾部非有限值检查）。
-        # 未设置 ATTNVIEW_CALIB_LOGITS 时完全不介入（普通请求零影响）。
+        # 未 armed（无 `ATTNVIEW_CALIB_ARM` 控制文件）或本步不含 target_req_id 时完全不介入。
         attnview_adapter.calibration_capture_logits(logits, input_batch)
 
         if grammar_output is not None:

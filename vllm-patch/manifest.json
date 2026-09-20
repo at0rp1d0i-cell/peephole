@@ -1,5 +1,5 @@
 {
-  "generated_cst": "2026-09-21 01:14:12 +0800",
+  "generated_cst": "2026-09-21 02:26:23 +0800",
   "pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
   "edits": {
     "v1/core/sched/output.py": {
@@ -23,7 +23,7 @@
     "v1/worker/gpu/model_runner.py": {
       "replacements": 4,
       "pre_sha256": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
-      "post_sha256": "c1ea4abb071b6f04274d87ee3a3667a9e44709a01ce7ba4e69a2038bde138590",
+      "post_sha256": "047ccbaa97e365bdfe95b262469a39ca8a17dfad9357371149caf4a64bc4dbaf",
       "patched_path": "vllm-patch/patched/v1/worker/gpu/model_runner.py"
     },
     "v1/worker/gpu/model_states/default.py": {
@@ -55,12 +55,12 @@
     {
       "src": "vllm-patch/files/vllm/v1/worker/gpu/attnview_adapter.py",
       "dest": "v1/worker/gpu/attnview_adapter.py",
-      "sha256": "b9cb95fa03c641be83fb9a346936799a430f2c94d45798c8c672b4d52a5729aa"
+      "sha256": "bd1dea8d61bcbbfce5172554ff0ff316c02b9893b0514cf7300f0f9425131f3b"
     },
     {
       "src": "vllm-patch/files/vllm/v1/engine/attnview_engine.py",
       "dest": "v1/engine/attnview_engine.py",
-      "sha256": "9535196b0f68fbb136443451a62d6b275cc2d26b786becad852f8453ba20df2e"
+      "sha256": "5b0b596eb08da0a2dd0fc1bba9c77c9c6cdf2befad4fc9812bcd1cb99c7e4242"
     }
   ],
   "package_files": [
@@ -70,7 +70,7 @@
     },
     {
       "file": "src/attnview/decode.py",
-      "sha256": "29fb688006bb982a2ee88ff34ab0a657f1f7866cdc20a7a7cab548176feba44f"
+      "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f"
     },
     {
       "file": "src/attnview/parser.py",
@@ -78,19 +78,19 @@
     },
     {
       "file": "src/attnview/readview.py",
-      "sha256": "ce162dd31d12aeb9475a4239424e2164cf3ed84e30f5168e4a14972e8f4c49a5"
+      "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c"
     },
     {
       "file": "src/attnview/gpukv.py",
-      "sha256": "e0ce47f9511aefc65bd797e046163686eda6f7b5c4d1b0e425754d300d15f2c6"
+      "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c"
     },
     {
       "file": "src/attnview/state.py",
-      "sha256": "62bfcdaa54c3b9df5d7d4710e6159696e6d6b4d51113f1960b70f8a9370c750c"
+      "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a"
     },
     {
       "file": "src/attnview/step_plan.py",
-      "sha256": "d32ac1724d7853945a7139e611079b2612bbadab39921538631c12e1b4d46e23"
+      "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714"
     }
   ]
 }

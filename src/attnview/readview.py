@@ -20,8 +20,8 @@ FlashAttention 会跳过 `-1`（规范 §8.3）——适配层必须保证填充
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from .parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL
 

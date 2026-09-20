@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import codecs
-from typing import Callable, Iterator
+from collections.abc import Callable, Iterator
 
 
 def bytes_to_unicode() -> dict[int, str]:
@@ -32,7 +32,7 @@ def bytes_to_unicode() -> dict[int, str]:
             bs.append(b)
             cs.append(256 + n)
             n += 1
-    return {b: chr(c) for b, c in zip(bs, cs)}
+    return {b: chr(c) for b, c in zip(bs, cs, strict=True)}
 
 
 UNICODE_TO_BYTE = {v: k for k, v in bytes_to_unicode().items()}

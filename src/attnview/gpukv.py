@@ -112,7 +112,7 @@ def read_table_from_read_view(view, logical_to_physical) -> ReadTable:
         raise GpuKvError("物理表有效前缀出现 -1（-1 只能出现在尾部填充）")
     if len(set(valid_prefix)) != len(valid_prefix):
         raise GpuKvError("物理表有效前缀存在重复物理块")
-    for block, pid in zip(visible_blocks, valid_prefix):
+    for block, pid in zip(visible_blocks, valid_prefix, strict=True):
         if block >= len(mapping):
             raise GpuKvError(f"可见块 {block} 超出逻辑块数 {len(mapping)}")
         if pid != mapping[block]:
@@ -134,7 +134,7 @@ def read_table_from_read_view(view, logical_to_physical) -> ReadTable:
                 covered += hi - lo
         counts.append(covered)
     tail_block = visible_blocks[-1]
-    for block, count in zip(visible_blocks[:-1], counts[:-1]):
+    for block, count in zip(visible_blocks[:-1], counts[:-1], strict=True):
         if count != block_size:
             raise GpuKvError(
                 f"可见块 {block} 只有 {count}/{block_size} 个已覆盖位置且不是最大可见块："

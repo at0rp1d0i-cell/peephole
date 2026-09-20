@@ -4,10 +4,17 @@
 用法：
     source /root/attnview/env.sh
     "$ATTNVIEW_PYTHON" tools/p2-gen-patch.py            # 生成 vllm-patch/patched + manifest.json
-    "$ATTNVIEW_PYTHON" tools/p2-gen-patch.py --check     # 只校验（不改写）
+    "$ATTNVIEW_PYTHON" tools/p2-gen-patch.py --check     # 重算清单并核对落盘产物（不改写）
 
 约束：只读 pin 源码；每个替换必须**恰好命中一次**，否则报错退出（不做模糊匹配）。
 新文件（adapter/engine 模块）不进替换表，由 `files/` 目录原样部署。
+
+`--check` 的口径：manifest 是 (pin 源码, `EDITS`, `files/`, `src/attnview/`) 的纯函数，
+因此校验 = 重算一遍并与落盘的 `manifest.json` / `patched/` 逐项比对（除 `generated_cst`）。
+只验"替换命中一次"是不够的——那样改过 `patched/` 或清单都不会被发现。
+
+退出码：0 一致；2 缺输入（pin checkout / 新文件 / 包文件）；3 替换未恰好命中一次；
+4 落盘产物与重算结果不一致。
 """
 
 from __future__ import annotations
@@ -15,9 +22,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from _lib import sha256_file
 
 REPO = Path(__file__).resolve().parent.parent
 PIN_ROOT = REPO / "vllm"  # vLLM 源码 checkout（pin 98dff2a8）
@@ -310,7 +321,7 @@ EDITS: list[tuple[str, str, str]] = [
         """        # attnview 校准: 测试专用完整 logits 捕获 —— 必须在 `compute_logits` **之后**、
         # grammar/sampler 就地改写 **之前**（否则拿到的是被掩码/采样器改过的张量；
         # 归一化/截断后的 top-k 无法用于全词表误差与尾部非有限值检查）。
-        # 未设置 ATTNVIEW_CALIB_LOGITS 时完全不介入（普通请求零影响）。
+        # 未 armed（无 `ATTNVIEW_CALIB_ARM` 控制文件）或本步不含 target_req_id 时完全不介入。
         attnview_adapter.calibration_capture_logits(logits, input_batch)
 
         if grammar_output is not None:
@@ -374,42 +385,50 @@ from vllm.v1.worker.gpu.block_table import BlockTables""",
 ]
 
 
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _pin_commit() -> str | None:
+    """pin checkout 的 HEAD commit（40 位 hex）；解析不出即 None。
+
+    用 `git rev-parse HEAD` 而不是读 `.git/HEAD`：后者只在 detached HEAD 时是 SHA，
+    在分支上是 `ref: refs/heads/...`，在 worktree/submodule 里 `.git` 是文件、没有 HEAD 文件。
+    """
+    if not (PIN_ROOT / ".git").exists():
+        return None
+    proc = subprocess.run(
+        ["git", "-C", str(PIN_ROOT), "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    commit = proc.stdout.strip()
+    if proc.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        print(f"无法解析 pin commit：{commit or proc.stderr.strip()}", file=sys.stderr)
+        return None
+    return commit
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true", help="只校验，不写文件")
-    args = ap.parse_args()
+def build_manifest() -> tuple:
+    """纯函数：由 (pin 源码, EDITS, files/, src/attnview) 算出清单与 patched 文本。
 
-    if not PIN_ROOT.is_dir():
-        print(f"缺少 vLLM 源码 checkout：{PIN_ROOT}", file=sys.stderr)
-        return 2
-
-    patched_root = PATCH_ROOT / "patched"
-    if not args.check:
-        patched_root.mkdir(parents=True, exist_ok=True)
-
+    `--write` 与 `--check` 共用这一份计算。返回值 `(manifest, patched_texts, error_code)`，
+    `error_code` 非 0 表示计算本身失败（缺文件 / 替换未恰好命中一次）。
+    """
     per_file: dict[str, list[tuple[str, str]]] = {}
     for rel, old, new in EDITS:
         per_file.setdefault(rel, []).append((old, new))
 
     manifest: dict = {
-        "generated_cst": datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +0800"),
-        "pin_commit": (PIN_ROOT / ".git" / "HEAD").read_text().strip()
-        if (PIN_ROOT / ".git" / "HEAD").exists()
-        else None,
+        "generated_cst": datetime.now(timezone(timedelta(hours=8))).strftime(
+            "%Y-%m-%d %H:%M:%S +0800"
+        ),
+        "pin_commit": _pin_commit(),
         "edits": {},
         "new_files": [],
         "package_files": [],
     }
+    patched_texts: dict[str, str] = {}
 
     for rel, pairs in sorted(per_file.items()):
         src = PIN_ROOT / "vllm" / rel
         if not src.is_file():
             print(f"缺少源文件：{src}", file=sys.stderr)
-            return 2
+            return manifest, patched_texts, 2
         text = src.read_text()
         for idx, (old, new) in enumerate(pairs):
             hits = text.count(old)
@@ -418,24 +437,21 @@ def main() -> int:
                     f"替换未恰好命中一次：{rel} 第 {idx + 1} 条 命中 {hits} 次",
                     file=sys.stderr,
                 )
-                return 3
+                return manifest, patched_texts, 3
             text = text.replace(old, new, 1)
-        dest = patched_root / rel
-        if not args.check:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(text)
+        patched_texts[rel] = text
         manifest["edits"][rel] = {
             "replacements": len(pairs),
             "pre_sha256": sha256_file(src),
             "post_sha256": hashlib.sha256(text.encode()).hexdigest(),
-            "patched_path": str(dest.relative_to(REPO)),
+            "patched_path": str((PATCH_ROOT / "patched" / rel).relative_to(REPO)),
         }
 
     for src_rel, dest_rel in NEW_FILES:
         src = NEW_FILES_DIR / src_rel
         if not src.is_file():
             print(f"缺少新文件：{src}", file=sys.stderr)
-            return 2
+            return manifest, patched_texts, 2
         manifest["new_files"].append(
             {
                 "src": str(src.relative_to(REPO)),
@@ -447,16 +463,110 @@ def main() -> int:
         src = REPO / rel
         if not src.is_file():
             print(f"缺少包文件：{src}", file=sys.stderr)
-            return 2
+            return manifest, patched_texts, 2
         manifest["package_files"].append({"file": rel, "sha256": sha256_file(src)})
+    return manifest, patched_texts, 0
 
+
+def check_disk(manifest: dict) -> list:
+    """核对**落盘产物**与重算结果：patched/、files/、src/attnview 与 manifest 必须逐项一致。
+
+    只校验"替换是否命中一次"是不够的：那样改了 `patched/` 或 `manifest.json` 都不会被发现。
+    这里把 manifest 当作 (pin 源码, EDITS, files/, src/attnview) 的纯函数，逐项比对。
+    """
+    problems: list = []
+    stored_path = PATCH_ROOT / "manifest.json"
+    if not stored_path.is_file():
+        return [f"缺少清单：{stored_path.relative_to(REPO)}（先跑 --write）"]
+    try:
+        stored = json.loads(stored_path.read_text())
+    except json.JSONDecodeError as exc:
+        return [f"{stored_path.relative_to(REPO)} 不是合法 JSON：{exc}"]
+
+    if stored.get("pin_commit") != manifest["pin_commit"]:
+        problems.append(
+            f"pin_commit 不一致：清单 {stored.get('pin_commit')} vs 实测 {manifest['pin_commit']}"
+        )
+    if set(stored.get("edits", {})) != set(manifest["edits"]):
+        problems.append(
+            f"edits 文件集不一致：清单 {sorted(stored.get('edits', {}))} vs 重算 {sorted(manifest['edits'])}"
+        )
+    if [e.get("src") for e in stored.get("new_files", [])] != [
+        e["src"] for e in manifest["new_files"]
+    ]:
+        problems.append("new_files 列表与 NEW_FILES 常量不一致")
+    if [e.get("file") for e in stored.get("package_files", [])] != [
+        e["file"] for e in manifest["package_files"]
+    ]:
+        problems.append("package_files 列表与 PACKAGE_FILES 常量不一致")
+
+    for rel, want in sorted(manifest["edits"].items()):
+        got = stored.get("edits", {}).get(rel)
+        if got is None:
+            continue  # 已在集合差异里报过
+        for field in ("replacements", "pre_sha256", "post_sha256", "patched_path"):
+            if got.get(field) != want[field]:
+                problems.append(f"{rel} 清单字段 {field} 不一致：{got.get(field)} vs {want[field]}")
+        dest = REPO / want["patched_path"]
+        if not dest.is_file():
+            problems.append(f"{rel} 缺少落盘 patched 文件：{want['patched_path']}")
+            continue
+        on_disk = hashlib.sha256(dest.read_bytes()).hexdigest()
+        if on_disk != want["post_sha256"]:
+            problems.append(
+                f"{rel} 落盘 patched 文件与重算文本不一致：{on_disk[:12]} vs {want['post_sha256'][:12]}"
+            )
+
+    by_src = {e["src"]: e for e in stored.get("new_files", [])}
+    for entry in manifest["new_files"]:
+        got = by_src.get(entry["src"])
+        if got is None or got.get("sha256") != entry["sha256"] or got.get("dest") != entry["dest"]:
+            problems.append(f"{entry['src']} 新文件登记与源文件不一致（重算 {entry['sha256'][:12]}）")
+
+    by_file = {e["file"]: e for e in stored.get("package_files", [])}
+    for entry in manifest["package_files"]:
+        got = by_file.get(entry["file"])
+        if got is None or got.get("sha256") != entry["sha256"]:
+            problems.append(f"{entry['file']} 包文件登记与源文件不一致（重算 {entry['sha256'][:12]}）")
+    return problems
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="只校验：重算清单并核对落盘产物，不写文件")
+    args = ap.parse_args()
+
+    if not PIN_ROOT.is_dir():
+        print(f"缺少 vLLM 源码 checkout：{PIN_ROOT}", file=sys.stderr)
+        return 2
+
+    manifest, patched_texts, code = build_manifest()
+    if code:
+        return code
     out = PATCH_ROOT / "manifest.json"
-    if not args.check:
-        out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
-        print(f"生成完成：{out.relative_to(REPO)}（{len(manifest['edits'])} 个文件被改、"
-              f"{len(manifest['new_files'])} 个新文件、{len(manifest['package_files'])} 个包文件）")
-    else:
-        print("校验通过（未写文件）")
+
+    if args.check:
+        problems = check_disk(manifest)
+        if problems:
+            for p in problems:
+                print(f"FAIL {p}", file=sys.stderr)
+            print(f"补丁树与重算结果不一致（{len(problems)} 项）：先修正源，再 --write", file=sys.stderr)
+            return 4
+        print(
+            f"校验通过：{len(manifest['edits'])} 个改写文件、{len(manifest['new_files'])} 个新文件、"
+            f"{len(manifest['package_files'])} 个包文件与落盘产物一致（未写文件）"
+        )
+        return 0
+
+    patched_root = PATCH_ROOT / "patched"
+    patched_root.mkdir(parents=True, exist_ok=True)
+    for rel, text in patched_texts.items():
+        dest = patched_root / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text)
+    out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+    print(f"生成完成：{out.relative_to(REPO)}（{len(manifest['edits'])} 个文件被改、"
+          f"{len(manifest['new_files'])} 个新文件、{len(manifest['package_files'])} 个包文件）")
     return 0
 
 

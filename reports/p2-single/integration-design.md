@@ -442,7 +442,7 @@ DA 行是 `seqused_k`，无需再并入原 canonical 上界；单请求压缩视
 | 钩子 | 位置（pin 事实） | 作用 | 环境变量 |
 | --- | --- | --- | --- |
 | 强制轨迹 | worker `model_runner.py`：`self.sample(...)` **之后**、PP broadcast / `AsyncOutput` / `postprocess_sampled` **之前**（`:1861-1920`） | **原地**替换 `sampler_output.sampled_token_ids` ⇒ worker 历史与送往宿主的 token 是同一个值（不分叉）；同时记录**原始采样** | `ATTNVIEW_CALIB_FORCE` / `ATTNVIEW_CALIB_FORCE_LOG` |
-| 完整 logits | worker `sample`：`compute_logits(...)` **之后**、grammar/sampler **就地改写之前**（`:1421-1432`） | 保存**全词表** logits（top-k 归一化后无法做全词表误差与尾部非有限值检查） | `ATTNVIEW_CALIB_LOGITS` |
+| 完整 logits | worker `sample`：`compute_logits(...)` **之后**、grammar/sampler **就地改写之前**（`:1421-1432`） | 保存**全词表** logits（top-k 归一化后无法做全词表误差与尾部非有限值检查） | `ATTNVIEW_CALIB_ARM` 控制文件的 `logits_path`（只对 `target_req_id` 生效） |
 | 覆写 trace | `fa_override_for_step` 返回前 | 逐步记录 `seqused_k`/可见块/`max_seq_len`/缓冲指针、**入参指纹**（`data_ptr`/`_version`，CPU 侧元数据、不读设备）与真实 stream/图捕获状态 | `ATTNVIEW_CALIB_TRACE` |
 
 - 强制轨迹格式：`{"tokens": [step][row] = [token_ids...]}`（每步 × 每个请求行）；格式不符或轨迹用尽即**拒绝**，不静默降级。
