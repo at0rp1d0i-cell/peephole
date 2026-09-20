@@ -1,7 +1,7 @@
 """SUP-004 smoke:masked 结构检查草稿的 CPU 用例。
 
-**注意**:`smoke_structure.py` 目前是**草稿、非门禁**(NATIVE-053),核心比较与 trace 判据需重做,
-因此这些用例暂时 `@unittest.skip`,避免把"看似通过"当证据。重做要求见 closeout §2b。
+**注意**:`smoke_structure.py` 目前是**未完成的门禁**(NATIVE-053):核心比较与 trace 判据需按 closeout §2b 重做。
+这些用例**照常执行**,当前会失败——失败即证据,不得 skip 掩饰。
 
 复用既有 `LayerCaptureTest._armed`/`FakeModel`/`FakeRunner`(真实 `_begin_step`/`_end_step`),
 为 fake runner 补上**固定 pin 形状**的字段(`block_tables.input_block_tables`/`input_buffers.slot_mappings`),
@@ -41,7 +41,6 @@ class FakeExecState:
         self.slot_mappings_by_layer = slots
 
 
-@unittest.skip("结构检查草稿:比较与 trace 判据待按 NATIVE-053/closeout §2b 重做后启用")
 class StructureCheckTest(unittest.TestCase):
     PROMPT = PROMPT
     DECODES = DECODES
