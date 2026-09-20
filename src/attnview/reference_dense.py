@@ -20,6 +20,7 @@ import torch
 
 __all__ = [
     "ReferenceError",
+    "perform_reference_attention",
     "VisibleMask",
     "independent_visible_positions",
     "gather_positions",
@@ -215,6 +216,9 @@ class TestOnlyReferenceSwitch:
     steps: tuple[int, ...] = ()
     scale: float = 0.0
     dtype: torch.dtype = torch.bfloat16
+    current_request_id: str | None = None
+    """运行期正在驱动的请求 id(由 harness 在每步设置);未设置时 `should_override` 一律返回 False。"""
+    current_step: int = 0
     calls: list[dict[str, Any]] = field(default_factory=list)
     restores: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -273,3 +277,52 @@ def return_only_variant(
     """反例辅助:只**返回**新张量、不写传入缓冲(用于验证测试能检出这种错误接线)。"""
     _fp32, casted = dense_attention_fp32(q, k, v, scale=scale, dtype=dtype)
     return casted
+
+def perform_reference_attention(
+    switch: "TestOnlyReferenceSwitch",
+    *,
+    layer_idx: int,
+    step: int,
+    query: torch.Tensor,
+    kv_cache: Any,
+    attn_metadata: Any,
+    output: torch.Tensor,
+) -> dict[str, Any]:
+    """参考路径入口(测试专用):由 harness 风格的 `attn_metadata` 取几何,写回传入 `output`。
+
+    `attn_metadata` 需提供:`block_table`、`kernel_block_size`、`kv_len`、`prompt_len`、`mode`、`refs`、
+    `sink_span`、`local_window_span`、`segment_spans`;`kv_cache` 为 `(k_cache, v_cache)`。
+    **cast 目标 dtype 取 `output.dtype`**(不是默认值),并真实计算 FP32-vs-cast 与幅度指标。
+    """
+    k_cache, v_cache = kv_cache
+    mask = independent_visible_positions(
+        mode=str(attn_metadata.mode), refs=tuple(attn_metadata.refs), kv_len=int(attn_metadata.kv_len),
+        prompt_len=int(attn_metadata.prompt_len), sink_span=tuple(attn_metadata.sink_span),
+        local_window_span=tuple(attn_metadata.local_window_span),
+        segment_spans=tuple(tuple(s) for s in attn_metadata.segment_spans),
+        block_size=int(attn_metadata.kernel_block_size),
+    )
+    q = query if query.dim() == 2 else query.reshape(-1, query.shape[-1])
+    k, v = gather_positions(k_cache, v_cache, tuple(attn_metadata.block_table),
+                            int(attn_metadata.kernel_block_size), mask.read_positions)
+    fp32, casted = dense_attention_fp32(q, k, v, scale=float(switch.scale), dtype=output.dtype)
+    if casted.dtype != output.dtype:
+        raise ReferenceError(f"cast 目标 dtype 与 output 不一致:{casted.dtype} vs {output.dtype}")
+    if tuple(output.shape) != tuple(casted.shape):
+        raise ReferenceError(f"output 形状 {tuple(output.shape)} 与参考 {tuple(casted.shape)} 不一致")
+    output.copy_(casted)
+    diff = (casted.to(torch.float32) - fp32)
+    ref_l2 = float(torch.linalg.vector_norm(fp32))
+    non_finite = int((~torch.isfinite(fp32)).sum().item())
+    if non_finite:
+        raise ReferenceError(f"参考输出含非有限值:{non_finite}")
+    return {
+        "semantic_positions": len(mask.semantic_positions), "read_positions": len(mask.read_positions),
+        "blocks": list(mask.blocks), "effective_per_block": list(mask.effective_per_block),
+        "output_dtype": str(output.dtype),
+        "fp32_to_output_max_abs": float(diff.abs().max()),
+        "fp32_to_output_rms": float(torch.sqrt((diff ** 2).mean())),
+        "fp32_to_output_rel_l2": float(torch.linalg.vector_norm(diff) / ref_l2) if ref_l2 > 0 else None,
+        "ref_abs_max": float(fp32.abs().max()), "ref_l2": ref_l2, "non_finite_count": non_finite,
+        "wrote_in_place": True,
+    }
