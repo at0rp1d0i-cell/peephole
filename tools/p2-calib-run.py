@@ -1459,6 +1459,41 @@ def drive_cleanup_rounds(llm, req_id: str, *, max_rounds: int = 16) -> dict:
     }
 
 
+def cleanup_enforce_checks(*, enforce_global: bool, config_enforce_global, marks, non_global_steps,
+                           observed_modes) -> list[tuple[str, bool, str]]:
+    """cleanup 阶段按臂的 enforce_global 预期(纯函数,便于 CPU 控制流测试)。
+
+    - `enforce_global=True`(既有 global 臂):载荷配置必须为 True;出现协议模式非 global 的步时**必须**留下
+      `applied_view=global` 的覆写 mark;全程 global 时 `marks=[]` 属正确结果。**语义与原来完全一致**。
+    - `enforce_global=False`(masked 臂):载荷配置必须为 **False**;**不要求**任何覆写 mark,并且必须
+      **确认无强制全局标记**(`marks == []`),因为该臂不允许经 enforce_global 把执行拉回 global。
+    """
+    out: list[tuple[str, bool, str]] = []
+    name = "new_req_payload_enforce_global"
+    if enforce_global:
+        out.append((name, config_enforce_global is True,
+                    f"B 的请求级配置 enforce_global={config_enforce_global}(期望 True)"))
+        if non_global_steps:
+            bad = [m for m in marks
+                   if str(m.get("applied_view")).lower() != "global"
+                   or str(m.get("protocol_mode", "")).lower() == "global"]
+            out.append(("new_req_enforce_global_step_recorded", bool(marks) and not bad,
+                        f"存在协议模式非 global 的步 {non_global_steps}(真实模式 {observed_modes})⇒ 必须有"
+                        f" applied_view=global 且 protocol_mode 非 global 的 mark;实际 marks={marks[:2]} 不合规项={bad[:2]}"))
+        elif observed_modes:
+            out.append(("new_req_enforce_global_step_recorded", True,
+                        f"B 全程协议模式为 global(真实模式 {observed_modes})⇒ 无覆写 mark 属正确结果(marks={marks[:2]})"))
+        else:
+            out.append(("new_req_enforce_global_step_recorded", False,
+                        f"无法从真实状态观察到 B 的协议模式 ⇒ 不得据此断言 marks 是否应存在"))
+    else:
+        out.append((name, config_enforce_global is False,
+                    f"masked 臂载荷配置 enforce_global={config_enforce_global}(期望 False:不得经 enforce_global 拉回 global)"))
+        out.append(("masked_no_forced_global_marks", not marks,
+                    f"masked 臂不得出现强制全局覆写标记;实际 marks={marks[:2]}(共 {len(marks)})"))
+    return out
+
+
 def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: bool, out_dir: Path,
                       enforce_global: bool = True) -> dict:
     """校准 #5 的清理验收：**真实提交 → 驱动到产出 token → 执行中取消 → 清理轮 → 新带载荷请求**。
@@ -1619,54 +1654,20 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
                     any(state.get("in_configs") for state in observable),
                     f"B 在运行中确有请求级协议状态：{[ {k: s.get(k) for k in ('in_registry', 'in_configs', 'in_detok')} for s in observable ]}",
                 )
-                log.check(
-                    "new_req_payload_enforce_global",
-                    any(state.get("config_enforce_global") is True for state in observable),
-                    f"B 的请求级配置 enforce_global={[s.get('config_enforce_global') for s in observable]}",
-                )
-                # 只有"协议模式**非 global** 且执行被 enforce_global 覆写"的步才留下 mark
-                # （`attnview_engine.py:126,541-553`）。若 B 全程模式本来就是 global（例如 `<global>`
-                # 尚未闭合），`marks=[]` 是**正确**结果 ⇒ 不得无条件要求非空。判定用的模式来自**真实状态**
-                # （engine 侧 registry 的 `.mode`，逐 step 探针），不构造、不推进请求。
-                marks = [
-                    mark
-                    for state in observable
-                    for mark in state.get("enforce_global_steps", ())
-                    if str(mark.get("req_id")) == internal("new")
-                ]
+                cfg_flags = [state.get("config_enforce_global") for state in observable]
+                payload_flag = cfg_flags[0] if cfg_flags else None
+                # 只有"协议模式**非 global** 且执行被 enforce_global 覆写"的步才留下 mark。
+                marks = [mark for state in observable for mark in state.get("enforce_global_steps", ())
+                         if str(mark.get("req_id")) == internal("new")]
                 modes = {step: entry["mode"] for step, entry in probes_b.items()}
                 observed_modes = [entry["mode"] for entry in modes.values() if entry.get("observable")]
-                non_global_steps = [
-                    step for step, entry in modes.items()
-                    if entry.get("observable") and str(entry.get("mode")).lower() != "global"
-                ]
+                non_global_steps = [step for step, entry in modes.items()
+                                    if entry.get("observable") and str(entry.get("mode")).lower() != "global"]
                 result["observations"]["new_req_modes"] = modes
-                if non_global_steps:
-                    bad_marks = [
-                        mark for mark in marks
-                        if str(mark.get("applied_view")).lower() != "global"
-                        or str(mark.get("protocol_mode", "")).lower() == "global"
-                    ]
-                    log.check(
-                        "new_req_enforce_global_step_recorded",
-                        bool(marks) and not bad_marks,
-                        f"存在协议模式非 global 的步 {non_global_steps}（真实模式 {observed_modes}）⇒ 必须有"
-                        f" applied_view=global 且 protocol_mode 非 global 的 mark；实际 marks={marks[:2]} "
-                        f"不合规项={bad_marks[:2]}",
-                    )
-                elif observed_modes:
-                    log.check(
-                        "new_req_enforce_global_step_recorded",
-                        True,
-                        f"B 全程协议模式为 global（真实模式 {observed_modes}）⇒ 无覆写 mark 属正确结果"
-                        f"（marks={marks[:2]}）；该检查只在出现非 global 步时要求 mark",
-                    )
-                else:
-                    log.check(
-                        "new_req_enforce_global_step_recorded",
-                        False,
-                        f"无法从真实状态观察到 B 的协议模式（{modes}）⇒ 不得据此断言 marks 是否应存在",
-                    )
+                for cname, cok, cmsg in cleanup_enforce_checks(
+                        enforce_global=enforce_global, config_enforce_global=payload_flag, marks=marks,
+                        non_global_steps=non_global_steps, observed_modes=observed_modes):
+                    log.check(cname, cok, cmsg)
             else:
                 log.check(
                     "new_req_state_unobservable_documented",
@@ -2073,6 +2074,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         tensor_parallel_size=1,
         enforce_eager=True,
         max_model_len=MAX_MODEL_LEN,
+        # 7834-token prompt 必须**单次 prefill**;仅 masked 臂固定该项,旧三臂 kwargs 不变。
+        **({"max_num_batched_tokens": 8192} if args.arm == "patched-masked" else {}),
         max_num_seqs=1,
         enable_prefix_caching=False,
         gpu_memory_utilization=0.85,
@@ -2087,6 +2090,14 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     except Exception as exc:  # 无法构造 ⇒ 让门禁明确拒绝，而不是偷偷用默认值
         print(f"警告: 无法构造 AttentionConfig(flash_attn_version=2): {exc}", file=sys.stderr)
     manifest["config"]["llm_kwargs"] = {k: str(v) for k, v in llm_kwargs.items()}
+    manifest["config"]["max_num_batched_tokens_requested"] = llm_kwargs.get("max_num_batched_tokens")
+    try:   # 记录**真实生效值**(不是只看传入 kwargs)
+        _sc = getattr(getattr(llm, "llm_engine", None), "vllm_config", None)
+        _sc = getattr(_sc, "scheduler_config", None)
+        manifest["config"]["max_num_batched_tokens_effective"] = (
+            None if _sc is None else getattr(_sc, "max_num_batched_tokens", None))
+    except Exception as exc:  # noqa: BLE001
+        manifest["config"]["max_num_batched_tokens_effective"] = f"unavailable: {type(exc).__name__}"
 
     with Watchdog(STARTUP_BUDGET_S, "startup", out, manifest_path) as startup_watch:
         llm = LLM(**llm_kwargs)
