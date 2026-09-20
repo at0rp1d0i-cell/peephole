@@ -619,6 +619,7 @@ class LayerCaptureTest(unittest.TestCase):
                             "三轴不得冒充逻辑位置（本例三轴 = 逻辑位置 + 100）")
 
         # 反例：一维缓冲换成"三轴首轴"的值 ⇒ 起点/连续性检查必须拒绝
+        capture.restore()
         capture2 = self.driver.LayerCapture(
             runner=runner, expected_layers={0: "language_model.model.layers.3.self_attn.attn"})
         capture2.wrap_impl(0, impls[0])
