@@ -164,8 +164,11 @@ def main() -> int:
         len([e for e in at_a.ledger if e["request_id"] == "req-A" and e["action"] == "overrode"]) == 9
         and {e["request_id"] for e in at_a.ledger} == {"req-A", "req-B"},
         counts={r: len([e for e in at_a.ledger if e["request_id"] == r]) for r in ("req-A", "req-B")})
-    chk("两请求 KV/GDN 状态对象独立(不同对象、不同初值)",
-        kv_a[0] is not kv_b[0] and not torch.equal(kv_a[1], kv_b[1]) and not torch.equal(kv_a[2], kv_b[2]))
+    kv_a[2].add_(1.0)   # 改动 A 的 GDN 状态,验证不影响 B
+    chk("两请求 KV/GDN 状态对象独立(对象不同、KV 初值不同、改一个不影响另一个)",
+        kv_a[0] is not kv_b[0] and kv_a[1] is not kv_b[1] and kv_a[2] is not kv_b[2]
+        and not torch.equal(kv_a[0], kv_b[0]) and float(kv_b[2].abs().max()) == 0.0,
+        gdn_a_after=float(kv_a[2].abs().max()), gdn_b_after=float(kv_b[2].abs().max()))
     chk("B 请求未被参考改写(输出缓冲仍为初值)", all(float(out_b[i].abs().max()) == 0.0 for i in range(3)))
     chk("恢复后 forward 身份等于原方法", all(impls[i].forward == originals[i] for i in range(3))
         and at_a.restored == [0, 1, 2], restored=at_a.restored)
