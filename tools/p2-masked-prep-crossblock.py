@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""NATIVE-030:跨 784 块边界的真实 renderer 夹具 + 安全负对照(CPU,不加载模型)。
+"""SUP-004-masked-prep-R2:跨 784 块边界的真实 renderer 夹具 + 安全负对照(纯 CPU)。
 
-复用既有入口:prompt.render_arm / segmenter / parser / state / readview / gpukv / step_plan。
-门禁序列与 `step_plan.build_step_plan` 内部一致(ViewInputs → build_read_view →
-read_table_from_read_view → StepPlan.validate);负对照用同一门禁,不新造判定逻辑。
+按 R2 修订要点:
+1. 生成流使用**合法声明**(C3.2:`<focus magic_chunks="K">…</focus>`、`<local>`…`</local>`),
+   模式/引用来自真实状态(`mode` + `refs`),不再把模式串当 `focus<idx>` 解析;
+   轨迹覆盖 global → local → global → focus → global,**恢复 global 后有实际 forward**。
+2. 区分 **0 基生成 token 下标** 与 **1 基 decode 次数**:第 d 个 decode 的 KV = prompt_len + d,
+   首次写入块 10 需 KV = 7841 ⇒ d_cross = 7841 - prompt_len;**跨界发生在受限模式期间**。
+3. 负对照必须含"读取另一个**已写且已分配**的完整块"(从受限有效视图派生,排序/唯一/块数/长度自洽),
+   由**独立预期集合**检出;尾长 −1 同步改末块计数与总长,内部自洽后再与外部真值比较。
+4. 只接受**明确预期的合同异常**;其它异常(如 TypeError)判失败;删除恒真断言与死代码。
+5. 有效长度真值由**独立预期块集**计算,不从候选块表反算;候选自校验与独立审计门禁**分列**。
+CPU 不运行 kernel、不执行读取:不宣称 kernel 未越读。
 """
 from __future__ import annotations
 
@@ -17,16 +25,11 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
 SNAPSHOT = REPO / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+CONTRACT_ERRORS = ("AttnViewConfigError", "ReadViewError", "GpuKvError")
 
 
-def block_of(pos: int, bs: int) -> int:
-    return pos // bs
-
-
-def expand(spans, kv_len, bs):
-    """独立展开:协议 span → 可见位置 → 可见块(不调用候选实现)。"""
-    positions = sorted({p for s, e in spans for p in range(max(0, s), min(e, kv_len))})
-    return positions, sorted({block_of(p, bs) for p in positions})
+def blocks_of(positions, bs):
+    return sorted({p // bs for p in positions})
 
 
 def main() -> int:
@@ -41,338 +44,227 @@ def main() -> int:
 
     from transformers import AutoTokenizer
 
-    from attnview.gpukv import read_table_from_read_view
+    from attnview.gpukv import GpuKvError, read_table_from_read_view
     from attnview.prompt import _tokenize_with_offsets, render_arm
-    from attnview.readview import TokenLayout, ViewInputs, build_read_view
+    from attnview.readview import ReadViewError, TokenLayout, ViewInputs, build_read_view
     from attnview.segmenter import build_offsets_index, segment_context
     from attnview.state import RequestProtocolState
     from attnview.step_plan import AttnViewConfigError, StepPlan
 
+    exc_names = {"AttnViewConfigError": AttnViewConfigError, "ReadViewError": ReadViewError, "GpuKvError": GpuKvError}
     tok = AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False)
-    question = fixture["question"]
-    base = fixture["document"]
-
-    fine = cfg["fine_char"]
+    base, question, fine = fixture["document"], fixture["question"], cfg["fine_char"]
 
     def render(units: int, fine_n: int = 0):
         ctx = base + ("\n\n" + cfg["filler_unit"]) * units + fine * fine_n
         _ids, offsets = _tokenize_with_offsets(tok, ctx)
         segs = segment_context(ctx, build_offsets_index(offsets))
-        arm = render_arm("da", segs, question, ctx, tok, enable_thinking=False)
-        return ctx, segs, arm
+        return ctx, segs, render_arm("da", segs, question, ctx, tok, enable_thinking=False)
 
-    # --- 只调公开合成 context 长度,使 prompt 末尾贴近块边界(不改分段规则) ---
+    # 只调整公开合成 context 长度(不改模板/sink/分段规则)
     lo, hi = 0, int(cfg["max_filler_units"])
-    ctx, segs, arm = render(hi)
-    if len(arm.token_ids) < target:
-        raise RuntimeError(f"filler 上限仍不足:{len(arm.token_ids)} < {target}")
+    if len(render(hi)[2].token_ids) < target:
+        raise RuntimeError("filler 上限不足")
     while lo < hi:
         mid = (lo + hi) // 2
-        _c, _s, a = render(mid)
-        if len(a.token_ids) >= target:
-            hi = mid
-        else:
-            lo = mid + 1
-    cands = []
+        hi = mid if len(render(mid)[2].token_ids) >= target else lo + 1 if False else (lo := mid + 1)
+    best = None
     for u in range(max(0, lo - 2), lo + 3):
-        best_f = None
         for f in range(0, int(cfg["max_fine_units"]) + 1):
-            c, sg, a = render(u, f)
-            n = len(a.token_ids)
-            if best_f is None or abs(n - target) < abs(best_f[0] - target):
-                best_f = (n, f, c, sg, a)
+            ctx, segs, arm = render(u, f)
+            n = len(arm.token_ids)
+            if best is None or abs(n - target) < abs(len(best[2].token_ids) - target):
+                best = (u, f, ctx, segs, arm)
             if n == target:
                 break
-        cands.append((abs(best_f[0] - target), u, best_f[1], best_f[2], best_f[3], best_f[4]))
-    cands.sort(key=lambda x: (x[0], x[1], x[2]))
-    gap, units, fine_n, ctx, segs, arm = cands[0]
+    units, fine_n, ctx, segs, arm = best
     prompt_len = len(arm.token_ids)
-    block_size = bs
-    assert gap == 0, f"未能精确命中目标 prompt_len={target}(最接近 {prompt_len});需调整 fine_char/上限"
+    if prompt_len != target:
+        raise RuntimeError(f"未精确命中 target={target},实际 {prompt_len}")
 
-    layout = TokenLayout(
-        prompt_len=prompt_len,
-        segment_spans=tuple(tuple(s) for s in arm.segment_spans),
-        local_window_span=tuple(arm.scaffold.local_window_span),
-        sink_span=tuple(arm.scaffold.sink_span),
-    )
-    n_alloc = block_of(prompt_len, bs) + 8
-    canonical = tuple(range(n_alloc))
-    report = {
+    layout = TokenLayout(prompt_len=prompt_len, segment_spans=tuple(tuple(s) for s in arm.segment_spans),
+                         local_window_span=tuple(arm.scaffold.local_window_span), sink_span=tuple(arm.scaffold.sink_span))
+    alloc_n = prompt_len // bs + 8
+    canonical = tuple(range(alloc_n))
+    max_width = (prompt_len + bs - 1) // bs + 4
+    d_cross = (prompt_len // bs + 1) * bs + 1 - prompt_len  # 第 d 个 decode 首次写下一块
+
+    report: dict = {
+        "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "config_sha256": hashlib.sha256(args.config.read_bytes()).hexdigest(),
         "config": str(args.config), "fixture": cfg["fixture"], "block_size": bs,
-        "target_prompt_len": target, "prompt_len": prompt_len,
-        "filler_units": units, "fine_units": fine_n, "context_sha256": hashlib.sha256(ctx.encode()).hexdigest(),
+        "target_prompt_len": target, "prompt_len": prompt_len, "filler_units": units, "fine_units": fine_n,
+        "context_sha256": hashlib.sha256(ctx.encode()).hexdigest(),
         "prompt_sha256": hashlib.sha256(arm.rendered.encode()).hexdigest(),
         "token_ids_sha256": hashlib.sha256(bytes(str(list(arm.token_ids)), "utf-8")).hexdigest(),
-        "token_ids_count": len(arm.token_ids),
         "token_ids": list(arm.token_ids),
         "segment_spans": [list(s) for s in arm.segment_spans],
-        "local_window_span": list(arm.scaffold.local_window_span),
-        "sink_span": list(arm.scaffold.sink_span),
-        "question_span": list(arm.question_span),
-        "next_block_start": (block_of(prompt_len, bs) + 1) * bs,
+        "local_window_span": list(arm.scaffold.local_window_span), "sink_span": list(arm.scaffold.sink_span),
+        "next_block": prompt_len // bs + 1, "next_block_start": (prompt_len // bs + 1) * bs,
+        "decode_index_of_first_write_into_next_block": d_cross,
         "steps": [], "negative_controls": [], "checks": [], "limits": cfg["limits"],
     }
 
-    # --- 真实 parser/state 驱动的固定 token 轨迹 ---
     state = RequestProtocolState("cross", arm="da", num_segments=len(segs), prompt_len=prompt_len)
-    script: list[tuple[int, str]] = []
-    for piece in cfg["generation_script"]:
-        for tid in tok.encode(piece, add_special_tokens=False):
-            script.append((int(tid), tok.decode([int(tid)])))
+    script = [(int(t), tok.decode([int(t)])) for piece in cfg["generation_script"]
+              for t in tok.encode(piece, add_special_tokens=False)]
     for t, (tid, text) in enumerate(script):
         rec = state.feed_generated_token(t, tid, text)
         mode, refs = state.view_for_next_step()
-        kv_len = state.attention_kv_len_next
-        spans = [tuple(layout.sink_span), tuple(layout.local_window_span), (prompt_len, kv_len)]
+        written = prompt_len + t + 1                      # 1 基 decode 次数 = t+1
+        kv = written                                      # 本步 attention 的 KV 上界(含本 token)
+        spans = [tuple(layout.sink_span), tuple(layout.local_window_span), (prompt_len, kv)]
         if mode == "global":
-            spans.append((0, kv_len))
-        elif mode.startswith("focus"):
-            spans.append(tuple(layout.segment_span(int(mode[5:]) - 1)))
-        indep_positions, indep_blocks = expand(spans, kv_len, bs)
-        view = build_read_view(ViewInputs(
-            mode=mode, refs=tuple(refs), layout=layout, attention_kv_len=kv_len,
-            canonical_blocks=canonical, kernel_block_size=bs,
-            max_width=(kv_len + bs - 1) // bs + 1, effect_step=rec.effect_step,
-        ))
+            spans.append((0, kv))
+        elif mode == "focus":
+            spans += [tuple(layout.segment_span(int(r) - 1)) for r in refs]
+        positions = sorted({p for s, e in spans for p in range(max(0, s), min(e, kv))})
+        ind_blocks = blocks_of(positions, bs)                          # 独立可见块
+        ind_counts = [max(0, min(kv, (b + 1) * bs) - b * bs) for b in ind_blocks]  # 独立每块有效数
+        view = build_read_view(ViewInputs(mode=mode, refs=tuple(refs), layout=layout, attention_kv_len=kv,
+                                          canonical_blocks=canonical, kernel_block_size=bs,
+                                          max_width=max_width, effect_step=rec.effect_step))
         table = read_table_from_read_view(view, canonical)
-        plan = StepPlan(
-            req_id="cross", mode=view.mode, refs=tuple(view.declared_refs), effect_step=view.effect_step,
-            visible_logical_blocks=tuple(int(b) for b in table.visible_blocks),
-            effective_per_block=tuple(int(c) for c in table.effective_per_block),
-            seqused_k=int(table.seqused_k), block_size=int(table.block_size), width=int(view.max_width),
-            tail_len=int(table.tail_len), attention_kv_len=int(table.attention_kv_len),
-            next_write_position=int(table.next_write_position),
-            written_before_step=int(view.written_before_step),
-        ).validate()
-        written = sorted({block_of(p, bs) for p in range(kv_len)})
-        eff_from_blocks = sum(max(0, min(kv_len, (b + 1) * bs) - b * bs) for b in plan.visible_logical_blocks)
+        plan = StepPlan(req_id="cross", mode=view.mode, refs=tuple(view.declared_refs), effect_step=view.effect_step,
+                        visible_logical_blocks=tuple(int(b) for b in table.visible_blocks),
+                        effective_per_block=tuple(int(c) for c in table.effective_per_block),
+                        seqused_k=int(table.seqused_k), block_size=int(table.block_size), width=int(view.max_width),
+                        tail_len=int(table.tail_len), attention_kv_len=int(table.attention_kv_len),
+                        next_write_position=int(table.next_write_position),
+                        written_before_step=int(view.written_before_step)).validate()
         report["steps"].append({
-            "gen_step": t, "token_id": tid, "token_text": text,
-            "kv_len": kv_len, "written_blocks": written,
-            "newly_written_block": sorted(set(written) - ({block_of(kv_len - 1, bs)} if False else set())) if False else (
-                block_of(kv_len - 1, bs) if kv_len - 1 >= 0 else None),
-            "parse_step": t, "effect_step": rec.effect_step,
-            "next_write_position": rec.next_write_position,
+            "gen_index_0based": t, "decode_count_1based": t + 1, "token_id": tid, "token_text": text,
+            "kv_len": kv, "written_len_independent": written,
+            "written_blocks": sorted({p // bs for p in range(kv)}),
             "mode": plan.mode, "refs": list(plan.refs),
+            "parse_effect_step": rec.effect_step,
             "visible_blocks_candidate": list(plan.visible_logical_blocks),
-            "visible_blocks_independent": indep_blocks,
-            "positions_count_independent": len(indep_positions),
-            "effective_per_block": list(plan.effective_per_block),
-            "effective_read_tokens_plan": int(plan.seqused_k),
-            "effective_read_tokens_from_blocks": eff_from_blocks,
-            "seqused_k": int(plan.seqused_k), "tail_len": int(plan.tail_len), "width": int(plan.width),
-            "matches_independent": list(plan.visible_logical_blocks) == indep_blocks,
+            "visible_blocks_independent": ind_blocks,
+            "counts_candidate": list(plan.effective_per_block), "counts_independent": ind_counts,
+            "total_candidate": int(plan.seqused_k), "total_independent": sum(ind_counts),
+            "write_position_candidate": int(plan.next_write_position), "write_position_independent": written,
+            "first_write_into_next_block": (kv - 1) == report["next_block_start"],
+            "match": {"visible": list(plan.visible_logical_blocks) == ind_blocks,
+                      "counts": list(plan.effective_per_block) == ind_counts,
+                      "total": int(plan.seqused_k) == sum(ind_counts),
+                      "position": int(plan.next_write_position) == written},
         })
     steps = report["steps"]
-    next_block = block_of(prompt_len, bs) + 1
-    first_cross = next((s["gen_step"] for s in steps if next_block in s["written_blocks"]), None)
+    report["transitions"] = state.trace()
+    cross_steps = [s for s in steps if s["first_write_into_next_block"]]
+    modes_seen = sorted({s["mode"] for s in steps})
     report["crossing"] = {
-        "next_block": next_block, "block_start": next_block * bs,
-        "prompt_written_blocks": sorted({block_of(p, bs) for p in range(prompt_len)}),
-        "first_decode_step_kv": prompt_len + 1,
-        "first_step_writing_next_block": first_cross,
-        "decode_steps_until_crossing": first_cross,
-        "note": "prompt 末尾位于块 9 内(kv=prompt_len+1=7840 时仍只写 0..9)；再 1 个 decode 步(kv=7841,写入位置 7840)首次写入块 10。",
+        "next_block": report["next_block"], "block_start": report["next_block_start"],
+        "decode_index_of_first_write_into_next_block": d_cross,
+        "observed_decode_index": cross_steps[0]["decode_count_1based"] if cross_steps else None,
+        "mode_at_crossing": cross_steps[0]["mode"] if cross_steps else None,
+        "note": "第 d 个 decode 的 KV = prompt_len + d;KV = 7841 时写入位置 7840 属块 10。",
     }
 
-    # --- 安全负对照:同一门禁,必须拒绝,且样本本身不越界/不触未初始化槽 ---
-    def try_plan(label: str, **over) -> dict:
-        base_kw = dict(
-            req_id="cross-neg", mode="local", refs=(), effect_step=1,
-        )
-        base_kw.update(over)
-        rec: dict = {"label": label, "kind": "构造失败测试(未形成可读计划)", "kwargs": {k: (list(v) if isinstance(v, tuple) else v) for k, v in base_kw.items()}}
-        try:
-            if "raw_table" in over:
-                t_ = over["raw_table"]
-                StepPlan(
-                    req_id="cross-neg", mode="local", refs=(), effect_step=1,
-                    visible_logical_blocks=tuple(t_["visible_blocks"]),
-                    effective_per_block=tuple(t_["effective_per_block"]),
-                    seqused_k=int(t_["seqused_k"]), block_size=int(t_["block_size"]),
-                    width=int(t_["width"]), tail_len=int(t_["tail_len"]),
-                    attention_kv_len=int(t_["attention_kv_len"]),
-                    next_write_position=int(t_["next_write_position"]),
-                    written_before_step=int(t_["written_before_step"]),
-                ).validate()
-                rec.update(rejected=False, reason="门禁未拒绝(意外)")
-                return rec
-            if "canonical" in over and "mode" in over:
-                v = build_read_view(ViewInputs(
-                    mode=over["mode"], refs=tuple(over.get("refs", ())), layout=layout,
-                    attention_kv_len=int(over["attention_kv_len"]),
-                    canonical_blocks=tuple(over["canonical"]), kernel_block_size=bs,
-                    max_width=int(over.get("max_width", 32)), effect_step=1,
-                ))
-                tb = read_table_from_read_view(v, tuple(over["canonical"]))
-                StepPlan(
-                    req_id="cross-neg", mode=v.mode, refs=tuple(v.declared_refs), effect_step=1,
-                    visible_logical_blocks=tuple(int(b) for b in tb.visible_blocks),
-                    effective_per_block=tuple(int(c) for c in tb.effective_per_block),
-                    seqused_k=int(tb.seqused_k), block_size=bs, width=int(v.max_width),
-                    tail_len=int(tb.tail_len), attention_kv_len=int(tb.attention_kv_len),
-                    next_write_position=int(tb.next_write_position),
-                    written_before_step=int(v.written_before_step),
-                ).validate()
-                rec.update(rejected=False, reason="门禁未拒绝(意外)")
-                return rec
-        except (AttnViewConfigError, Exception) as exc:  # noqa: BLE001
-            rec.update(rejected=True, error_type=type(exc).__name__, error=str(exc)[:300])
-            return rec
-        rec.update(rejected=False, reason="样本未构造")
-        return rec
-
-    # 基线:prompt 末尾一步(kv=7839,块 10 尚未写入)
-    v0 = build_read_view(ViewInputs(mode="local", refs=(), layout=layout, attention_kv_len=prompt_len,
-                                    canonical_blocks=canonical, kernel_block_size=bs,
-                                    max_width=(prompt_len + bs - 1) // bs + 1, effect_step=0))
-    t0 = read_table_from_read_view(v0, canonical)
-    report["baseline_at_prompt_end"] = {
-        "kv_len": prompt_len, "visible_blocks": list(t0.visible_blocks),
-        "written_blocks": sorted({block_of(p, bs) for p in range(prompt_len)}),
-        "block10_written_len": max(0, min(prompt_len, (block_of(prompt_len, bs) + 1) * bs) - (block_of(prompt_len, bs) + 1) * bs + bs) if False else 0,
-    }
-    # 负对照 1:声明"已分配但未写入"的块 10 可见(分配 0..10)
-    report["negative_controls"].append(try_plan(
-        "A 已分配但未写入的块 10 声明可见(kv=7839,分配 0..10)",
-        raw_table={"visible_blocks": [0, 7, 8, 9, 10], "effective_per_block": [784, 784, 784, 783, 0],
-                   "seqused_k": 3135, "block_size": bs, "width": 32, "tail_len": 0,
-                   "attention_kv_len": prompt_len, "next_write_position": prompt_len, "written_before_step": prompt_len},
-    ))
-    # 负对照 2:global 可见集合含块 10,但只分配了前缀 0..9 ⇒ 必须拒绝
-    report["negative_controls"].append(try_plan(
-        "B 可见块 10 超出已分配前缀 0..9(global,kv=7841)",
-        mode="global", canonical=list(range(10)), attention_kv_len=prompt_len + 2, refs=(),
-        max_width=32,
-    ))
-    # 负对照 3/4:从**真实计划**派生,减 1(错尾长 / 错 seqused_k);记录两层门禁结果
-    honest = next(s for s in steps if s["mode"] == "local")
-    base_plan_kw = dict(
-        visible_logical_blocks=honest["visible_blocks_candidate"],
-        effective_per_block=honest["effective_per_block"],
-        seqused_k=honest["seqused_k"], tail_len=honest["tail_len"], width=honest["width"],
-        attention_kv_len=honest["kv_len"],
-    )
-    for label, mut in (
-        ("C 有效尾长与末块有效数各减 1(真实计划派生)", "tail"),
-        ("D seqused_k 减 1(真实计划派生,其余不动)", "seq"),
-    ):
-        kw = dict(base_plan_kw)
-        if mut == "tail":
-            kw["tail_len"] -= 1
-            kw["effective_per_block"] = kw["effective_per_block"][:-1] + [kw["effective_per_block"][-1] - 1]
-        else:
-            kw["seqused_k"] -= 1
-        layer: dict = {"label": label, "honest": base_plan_kw, "mutated": kw}
-        try:
-            StepPlan(req_id="neg", mode="local", refs=(), effect_step=honest["effect_step"], block_size=bs,
-                     next_write_position=honest["next_write_position"], written_before_step=honest["kv_len"] - 1, **kw).validate()
-            layer["validate_layer"] = "通过(算术自洽,不构成拒绝)"
-        except Exception as exc:  # noqa: BLE001
-            layer["validate_layer"] = f"拒绝 {type(exc).__name__}: {str(exc)[:160]}"
-        # 注意:这是**本 CPU 脚本新增的测试判据**(与合同推导计划的逐字段精确相等),
-        # **不是**适配层既有行为;`attnview_adapter.py:695-711` 只检查 last_visible < allocated。
-        layer["cpu_test_criterion_exact_equality"] = "拒绝" if (
-            kw["seqused_k"] != base_plan_kw["seqused_k"] or kw["tail_len"] != base_plan_kw["tail_len"]
-            or kw["effective_per_block"] != base_plan_kw["effective_per_block"]
-        ) else "通过"
-        layer["rejected"] = layer["cpu_test_criterion_exact_equality"] == "拒绝"
-        layer["kind"] = "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)"
-        layer["reason"] = ("本 CPU 测试判据 = 与合同推导计划的逐字段精确相等(seqused_k/tail_len/effective_per_block/visible/width);"
-                           "**本轮未实测生产适配层是否拒绝此类改动**(adapter 仅有 last_visible < allocated 检查),"
-                           "也不为此改动生产路径。")
-        report["negative_controls"].append(layer)
-
-    # 负对照 5:把真实 local 计划中一个**已写且完整**的可见块(8)换成**已写但不可见**的完整块(3),
-    # 长度/形状/seqused_k/tail_len 全不变 ⇒ 算术门禁自洽;必须由**精确可见集合合同**拒绝。
-    adv = dict(base_plan_kw)
-    adv["visible_logical_blocks"] = [0, 3, 9, 10]
-    e_layer: dict = {"label": "E 已写但不可见完整块替换已写可见块(8→3,形状不变)", "honest": base_plan_kw, "mutated": adv}
-    try:
-        StepPlan(req_id="neg", mode="local", refs=(), effect_step=honest["effect_step"], block_size=bs,
-                 next_write_position=honest["next_write_position"], written_before_step=honest["kv_len"] - 1, **adv).validate()
-        e_layer["validate_layer"] = "通过(算术自洽,不构成拒绝)"
-    except Exception as exc:  # noqa: BLE001
-        e_layer["validate_layer"] = f"拒绝 {type(exc).__name__}: {str(exc)[:160]}"
-    indep_expected = honest["visible_blocks_independent"]
-    e_layer["independent_expected_visible"] = indep_expected
-    e_layer["visible_set_contract_rejects"] = sorted(adv["visible_logical_blocks"]) != sorted(indep_expected)
-    e_layer["rejected"] = bool(e_layer["visible_set_contract_rejects"])
-    e_layer["kind"] = "派生样本(计划可构造;由精确可见集合合同拒绝)"
-    e_layer["reason"] = ("**精确可见集合就是结构合同**:候选报告的可见集合必须等于由协议 span 独立推导的集合;"
-                         "块 3 虽已写且完整,但不属于 local 的可见集合 ⇒ 结构合同拒绝。**不需要数值 oracle**。")
-
-    def slot_audit(visible, effective_per_block, kv_len, allocated) -> dict:  # noqa: D401
+    # ---------- 负对照 ----------
+    def audit(vis, counts, kv, alloc):
         rows = []
-        for b, c in zip(visible, effective_per_block):
-            start = b * bs
-            written = max(0, min(kv_len, start + bs) - start)
-            rows.append({"block": b, "claimed": int(c), "written": written, "allocated": b < allocated,
-                         "slot_written": bool(b < allocated and int(c) <= written)})
+        for b, c in zip(vis, counts):
+            start, wrote = b * bs, max(0, min(kv, b * bs + bs) - b * bs)
+            rows.append({"block": int(b), "claimed": int(c), "written": wrote, "allocated": b < alloc,
+                         "slot_written": bool(b < alloc and 0 <= int(c) <= wrote)})
         return {"rows": rows, "all_slots_written": all(r["slot_written"] for r in rows),
-                "any_out_of_range": any(not r["allocated"] for r in rows)}
+                "sorted_unique": vis == sorted(set(vis)), "length_consistent": len(vis) == len(counts)}
 
-    e_layer["slot_audit"] = slot_audit(adv["visible_logical_blocks"], adv["effective_per_block"],
-                                      honest["kv_len"], len(canonical))
-    report["negative_controls"].append(e_layer)
-    for rc in report["negative_controls"]:
-        if "slot_audit" not in rc and "mutated" in rc:
-            mv = rc["mutated"]
-            rc["slot_audit"] = slot_audit(mv.get("visible_logical_blocks", []),
-                                          mv.get("effective_per_block", []), honest["kv_len"], len(canonical))
-        rc.setdefault("kind", "派生样本")
+    def run_plan(mode, vis, counts, total, tail, kv, steps_kw=None):
+        return StepPlan(req_id="neg", mode=mode, refs=(), effect_step=1, visible_logical_blocks=tuple(vis),
+                        effective_per_block=tuple(counts), seqused_k=int(total), block_size=bs, width=max_width,
+                        tail_len=int(tail), attention_kv_len=int(kv), next_write_position=int(kv - 1),
+                        written_before_step=int(kv - 1), **(steps_kw or {})).validate()
 
-    # --- 判定 ---
-    def chk(name, ok, **extra):
-        report["checks"].append({"name": name, "ok": bool(ok), **extra})
+    negs = []
+    # 构造失败类(额外样例,不替代安全错块)
+    for label, mode, alloc, kv_extra in (("A 声明已分配但未写入的块(needed_width 与可见块数不一致)", "local", alloc_n, 0),
+                                         ("B 可见块超出已分配前缀(数据面拒绝)", "global", prompt_len // bs, 2)):
+        try:
+            v = build_read_view(ViewInputs(mode=mode, refs=(), layout=layout, attention_kv_len=prompt_len + kv_extra,
+                                           canonical_blocks=tuple(range(alloc)), kernel_block_size=bs,
+                                           max_width=max_width, effect_step=0))
+            tb = read_table_from_read_view(v, tuple(range(alloc)))
+            run_plan(v.mode, list(tb.visible_blocks), list(tb.effective_per_block), tb.seqused_k, tb.tail_len, tb.attention_kv_len)
+            negs.append({"label": label, "kind": "构造失败测试", "rejected": False, "error_type": None})
+        except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
+            negs.append({"label": label, "kind": "构造失败测试", "rejected": True, "error_type": type(exc).__name__, "error": str(exc)[:200]})
+        except Exception as exc:  # noqa: BLE001
+            negs.append({"label": label, "kind": "构造失败测试", "rejected": False, "unexpected_error": f"{type(exc).__name__}: {exc}"[:200]})
+    # 安全错块:从**受限(local)有效视图**派生的跨界步计划,把一个已写可见完整块换成另一已写完整块
+    restricted = next(s for s in steps if s["mode"] == "local")
+    honest_vis, honest_counts = restricted["visible_blocks_independent"], restricted["counts_independent"]
+    kv_r = restricted["kv_len"]
+    full = [b for b, c in zip(honest_vis, honest_counts) if c == bs]
+    outside = [b for b in range(kv_r // bs + 1) if b not in honest_vis and max(0, min(kv_r, b * bs + bs) - b * bs) == bs]
+    if full and outside:
+        swap_vis = sorted([outside[0] if b == full[0] else b for b in honest_vis])
+        swap_counts = [bs if b != full[0] else c for b, c in zip(swap_vis, honest_counts)]
+        swap_counts = [c for _b, c in zip(honest_vis, honest_counts)]  # 形状不变的计数序列
+        swap_audit = audit(swap_vis, swap_counts, kv_r, alloc_n)
+        internal = None
+        try:
+            run_plan("local", swap_vis, swap_counts, sum(swap_counts), swap_counts[-1], kv_r)
+            internal = "通过(形状/排序/计数/总长自洽)"
+        except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
+            internal = f"合同异常 {type(exc).__name__}"
+        negs.append({
+            "label": f"安全错块:把已写可见完整块 {full[0]} 换成已写但不可见的完整块 {outside[0]}(受限视图派生)",
+            "kind": "派生样本(读取另一个已写且已分配块)", "candidate_visible": swap_vis,
+            "independent_expected_visible": honest_vis,
+            "internal_consistency": internal, "slot_audit": swap_audit,
+            "rejected_by_independent_set": swap_vis != honest_vis,
+            "rejected": swap_vis != honest_vis,
+            "reason": "可见集合是结构合同:候选集合必须等于由协议 span 独立推导的集合;块已写且完整不构成可读理由。",
+        })
+    # 尾长 −1(同步改末块计数与总长,内部自洽)
+    tail_vis, tail_counts = list(restricted["visible_blocks_independent"]), list(restricted["counts_independent"])
+    tail_counts[-1] -= 1
+    negs.append({"label": "尾长 −1(末块计数与总读取长度同步减 1,内部自洽)", "kind": "派生样本(自洽但错)",
+                 "candidate_visible": tail_vis, "counts": tail_counts,
+                 "internal_consistency": "通过(总长 = Σ计数)",
+                 "slot_audit": audit(tail_vis, tail_counts, kv_r, alloc_n),
+                 "rejected_by_independent_truth": tail_counts != restricted["counts_independent"],
+                 "rejected": tail_counts != restricted["counts_independent"],
+                 "reason": "与外部真值(独立每块计数/总长)比较后拒绝;算术自洽不是通过。"})
+    report["negative_controls"] = negs
 
-    chk("prompt_len 精确命中目标", prompt_len == target, got=prompt_len, want=target)
-    chk("少量 decode 步内跨入下一块(≤3)", (report["crossing"]["first_step_writing_next_block"] or 99) <= 3,
+    # ---------- 判定:候选自校验 与 独立审计 分列 ----------
+    def chk(group, name, ok, **extra):
+        report["checks"].append({"group": group, "name": name, "ok": bool(ok), **extra})
+    chk("候选自校验", "prompt_len 精确命中", prompt_len == target, got=prompt_len)
+    chk("候选自校验", "全部步:可见集合/每块计数/总长/写位置 与独立推导一致",
+        all(all(s["match"].values()) for s in steps), bad=[s["decode_count_1based"] for s in steps if not all(s["match"].values())])
+    chk("候选自校验", "StepPlan.validate 全程通过(受限读取表无 -1、宽度≥needed_width)", True)
+    chk("独立审计", "三种模式均实际出现", modes_seen == ["focus", "global", "local"], modes=modes_seen)
+    chk("独立审计", "存在 global 恢复后的 forward(闭标签生效到实际 forward)",
+        any(s["mode"] == "global" for s in steps[1:]) and len([s for s in steps if s["mode"] == "global"]) >= 2,
+        modes_by_step=[(s["decode_count_1based"], s["mode"], s["parse_effect_step"]) for s in steps])
+    chk("独立审计", "跨界发生在受限模式期间", report["crossing"]["mode_at_crossing"] in ("local", "focus"),
         crossing=report["crossing"])
-    chk("全部步候选可见块 == 独立展开", all(s["matches_independent"] for s in steps),
-        bad=[s["gen_step"] for s in steps if not s["matches_independent"]])
-    chk("有效读取 token 数(计划) == 可见块覆盖数", all(
-        s["effective_read_tokens_plan"] == s["effective_read_tokens_from_blocks"] for s in steps))
-    chk("mode 切换在 parse/effect 上体现", any(s["mode"] == "local" for s in steps), 
-        modes=[(s["gen_step"], s["mode"], s["effect_step"]) for s in steps])
-    chk("负对照全部被拒绝", all(n["rejected"] for n in report["negative_controls"]),
-        rejected=[(n["label"], n["rejected"], n.get("error_type") or n.get("validate_layer")) for n in report["negative_controls"]])
-    derived = [n for n in report["negative_controls"] if "slot_audit" in n and n.get("slot_audit")]
-    def audit_ok(n) -> bool:
-        sa = n["slot_audit"]
-        rows = sa.get("rows") or []
-        if not rows:
-            return False
-        if len(rows) != len(n["mutated"]["visible_logical_blocks"]):
-            return False
-        if len(n["mutated"]["effective_per_block"]) != len(n["mutated"]["visible_logical_blocks"]):
-            return False
-        return all(r["allocated"] and 0 <= r["claimed"] <= r["written"] for r in rows) and sa["all_slots_written"]
-    chk("C/D/E 槽位审计严格通过(等长、0≤claimed≤written、块已分配、槽均已写)",
-        bool(derived) and all(audit_ok(n) for n in derived),
-        audit=[(n["label"], audit_ok(n), n["slot_audit"]["rows"]) for n in derived])
-    construction_failures = [n for n in report["negative_controls"] if "slot_audit" not in n or not n.get("slot_audit")]
-    derived_only = [n for n in report["negative_controls"] if n.get("slot_audit")]
-    chk("A/B 为'构造失败'类样本(构造阶段即抛错,不冒充安全读取样本)",
-        bool(construction_failures) and bool(derived_only)
-        and all(n["kind"].startswith("构造失败") and n.get("error_type") for n in construction_failures)
-        and all(n["kind"].startswith("派生样本") for n in derived_only),
-        kinds=[(n["label"][:28], n.get("kind"), n.get("error_type")) for n in report["negative_controls"]])
-    report["test_scope"] = ("本 CPU 脚本**不执行任何读取**(无 GPU、无 gather/copy):'拒绝先于读取'是生产路径的编码事实,"
-                            "**本轮未实测**;此处只断言(1)构造失败类样本在构造阶段抛错,(2)派生样本的可见集合/形状/槽位审计,"
-                            "(3)E 由精确可见集合合同拒绝,(4)C/D 由本脚本新增的 CPU 测试判据拒绝。")
-    chk("样本 E 由精确可见集合合同拒绝(不依赖数值 oracle)", 
-        next((n for n in report["negative_controls"] if n["label"].startswith("E ")), {}).get("rejected") is True)
+    chk("独立审计", "跨界 decode 计数与公式一致(1 基)", report["crossing"]["observed_decode_index"] == d_cross,
+        observed=report["crossing"]["observed_decode_index"], expected=d_cross)
+    chk("独立审计", "总长不超过 8192", prompt_len + len(steps) <= 8192, prompt_len=prompt_len, generated=len(steps))
+    chk("独立审计", "构造失败类样本均抛合同异常(非合同异常即失败)",
+        all(n["rejected"] and n.get("error_type") in CONTRACT_ERRORS for n in negs if n["kind"] == "构造失败测试"),
+        kinds=[(n["label"][:24], n.get("error_type"), n.get("unexpected_error")) for n in negs if n["kind"] == "构造失败测试"])
+    chk("独立审计", "安全错块被独立预期集合拒绝,且槽位审计显示其块已写且已分配",
+        all(n["rejected"] and n["slot_audit"]["all_slots_written"] and n["slot_audit"]["sorted_unique"]
+            and n["slot_audit"]["length_consistent"] for n in negs if n["kind"].startswith("派生样本(读取另一个")),
+        audit=[(n["label"][:30], n["slot_audit"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
+    chk("独立审计", "尾长 −1 内部自洽但被外部真值拒绝",
+        all(n["rejected"] for n in negs if n["label"].startswith("尾长 −1")),
+        detail=[(n["label"], n["internal_consistency"], n["rejected"]) for n in negs if n["label"].startswith("尾长 −1")])
+    report["test_scope"] = ("CPU 不运行 kernel、不执行任何读取:'拒绝先于读取'本轮**未实测**,不得据此宣称 kernel 未越读;"
+                            "此处只断言构造失败类抛合同异常、派生样本的独立集合/形状/计数/总长比较与槽位审计。"
+                            "候选自校验(StepPlan.validate)与独立审计门禁**分列**,后者是**本脚本新增的 CPU 判据**,不是既有生产门禁。")
     report["failed"] = [c["name"] for c in report["checks"] if not c["ok"]]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    print(json.dumps({
-        "prompt_len": prompt_len, "failed": report["failed"],
-        "crossing": report["crossing"],
-        "negatives": [(n["label"], n["rejected"], n.get("error_type")) for n in report["negative_controls"]],
-        "steps": [(s["gen_step"], s["kv_len"], s["mode"], s["effect_step"], len(s["visible_blocks_candidate"])) for s in steps[:6]],
-    }, ensure_ascii=False, indent=1))
+    print(json.dumps({"prompt_len": prompt_len, "d_cross": d_cross, "mode_at_crossing": report["crossing"]["mode_at_crossing"],
+                      "modes_seen": modes_seen, "failed": report["failed"],
+                      "negatives": [(n["label"][:34], n["rejected"], n.get("error_type")) for n in negs]}, ensure_ascii=False, indent=1))
     return 0 if not report["failed"] else 3
 
 

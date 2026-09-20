@@ -1,9 +1,9 @@
 {
-  "note": "NATIVE-030:真实 renderer + 公开合成 context 的跨块夹具与安全负对照(CPU)",
+  "note": "SUP-004-masked-prep-R2:真实 renderer 跨块夹具(合法声明+C3.2 生效步)+安全负对照,纯 CPU",
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
-  "target_prompt_len": 7839,
-  "target_reason": "prompt 末尾 = 7840-1 = 7839 ⇒ 首 decode 的 kv = 7840 = 块 10 起点：仅 1 个 decode 步即跨 784 块边界,总长 ≤8192(粗单位+单字细调精确命中)",
+  "target_prompt_len": 7836,
+  "target_reason": "prompt_len=7836 ⇒ 第 d 个 decode 的 KV=7836+d;首次写入块 10 需 KV=7841 ⇒ d=5,此时已处于受限模式(local);总长 ≤8192",
   "filler_unit": "这是用于把公开合成上下文长度调整到块边界的附加说明段落。",
   "max_filler_units": 400,
   "generation_script": [
@@ -13,9 +13,15 @@
     "<local>",
     "继续",
     "推导",
-    "<focus>",
-    "1",
-    "再看"
+    "结束",
+    "</local>",
+    "回顾",
+    "<focus magic_chunks=\"2\">",
+    "细节",
+    "补充",
+    "</focus>",
+    "收束",
+    "完毕"
   ],
   "modes_to_expand": [
     "global",
@@ -33,5 +39,6 @@
     "本文件不修改任何阈值与既有结论"
   ],
   "fine_char": "。",
-  "max_fine_units": 80
+  "max_fine_units": 80,
+  "out_default": "evidence/p3-calib/masked-prep/crossblock-r2.json"
 }
