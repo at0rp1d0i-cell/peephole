@@ -129,49 +129,72 @@ def main() -> int:
     else:
         chk("已验收夹具存在", False, path=str(ACCEPTED))
 
-    # ---------- 3. 经挂接驱动(harness 模式) ----------
+    # ---------- 3. 经挂接驱动(harness 模式:一个 impl 只挂一次) ----------
     impls = [StandInImpl(f"L{i}") for i in range(3)]
     originals = {i: impls[i].forward for i in range(3)}
-    switches = {rid: TestOnlyReferenceSwitch(enabled=True, request_id=rid, layers=(0, 1, 2), steps=(1, 2, 3),
-                                             scale=scale, dtype=torch.bfloat16) for rid in ("req-A", "req-B")}
-    atts = {rid: TestOnlyReferenceAttachment(switches[rid], layers=(0, 1, 2), steps=(1, 2, 3)) for rid in ("req-A", "req-B")}
-    state = {"req-A": per_request_state(11, 16, kv_heads, d), "req-B": per_request_state(22, 16, kv_heads, d)}
-    metas = {"req-A": make_meta("local", kv_len, block_table), "req-B": make_meta("global", kv_len, block_table)}
-    outputs = {rid: {i: torch.zeros(heads, d, dtype=torch.bfloat16) for i in range(3)} for rid in ("req-A", "req-B")}
+    sw_a = TestOnlyReferenceSwitch(enabled=True, request_id="req-A", layers=(0, 1, 2), steps=(1, 2, 3),
+                                   scale=scale, dtype=torch.bfloat16)
+    at_a = TestOnlyReferenceAttachment(sw_a, layers=(0, 1, 2), steps=(1, 2, 3))
+    # 请求 B 走**同一挂接**但非目标 request ⇒ 必须直通
+    kv_a = per_request_state(11, 16, kv_heads, d)
+    kv_b = per_request_state(22, 16, kv_heads, d)
+    meta_a, meta_b = make_meta("local", kv_len, block_table), make_meta("global", kv_len, block_table)
+    out_a = {i: torch.zeros(heads, d, dtype=torch.bfloat16) for i in range(3)}
+    out_b = {i: torch.zeros(heads, d, dtype=torch.bfloat16) for i in range(3)}
     q = torch.randn(heads, d, dtype=torch.bfloat16)
-
     try:
-        for rid in ("req-A", "req-B"):
-            atts[rid].wrap_all(impls)
-            switches[rid].current_request_id = rid
+        at_a.wrap_all(impls)
+        for rid, kv, meta, out in (("req-A", kv_a, meta_a, out_a), ("req-B", kv_b, meta_b, out_b)):
+            sw_a.current_request_id = rid
             for step in (1, 2, 3):
-                switches[rid].current_step = step
-                k, v, _gdn = state[rid]
+                sw_a.current_step = step
                 for layer, impl in enumerate(impls):
-                    impl.forward(layer, q, None, None, (k, v), metas[rid], outputs[rid][layer])
+                    impl.forward(layer, q, None, None, kv[:2], meta, out[layer])
     finally:
-        for rid in ("req-A", "req-B"):
-            atts[rid].restore()
+        at_a.restore()
 
-    exp_a = {(l, s) for l in (0, 1, 2) for s in (1, 2, 3)}
-    chk("请求 A:期望的 (layer, step) 全部被参考覆盖", atts["req-A"].missing(exp_a) == set()
-        and atts["req-A"].unexpected(exp_a) == set(), overrode=sorted(atts["req-A"].overrode()))
-    chk("请求 B:非目标 request 一律直通(无覆盖)", atts["req-B"].overrode() == set()
-        and atts["req-B"].passthrough() == exp_a)
-    chk("两请求账本按 request_id 分离(互不污染)", {e["request_id"] for e in atts["req-A"].ledger} == {"req-A"}
-        and {e["request_id"] for e in atts["req-B"].ledger} == {"req-B"})
-    chk("两请求 KV/GDN 状态对象独立(不同对象、不同初值)", state["req-A"][0] is not state["req-B"][0]
-        and not torch.equal(state["req-A"][1], state["req-B"][1]))
+    exp = {(l, s) for l in (0, 1, 2) for s in (1, 2, 3)}
+    chk("目标请求 A:期望的 (layer, step) 全部被参考覆盖", at_a.missing(exp) == set()
+        and at_a.unexpected(exp) == set(), overrode=sorted(at_a.overrode()))
+    chk("非目标请求 B:同一挂接下全部直通(零覆盖)",
+        {k for k in at_a.passthrough() if True} >= exp and not (at_a.overrode() & exp) or
+        len([e for e in at_a.ledger if e["request_id"] == "req-B" and e["action"] == "passthrough"]) == 9,
+        b_passthrough=len([e for e in at_a.ledger if e["request_id"] == "req-B" and e["action"] == "passthrough"]))
+    chk("账本按 request_id 分离(A 覆盖 9 条、B 直通 9 条)",
+        len([e for e in at_a.ledger if e["request_id"] == "req-A" and e["action"] == "overrode"]) == 9
+        and {e["request_id"] for e in at_a.ledger} == {"req-A", "req-B"},
+        counts={r: len([e for e in at_a.ledger if e["request_id"] == r]) for r in ("req-A", "req-B")})
+    chk("两请求 KV/GDN 状态对象独立(不同对象、不同初值)",
+        kv_a[0] is not kv_b[0] and not torch.equal(kv_a[1], kv_b[1]) and not torch.equal(kv_a[2], kv_b[2]))
+    chk("B 请求未被参考改写(输出缓冲仍为初值)", all(float(out_b[i].abs().max()) == 0.0 for i in range(3)))
     chk("恢复后 forward 身份等于原方法", all(impls[i].forward == originals[i] for i in range(3))
-        and atts["req-A"].restored == [0, 1, 2])
-    n_impl_calls = [impls[i].calls for i in range(3)]
-    out_a0 = outputs["req-A"][0].clone()
-    impls[0].forward(0, q, None, None, state["req-A"][:2], metas["req-A"], outputs["req-A"][0])
+        and at_a.restored == [0, 1, 2], restored=at_a.restored)
+    n_calls = [impls[i].calls for i in range(3)]
+    out_a0 = out_a[0].clone()
+    impls[0].forward(0, q, None, None, kv_a[:2], meta_a, out_a[0])
     chk("恢复后调用走原实现(计数 +1 且输出缓冲不被参考改写)",
-        impls[0].calls == n_impl_calls[0] + 1 and torch.equal(outputs["req-A"][0], out_a0))
+        impls[0].calls == n_calls[0] + 1 and torch.equal(out_a[0], out_a0))
+
+    # 两请求隔离(独立引擎/独立挂接):各自覆盖账本互不影响
+    impls_iso = [StandInImpl(f"iso-L{i}") for i in range(2)]
+    sw_iso = TestOnlyReferenceSwitch(enabled=True, request_id="req-B2", layers=(0, 1), steps=(1,),
+                                     scale=scale, dtype=torch.bfloat16)
+    at_iso = TestOnlyReferenceAttachment(sw_iso, layers=(0, 1), steps=(1,))
+    kv_iso = per_request_state(33, 16, kv_heads, d)
+    try:
+        at_iso.wrap_all(impls_iso)
+        sw_iso.current_request_id, sw_iso.current_step = "req-B2", 1
+        for layer, impl in enumerate(impls_iso):
+            impl.forward(layer, q, None, None, kv_iso[:2], meta_b,
+                         torch.zeros(heads, d, dtype=torch.bfloat16))
+    finally:
+        at_iso.restore()
+    chk("独立挂接(另一请求/另一 impl 集)与 A 的账本互不影响",
+        at_iso.overrode() == {(0, 1), (1, 1)} and at_a.overrode() == exp,
+        iso=sorted(at_iso.overrode()), a=sorted(at_a.overrode()))
 
     # 参考覆盖的输出:真实指标落盘
-    over = [e for e in atts["req-A"].ledger if e["action"] == "overrode"]
+    over = [e for e in at_a.ledger if e["action"] == "overrode"]
     m = over[0] if over else {}
     chk("挂接路径记录了真实 cast/幅度指标(dtype=output.dtype,非恒真)", bool(over)
         and m.get("output_dtype") == "torch.bfloat16" and m.get("fp32_to_output_max_abs") is not None
@@ -182,7 +205,8 @@ def main() -> int:
                                                       "effective_per_block", "output_dtype",
                                                       "fp32_to_output_max_abs", "fp32_to_output_rms",
                                                       "fp32_to_output_rel_l2", "ref_abs_max", "non_finite_count")}
-    detail["ledger_summary"] = {"A_overrode": len(atts["req-A"].overrode()), "B_passthrough": len(atts["req-B"].passthrough())}
+    detail["ledger_summary"] = {"A_overrode": len(at_a.overrode()),
+                                "B_passthrough": len([e for e in at_a.ledger if e["request_id"] == "req-B"])}
 
     # ---------- 4. 缺层/缺步检出(账本) ----------
     impl2 = [StandInImpl("L0"), StandInImpl("L1")]
