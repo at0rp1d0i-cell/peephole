@@ -10,6 +10,11 @@
 2. **31 个入库文件**被改写（§3），逐文件改前/改后字节数与 sha256 可对照；改写只做三条替换，没有改动任何数值与结论。
 3. 脱敏同时打破了两类**已入库的哈希登记**：`reports/p0-model/evidence-index.md` 的 15 行 sha256 登记（§4.3）与 28 个文件的 29 处 commit 登记（§4.4）。这不是笔误，是重写的必然结果，处置见 §4.5。
 4. `vllm-patch/manifest.json` 与 `evidence/p3-calib/run-*/manifest.json` 的钉**没有被打破**（§4.1、§4.2）；`/root/...` 工作路径按功能性默认值保留（§2）；§7 列出一项需要人工决策的范围外敏感项。
+5. **后续变化（2026-09-21 证据范围收缩）**：§3 的 31 行里有 **5 行**对应的文件已被移出仓内发行
+   （`evidence/after-model/env-report-20260917-1910.md`、`evidence/after/env-report-20260917-1637.md`、
+   `evidence/after/env-report-20260917-1655.md`、`evidence/p3-calib-local-review-20260918/metadata-retry.chrome.json`、
+   `logs/console-install.log`）。本表的 `sha256_after` 对它们的**改写事实**仍然成立（那是重写当时的状态），
+   但不再对应仓内文件；这些件当前的状态、字节数与 sha256 见 `reports/evidence-index.md` 的「树外登记」表。
 
 ## 1. 为什么历史必须一起脱敏
 

@@ -1,5 +1,0 @@
-seed 0: 正确 seqused_k=1569 max_abs=0.00052 (PASS) | 越读 +100 max_abs=8.1236 (FAIL(符合预期))
-seed 1: 正确 seqused_k=1569 max_abs=0.00055 (PASS) | 越读 +100 max_abs=8.1313 (FAIL(符合预期))
-seed 2: 正确 seqused_k=1569 max_abs=0.00044 (PASS) | 越读 +100 max_abs=8.1435 (FAIL(符合预期))
-
-哨兵抓越读：成立 -> /root/autodl-tmp/attnview/evidence/p1-gpu-v2/negative-control.json

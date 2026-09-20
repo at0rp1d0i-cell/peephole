@@ -1,0 +1,779 @@
+{
+ "version": 2,
+ "note": "证据发布范围的唯一事实来源。改本文件后必须跑 python3 tools/pub-evidence-registry.py --write 重新生成 reports/evidence-index.md；--check 验证一致性、悬空引用、未声明重复与登记项是否真的被忽略。",
+ "archive_root": "/root/autodl-tmp/attnview-evidence-archive",
+ "rule": [
+  {
+   "id": "R1",
+   "text": "交付依据入库：被结论引用的 run 文本层（manifest / summary / arm / cleanup / force / engine-traces / error.txt / run 日志 / 源快照）入库。"
+  },
+  {
+   "id": "R2",
+   "text": "论证性失败件入库：失败尝试的目录与日志必须保留，不删、不改写。"
+  },
+  {
+   "id": "R3",
+   "text": "独立校验分两类：被结论引用的独立复算件入库；由监督/复核流程产出的过程记录（`*local-review*`）只登记 path + size + sha256，原件留归档目录（`registered_removed` 的 `independent-review`）。"
+  },
+  {
+   "id": "R4",
+   "text": "被取代代次只登记：同一实验的早期代次（结论已撤回或口径未定稿）字节不入库，只登记 path + size + sha256，原始字节归档在数据盘；撤回理由记在对应阶段的报告里，状态与哈希见 reports/evidence-index.md 的树外登记表。"
+  },
+  {
+   "id": "R5",
+   "text": "中间快照只登记：同一状态的多份刷新（环境探针等）只留首末两份，其余登记。"
+  },
+  {
+   "id": "R6",
+   "text": "明细只登记：逐位置/逐比较的原始明细以聚合段入库、明细只登记（聚合段自带明细的 size + sha256）；失败 run 的部分结构 dump 同样只登记，失败记录本身按 R2 入库。"
+  },
+  {
+   "id": "R7",
+   "text": "逐字节重复只保留一份（≥16 KiB 才值得摘出，小文件保留并在索引里标注同哈希）。例外：run 自带的源码快照是按协议冻结的逐 run provenance，允许重复，由 allow_duplicate 声明。"
+  },
+  {
+   "id": "R8",
+   "text": "未验收件不入库：尚未通过阶段验收的运行产物只登记为 pending，验收后按 R1 的 run 文本层入库。"
+  },
+  {
+   "id": "R9",
+   "text": "大件不入库：*.npz / *.npy / *.pt / *.bin / *.safetensors / *.gguf 与 >10 MB 的文件只登记 size + sha256；与任何文档逐条绑定的成员逐个登记，其余按组登记（glob + 组内文件数 + 合计字节）。"
+  }
+ ],
+ "status_order": [
+  "delivered",
+  "independent-review",
+  "superseded",
+  "snapshot",
+  "detail-only",
+  "duplicate",
+  "unclassified",
+  "pending"
+ ],
+ "status_label": {
+  "delivered": "随仓发行",
+  "independent-review": "复核过程记录（树外登记）",
+  "superseded": "被取代代次（树外登记）",
+  "snapshot": "中间快照（树外登记）",
+  "detail-only": "明细只登记（树外登记）",
+  "duplicate": "重复副本（树外登记）",
+  "unclassified": "未分类——门禁失败",
+  "pending": "工作区未跟踪——入库前先分类"
+ },
+ "default_status": "unclassified",
+ "rules": [
+  {
+   "glob": "evidence/p0-model/**",
+   "status": "delivered",
+   "note": "阶段 02 模型身份/配置/协议事实与冻结点"
+  },
+  {
+   "glob": "evidence/before/**",
+   "status": "delivered",
+   "note": "阶段 01 环境探针基线段（未经 env.sh）"
+  },
+  {
+   "glob": "evidence/after/**",
+   "status": "delivered",
+   "note": "阶段 01 环境探针最终态与 verify-runtime.sh 输出"
+  },
+  {
+   "glob": "evidence/p1-cpu/**",
+   "status": "delivered",
+   "note": "阶段 03 CPU 侧夹具、prompt 保真与偏移记录"
+  },
+  {
+   "glob": "evidence/p1-gpu-v6/**",
+   "status": "delivered",
+   "note": "阶段 04 交付依据轮（R2 提交时序合规）；v1–v5 见树外登记"
+  },
+  {
+   "glob": "evidence/p2-single/**",
+   "status": "delivered",
+   "note": "阶段 05 部署事务与单请求校准"
+  },
+  {
+   "glob": "evidence/p3-calib/**",
+   "status": "delivered",
+   "note": "阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段）"
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/**",
+   "status": "delivered",
+   "note": "stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定）"
+  },
+  {
+   "glob": "evidence/*.log",
+   "status": "delivered",
+   "note": "环境与迁移记录"
+  },
+  {
+   "glob": "evidence/*.txt",
+   "status": "delivered",
+   "note": "环境与迁移记录"
+  },
+  {
+   "glob": "logs/**",
+   "status": "delivered",
+   "note": "安装与 serve 日志（含三次失败尝试原日志）"
+  }
+ ],
+ "registered_removed": [
+  {
+   "path": "evidence/after-model/env-report-20260917-1910.md",
+   "bytes": 86901,
+   "sha256": "83fff8f023aeccd5d7cd071cdb29f0bc71c0d8e985ababa00c2703ff96bfb06a",
+   "status": "snapshot",
+   "reason": "模型运行后环境探针（中间快照）；首/末两份保留在 evidence/before 与 evidence/after"
+  },
+  {
+   "path": "evidence/after/env-report-20260917-1637.md",
+   "bytes": 86831,
+   "sha256": "af384bff870225c4a3e50d11a57e791492923589f05a71cd5b89797a1631980a",
+   "status": "snapshot",
+   "reason": "同一状态（已 source env.sh）的中间刷新；首/末两份为 evidence/before/env-report-20260917-1559.md 与 evidence/after/env-report-20260917-1716.md"
+  },
+  {
+   "path": "evidence/after/env-report-20260917-1655.md",
+   "bytes": 86855,
+   "sha256": "3605428293f62a78c4b2a0153a2f121f48e6d0758b8c343212902ffe06a73da4",
+   "status": "snapshot",
+   "reason": "同一状态（已 source env.sh）的中间刷新；首/末两份为 evidence/before/env-report-20260917-1559.md 与 evidence/after/env-report-20260917-1716.md"
+  },
+  {
+   "path": "evidence/p0-model/cuda-upgrade-freeze-before.txt",
+   "bytes": 4118,
+   "sha256": "a21cb93333fa99960425b2d2ef9a66b4f9677cd59001ea500e3ea6f97eb6e302",
+   "status": "duplicate",
+   "reason": "与 requirements.freeze.stage-01.txt 逐字节相同"
+  },
+  {
+   "path": "evidence/p0-model/cuda-upgrade-freeze-final.txt",
+   "bytes": 4118,
+   "sha256": "350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01",
+   "status": "duplicate",
+   "reason": "与 reports/p0-model/requirements.freeze.txt 逐字节相同"
+  },
+  {
+   "path": "evidence/p1-cpu/evidence-index.md",
+   "bytes": 1349,
+   "sha256": "ca63c3f15553c399bc6104814acf36c07398c9501f3e75f99b9dc13c21c767b4",
+   "status": "superseded",
+   "reason": "机械 size/sha256 表，由 reports/evidence-index.md（生成物）取代"
+  },
+  {
+   "path": "evidence/p1-gpu-local-review-20260918-1011/cases-seed0.json",
+   "bytes": 69001,
+   "sha256": "2bb0601b77c8bb0d3103b9594b1f98b2358483bf33814e7253d5441e045c72b8",
+   "status": "independent-review",
+   "reason": "本地主代理独立复跑记录（CPU 111 项/4.435 s、GPU 972 判据/0 失败）"
+  },
+  {
+   "path": "evidence/p1-gpu-local-review-20260918-1011/cases-seed1.json",
+   "bytes": 69007,
+   "sha256": "4168ff3553b77bd000b44fae182cbada9efb9f109a24f9746e2694c0a81b172f",
+   "status": "independent-review",
+   "reason": "本地主代理独立复跑记录（CPU 111 项/4.435 s、GPU 972 判据/0 失败）"
+  },
+  {
+   "path": "evidence/p1-gpu-local-review-20260918-1011/cases-seed2.json",
+   "bytes": 68991,
+   "sha256": "b07d7bb9020276495aa8916a6f8cdff27923ea37569c001502a471ba38e51da2",
+   "status": "independent-review",
+   "reason": "本地主代理独立复跑记录（CPU 111 项/4.435 s、GPU 972 判据/0 失败）"
+  },
+  {
+   "path": "evidence/p1-gpu-local-review-20260918-1011/run-manifest.json",
+   "bytes": 1102,
+   "sha256": "9f0264bdaf7124d74b76209ddfc0c6a9b2a0b80ad26b69db3c9c296712d35a7d",
+   "status": "independent-review",
+   "reason": "本地主代理独立复跑记录（CPU 111 项/4.435 s、GPU 972 判据/0 失败）"
+  },
+  {
+   "path": "evidence/p1-gpu-local-review-20260918-1011/summary.json",
+   "bytes": 238574,
+   "sha256": "cc30f3de73c698e536f7e9855c30a7af44e8d2058abcffe914c1e9c482ec6301",
+   "status": "independent-review",
+   "reason": "本地主代理独立复跑记录（CPU 111 项/4.435 s、GPU 972 判据/0 失败）"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/evidence-index.md",
+   "bytes": 1113,
+   "sha256": "b267fd077c9b8c8ed6acea5999c19871dfc9d285d8415ee032d81bb044bf1415",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/negative-control.json",
+   "bytes": 3438,
+   "sha256": "3f2261c6fca5731bff8bd6e3a399805b2f529ed27ffd91392879b6995306c1b3",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/negative-control.log",
+   "bytes": 405,
+   "sha256": "4eb57fa301a36dd44ec261d1727ac665898b9fec1db2474ebefb8f4a8edd72a0",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/v2-cases-seed0.json",
+   "bytes": 53906,
+   "sha256": "0820dbf7a1340134241eee033f2fe69b94c1382728b9510802c0ca43a20212e3",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/v2-cases-seed1.json",
+   "bytes": 53915,
+   "sha256": "36701d2a3b0a7a18f42c7dad1d9f67d575d6604be9ac3c287b9d75acc2c3ea51",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/v2-cases-seed2.json",
+   "bytes": 53898,
+   "sha256": "0f789e267dda7e15bf6f9c3987614acf2683471a640cc33decebf2c5100b7a9d",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/v2-run.log",
+   "bytes": 7539,
+   "sha256": "71f548748d665ccb0c10ea58ac9060574ba57dcb0d1bf32b0412923300d2e3f6",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v2/v2-summary.json",
+   "bytes": 175989,
+   "sha256": "596d3abf98378d8e70125ddcdb3861af3e7ed8a15b786368dc6edd583f269f7f",
+   "status": "superseded",
+   "reason": "v2：trajectory step2 的 expect_blocks 漏块 5 且未被代码读取，结论已撤回"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/cases-seed0.json",
+   "bytes": 69001,
+   "sha256": "12e20a676c1a067d299c50d9249d4d0ce3791bb05b90a9359918084a5939ebe0",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/cases-seed1.json",
+   "bytes": 69007,
+   "sha256": "a585b22b8dd3dec7dd72c07c5d83c15f9d1d3563ed67f48e5d0ef49b14c553ef",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/cases-seed2.json",
+   "bytes": 68991,
+   "sha256": "266d3c4f5dc8ec7229a187da9d11f74f4ca73cf23b74afd9fadedc4eb428ce42",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/evidence-index.md",
+   "bytes": 1392,
+   "sha256": "dc02e41a9b2fe65afa762605ca8f57b796e0db0e4bfd8898225d7940ad985a57",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/negative-control.json",
+   "bytes": 3438,
+   "sha256": "3f2261c6fca5731bff8bd6e3a399805b2f529ed27ffd91392879b6995306c1b3",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/negative-control.log",
+   "bytes": 405,
+   "sha256": "1139e95ee8343872357489b609e83516fef69ce7b3b631b24992c228d73fe247",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/summary.json",
+   "bytes": 238574,
+   "sha256": "aa01627e091b42eb7e6eaf95e9e6d918a2e34c2deae4a393131915befaa554fe",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v3/v3-run.log",
+   "bytes": 8085,
+   "sha256": "659869990e3dec3ba83d78b7820f1108a335371a8ff8e4eea180949540734a4b",
+   "status": "superseded",
+   "reason": "v3：配置提交晚于运行（b96d08a 10:07:10 vs 产物 10:06:49），时序不合规"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/cases-seed0.json",
+   "bytes": 69001,
+   "sha256": "c936641179ded70b6371e13c42ec32bf291dfd2a5211e86509fde5695eb0d882",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/cases-seed1.json",
+   "bytes": 69007,
+   "sha256": "8e73e7eb4d799d12bf5d0d2aeac8d65cf848a3792f58cf4212627f59adaf1864",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/cases-seed2.json",
+   "bytes": 68991,
+   "sha256": "f717a9a025b1e82e45f07eecec31311b497f6cde32eee082ae718d22830294ed",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/negative-control.json",
+   "bytes": 3438,
+   "sha256": "3f2261c6fca5731bff8bd6e3a399805b2f529ed27ffd91392879b6995306c1b3",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/negative-control.log",
+   "bytes": 551,
+   "sha256": "ef7160a7adb881563a40e6b6676740356dcb7621dc958cf87f675426e4bc62e7",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/run-manifest.json",
+   "bytes": 846,
+   "sha256": "57658e0411fd98e5d74d816cf59e9b0e81c5fae2af55cf2e2a3c0404d6724a38",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/run.log",
+   "bytes": 8300,
+   "sha256": "92b0676ca92e1e6f121243aa1aeb3242375a24bf971e7cca45de85179dbc675b",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v4/summary.json",
+   "bytes": 238574,
+   "sha256": "5e18e9573df1615cfe9e96ee56d8552b09f34737d5b3604b746d34ce42076835",
+   "status": "superseded",
+   "reason": "v4：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/cases-seed0.json",
+   "bytes": 69001,
+   "sha256": "4a8548abd3baea2c5737fe29a96d53820a1017a34e0ee8353985e98c0dfa7015",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/cases-seed1.json",
+   "bytes": 69007,
+   "sha256": "2fc7e892e5df96c036c1e77f204d691dc7c8383e74ff49b6ed81ea32eeedd5d4",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/cases-seed2.json",
+   "bytes": 68991,
+   "sha256": "1ac90c07c5292d82d6f8151e482ed0520269e7194fd4ff2f4074643469213863",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/negative-control.json",
+   "bytes": 3438,
+   "sha256": "3f2261c6fca5731bff8bd6e3a399805b2f529ed27ffd91392879b6995306c1b3",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/negative-control.log",
+   "bytes": 551,
+   "sha256": "a7038bdc01b713dcb9a96d27b4a9b63f76c1fb0bca62de56aa429c066ef305e8",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/run-manifest.json",
+   "bytes": 1028,
+   "sha256": "965037217128f1d66507b44b1b35a7a90cd4576c83c7360bbc9e2e861389a5f1",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/run.log",
+   "bytes": 8300,
+   "sha256": "937f2bf8dd26b43586f2997ac02d9f3d81d78e1a222a5acd341816a0b830d6e2",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu-v5/summary.json",
+   "bytes": 238574,
+   "sha256": "f2711c57e2db08240f9346ab38360c5335c152e2f25e006b0f6fb96a801aa8a5",
+   "status": "superseded",
+   "reason": "v5：运行清单口径/命名未定稿"
+  },
+  {
+   "path": "evidence/p1-gpu/cases-seed0.json",
+   "bytes": 16773,
+   "sha256": "d825996514160ad9561351ce3df059db44532e1f79f15902592c65a077327a49",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/cases-seed1.json",
+   "bytes": 16781,
+   "sha256": "379916273f30b7815e5fc47365aeab814b6385c2347d8c9324cb58aada699860",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/cases-seed2.json",
+   "bytes": 16784,
+   "sha256": "d9b721a1a216718530b6eeb68ebadc763fa03fbd5372b507874ce620ab6dad78",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/evidence-index.md",
+   "bytes": 1196,
+   "sha256": "dc806f98d7cb91c84ff7d4b394678e494106435a013b7846c9694bc74e790d76",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/negative-control.json",
+   "bytes": 2056,
+   "sha256": "d2ff889980024218fc862a8f10309554348ca78d48441347b6fe8834bd94d471",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/negative-control.log",
+   "bytes": 402,
+   "sha256": "865da10c9a4003a66316a8c444ad6d530c6cff1c0506c6adb5bc61548d2b1566",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/run-partial-v1.log",
+   "bytes": 1781,
+   "sha256": "4966fa6f4e5ff8e0a22ffe69ff96323ddacbdeac3567a9119f5d1b6564564b2d",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/run.log",
+   "bytes": 3260,
+   "sha256": "9dd7c7482f1b573d024fdb177899c7935f7539478ee9c75b03ed4c01c88d70ba",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p1-gpu/summary.json",
+   "bytes": 61124,
+   "sha256": "fad0472659e155fb34e5bf7745299f07aeb0b937f515adc6430a70ed6e513191",
+   "status": "superseded",
+   "reason": "v1：夹具逻辑/物理错位（按 i 写入、按 l2p[i] 读取），结论已撤回；撤回记录见 evidence/p1-gpu-v6/evidence-index.md"
+  },
+  {
+   "path": "evidence/p2-single-local-review-params-20260918/params-channel-probe.json",
+   "bytes": 2605,
+   "sha256": "b0fe8b6fe2404189b8911288a20522f2fee48f213288e4f1762c836574a63dd7",
+   "status": "independent-review",
+   "reason": "阶段 02 params 通道探针复核记录"
+  },
+  {
+   "path": "evidence/p2-single-local-review-r1-20260918/findings.json",
+   "bytes": 1001,
+   "sha256": "ef0cc46c3a5cfc2b775ca83ea147d01d60faf9a09361e1ca0eb88d7f11099ea7",
+   "status": "independent-review",
+   "reason": "阶段 02 R1 findings 复核记录"
+  },
+  {
+   "path": "evidence/p2-single-local-review-r2-20260918/deployment-unknown-state.json",
+   "bytes": 516,
+   "sha256": "60e24446c69e9ad0502604a2f20c4ff7f8106158d463e47df6768aa1ac8b7784",
+   "status": "independent-review",
+   "reason": "阶段 02 R2 部署未知态复核记录"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/capture-byte-identity.json",
+   "bytes": 859,
+   "sha256": "655b4a2843cdc5652b0be9fa1cd01f3a632e4bf2ac6a689d40d162c7d8ff93e9",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/driver-findings.json",
+   "bytes": 264,
+   "sha256": "bcce8eef53b699973dbb424e3db80cdc37781aafafb8279ee30c99a75d2c1a5c",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/engine-contract-findings.json",
+   "bytes": 500,
+   "sha256": "8c296b1fe6caf78b7a7ff4208c08e8a33f632ecbd9c6da277bedcf3455642a35",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/final-v5-artifacts.json",
+   "bytes": 1089,
+   "sha256": "79e1a40f50bb4647fb17254b20c5805e1d8f75aa9d57c5eba5e8a90d6284c4e9",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/metadata-retry.chrome.json",
+   "bytes": 34090,
+   "sha256": "4e610ad31539b932068feb9efd2c0fa220fad98adfdc5a8dd0d444c638bfe0af",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/metadata-retry.json",
+   "bytes": 5370,
+   "sha256": "b1709a1a134229a286751efca5918b855b632e4e8d9cf46640b7c9826e559a25",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/oracle-worstcase-independent.json",
+   "bytes": 1324,
+   "sha256": "b3ea79ddd71cfe90d1efa9ddc4bb0b42062a362b62f5fff262faeca1e582e50e",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/original-repeat-tensors.json",
+   "bytes": 28137,
+   "sha256": "e3c7c2f5970f9c8d0041af5941c60f9b66b76673a83bf7e95b169bd5bd30dda9",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/output-mode-findings.json",
+   "bytes": 1532,
+   "sha256": "6d5ab34f8053da2f1e4c75925ffeb4d43a4592c4e06562b823a2e07d9f070971",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/patched-v4-main-tensors.json",
+   "bytes": 63815,
+   "sha256": "887bae9b0a139e6e8481f72b1f233f72759c0078f36217dc3a90e800a1b29756",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib-local-review-20260918/r2-note-recheck.json",
+   "bytes": 1708,
+   "sha256": "8195b79b611fcd2167eaefa1da0048f2b426c307f4b65421f6f61ad3c6f0cbe3",
+   "status": "independent-review",
+   "reason": "阶段 03 校准复核记录（含 capture 字节一致性、oracle 最坏 case 独立复算；结论要点留在 reports/p3-calib/evidence-index.md §2/§5）"
+  },
+  {
+   "path": "evidence/p3-calib/oracle-original-3a.json",
+   "bytes": 8268191,
+   "sha256": "3615eaa619134745879b98038a5f8783f925520e2d0ba73e1263cd4ecc110225",
+   "status": "detail-only",
+   "reason": "24,192 行逐比较明细；入库版为 evidence/p3-calib/oracle-original-3a.aggregates.json，后者自带本文件 size + sha256，复核对 tools/p2-oracle-aggregate.py --check"
+  },
+  {
+   "path": "evidence/p3-masked-prep-local-review-20260920/crossblock.json",
+   "bytes": 153051,
+   "sha256": "ca842c58579d63cb40e623e7cf0628b986b7c21f669afb17653c30d3c1c6e921",
+   "status": "independent-review",
+   "reason": "masked 跨块准备离线复核；crossblock.json 与 evidence/p3-calib/masked-prep/crossblock-note.json 逐字节相同"
+  },
+  {
+   "path": "evidence/p3-masked-prep-local-review-20260920/manifest.json",
+   "bytes": 1343,
+   "sha256": "1fd86238502a3a44f1ce4d3a651080a10b5bc38da80bf3335d4d56331089dceb",
+   "status": "independent-review",
+   "reason": "masked 跨块准备离线复核；crossblock.json 与 evidence/p3-calib/masked-prep/crossblock-note.json 逐字节相同"
+  },
+  {
+   "path": "evidence/p3-masked-prep-local-review-20260920/run.log",
+   "bytes": 572,
+   "sha256": "7f8c64dbf7ea086b2761a87884a150c7bed69404fd8b5c977848b9aaa44b8faa",
+   "status": "independent-review",
+   "reason": "masked 跨块准备离线复核；crossblock.json 与 evidence/p3-calib/masked-prep/crossblock-note.json 逐字节相同"
+  },
+  {
+   "path": "evidence/p3-masked-ref-local-review-20260920/preintegration-findings.json",
+   "bytes": 820,
+   "sha256": "a84017e9ae4f54598457a72c8b276bbb3e98573a0df6b335bee2f19fa810d8ae",
+   "status": "independent-review",
+   "reason": "masked 参考实现集成前 findings 复核记录"
+  },
+  {
+   "path": "evidence/verify-after-expand.log",
+   "bytes": 7355,
+   "sha256": "b15107b5b82f2e87aadc4e6dfa950d507eac2f18631cb6e6e12b8e9ca7159528",
+   "status": "duplicate",
+   "reason": "与 evidence/verify-console.log 逐字节相同（同一校验输出，历史命名不同）"
+  },
+  {
+   "path": "evidence/verify-after-hf-endpoint.log",
+   "bytes": 7355,
+   "sha256": "b15107b5b82f2e87aadc4e6dfa950d507eac2f18631cb6e6e12b8e9ca7159528",
+   "status": "duplicate",
+   "reason": "与 evidence/verify-console.log 逐字节相同（同一校验输出，历史命名不同）"
+  },
+  {
+   "path": "evidence/verify-after-move.log",
+   "bytes": 7355,
+   "sha256": "b15107b5b82f2e87aadc4e6dfa950d507eac2f18631cb6e6e12b8e9ca7159528",
+   "status": "duplicate",
+   "reason": "与 evidence/verify-console.log 逐字节相同（同一校验输出，历史命名不同）"
+  },
+  {
+   "path": "logs/console-install.log",
+   "bytes": 2421,
+   "sha256": "189d9b27c5e5ba7178ba12bc7e093e3ff8addde3c794dc969a4a8ec6122f6d57",
+   "status": "duplicate",
+   "reason": "与 logs/install-runtime-20260917-163051.log 逐字节相同"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-3a/capture/layers.npz",
+   "bytes": 1387436946,
+   "sha256": "e60ec7d1be13895e2e157d281db98fce3e1cb822dccb27b3fea9f1f2e1437008",
+   "status": "remote-only",
+   "reason": "张量 dump：被文档引用（见索引 A7 清单），字节留数据盘、不发行；哈希为本机实测"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-3a/logits.pt",
+   "bytes": 7950079,
+   "sha256": "24c6ad2fe504141dc65db3278c0cfdb7874ef9ae1a07064af02b709c2b849974",
+   "status": "remote-only",
+   "reason": "张量 dump：被文档引用（见索引 A7 清单），字节留数据盘、不发行；哈希为本机实测"
+  },
+  {
+   "path": "evidence/p3-calib/run-disabled-5/capture/forward1.npz",
+   "bytes": 1380888464,
+   "sha256": "fdb9b06ff8e64b3b4d015ac71a33e68bccf6b572f35aa39861565370e1aff655",
+   "status": "remote-only",
+   "reason": "张量 dump：被文档引用（见索引 A7 清单），字节留数据盘、不发行；哈希为本机实测"
+  }
+ ],
+ "registered_only": [],
+ "allow_duplicate": [
+  {
+   "glob": "evidence/p3-calib/run-*/source/**",
+   "reason": "按运行协议在起时冻结的脚本快照；各 run 自述的 source_snapshot_sha256 钉住它，允许逐 run 重复"
+  },
+  {
+   "glob": "evidence/p1-cpu/prompt-da*.txt",
+   "reason": "两种模式（da / da_no_mask）产出的 prompt 文本逐字节相同——该同一性本身就是证据（mask 分支未改变 prompt），两份都留"
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-*/run/source/**",
+   "reason": "同上：逐 run 冻结的源码快照（交付 run 与失败 run 各一份，用于对比修复前后差异）"
+  }
+ ],
+ "gone": [
+  {
+   "path": "evidence/p3-calib/run-disabled-4/steps.jsonl",
+   "status": "missing",
+   "reason": "arm.json 的 trace_path，该 run 无此文件（reports/p3-calib/evidence-index.md §3.1）"
+  },
+  {
+   "path": "evidence/p3-calib/run-disabled-5/steps.jsonl",
+   "status": "missing",
+   "reason": "同构（§3.1）"
+  },
+  {
+   "path": "evidence/p3-calib/run-global-4/steps.jsonl",
+   "status": "missing",
+   "reason": "同构（§3.1）"
+  },
+  {
+   "path": "evidence/p3-calib/run-global-5/steps.jsonl",
+   "status": "missing",
+   "reason": "同构（§3.1）"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-2a/arm.json",
+   "status": "missing",
+   "reason": "manifest 自述 arm_file.exists=false（§3.1）"
+  },
+  {
+   "path": "evidence/p3-calib/traj-r1.json",
+   "status": "missing",
+   "reason": "失败尝试未写出轨迹（§3.1、§4）"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-1/",
+   "status": "missing",
+   "reason": "登记时为空目录并已消失；是否曾产出工件未能判定（§1.12）"
+  },
+  {
+   "path": "evidence/p2-single/patch-manifest.json",
+   "status": "planned",
+   "reason": "reports/p2-single/integration-design.md 的设计产物名；实际部署记录为 evidence/p2-single/deploy-drill-*.log 与各 run 的 manifest.json"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-4a",
+   "status": "planned",
+   "reason": "四臂复跑命令中的目标目录，尚未执行（reports/p2-single/calibration-report.md）"
+  },
+  {
+   "path": "evidence/p3-calib/run-disabled-6",
+   "status": "planned",
+   "reason": "同上"
+  },
+  {
+   "path": "evidence/p3-calib/run-global-6",
+   "status": "planned",
+   "reason": "同上"
+  },
+  {
+   "path": "evidence/p3-calib/traj-original-2.json",
+   "status": "planned",
+   "reason": "同上（复跑命令里的轨迹路径）"
+  },
+  {
+   "path": "evidence/p3-calib/oracle-original-3a-rerun.json",
+   "status": "planned",
+   "reason": "复跑命令里的 oracle 输出路径，尚未执行；全量件哈希登记见 reports/evidence-index.md 树外登记表（聚合段的 full_file 字段同值）"
+  },
+  {
+   "path": "evidence/p3-calib/run-original-4b",
+   "status": "planned",
+   "reason": "四臂复跑命令中的目标目录，尚未执行（reports/p2-single/calibration-report.md）"
+  }
+ ],
+ "registered_sets": [
+  {
+   "glob": "evidence/p3-calib/run-*/capture/**",
+   "count": 52,
+   "bytes": 13881579550,
+   "status": "remote-only",
+   "reason": "p3-calib 各 run 的 capture dump（layers.npz / forward1.npz / forward2..8.npz）：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记"
+  },
+  {
+   "glob": "evidence/p3-calib/run-*/logits.pt",
+   "count": 6,
+   "bytes": 49696240,
+   "status": "remote-only",
+   "reason": "p3-calib 各 run 的 logits 序列化：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记"
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-*/run/capture/**",
+   "count": 36,
+   "bytes": 3096157048,
+   "status": "remote-only",
+   "reason": "stage-05 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记"
+  }
+ ]
+}
