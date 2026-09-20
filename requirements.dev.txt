@@ -1,5 +1,8 @@
-# Development-only test runner. Existing unittest cases remain the test source.
+# Development-only tooling. The cases are written in unittest style; pytest is the runner.
 # Install with -c requirements.freeze.txt to preserve the runtime dependency pins.
 pytest==9.0.2
 iniconfig==2.3.0
 pluggy==1.6.0
+# 静态检查：`tools/gates.sh` 调用。规则集与忽略项见 pyproject.toml。
+# ruff 自身不是运行期依赖（只是二进制），因此不进 requirements.freeze.txt。
+ruff==0.16.8

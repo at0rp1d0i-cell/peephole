@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_left, bisect_right
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Sequence
 
 TARGET_TOKENS = 2048
 CAP_TOKENS = 2560
@@ -69,9 +69,10 @@ class OffsetsIndex:
     def __init__(self, offsets: Sequence[tuple[int, int]]) -> None:
         self._starts = [int(s) for s, _ in offsets]
         self._ends = [int(e) for _, e in offsets]
-        if any(e < s for s, e in zip(self._starts, self._ends)):
+        if any(e < s for s, e in zip(self._starts, self._ends, strict=True)):
             raise ValueError("offset 非法：存在 end < start")
-        if any(b < a for a, b in zip(self._ends, self._ends[1:])):
+        # 相邻 end 两两比较：长度天然差一，截断是有意的（`strict=False` 写明这一点）。
+        if any(b < a for a, b in zip(self._ends, self._ends[1:], strict=False)):
             raise ValueError("offset 非法：token 的结束位置不是单调不减（重叠口径的二分前提）")
 
     def __len__(self) -> int:

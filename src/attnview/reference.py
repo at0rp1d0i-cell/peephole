@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from .parser import MODE_FOCUS, MODE_GLOBAL, MODE_LOCAL
 from .readview import TokenLayout

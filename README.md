@@ -131,11 +131,14 @@ the pinned revision they derive from, and the third-party references are declare
 
 Contributors and agents should start from the material that ships in this repository:
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for licensing and third-party attribution, and
-[`reports/`](reports/) for the current interpretation, the open gaps and the evidence index. The
-verification entry point is `bash verify-runtime.sh` (runtime checks) and `python -m pytest tests/ -q`
-(CPU-side tests); the evidence gate is `python3 tools/pub-evidence-registry.py --check`, which fails on
-index drift, dangling `evidence/...` references and undeclared byte-identical duplicates, and the index
+[`reports/`](reports/) for the current interpretation, the open gaps and the evidence index. The single
+mechanical gate is `bash tools/gates.sh` (CPU tests, static checks, patch-tree consistency, evidence
+index, desensitization, committed-size and secret-pattern scans); it is wired into a versioned
+pre-commit hook via `git config core.hooksPath tools/git-hooks`. Runtime checks are
+`bash verify-runtime.sh`. The evidence gate alone is `python3 tools/pub-evidence-registry.py --check`,
+which fails on index drift, dangling `evidence/...` references, undeclared byte-identical duplicates,
+unclassified in-scope files and `registered_sets` counts that no longer reproduce from disk; the index
 itself is regenerated with `python3 tools/pub-evidence-registry.py --write` (`reports/evidence-index.md`
 is a build product — never edit it by hand). Originals of the out-of-tree registrations are archived on
-the data disk at `/root/autodl-tmp/attnview-evidence-archive`. Run all of these before treating a
-change as done.
+the data disk at `/root/autodl-tmp/attnview-evidence-archive`. Run the gate before treating a change as
+done.

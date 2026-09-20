@@ -36,27 +36,39 @@
 `.gitignore` **已提交**（仓根），两段发布相关规则：① 证据大件兜底 `*.npz` / `*.npy`（见 §4）；
 ② `AGENTS.md`（内部协作入口，排除出公开仓，见 §6）。
 
-依据：2026-09-21 实测 360 个跟踪文件合计 16.9 MiB（17,701,865 B）、单文件最大 8.27 MB
-（`evidence/p3-calib/oracle-original-3a.json`），全部满足该规则；当时唯一会咬人的缺口已修：见 §4。
+依据（**唯一时点**，见 §2 的表）：当时入库文件单文件最大 3.74 MiB（远低于阈值），全部满足该规则；
+当时唯一会咬人的缺口已修：见 §4。本节不再抄第二份计数——同一时点抄两遍正是过去出现「360 对 393」的原因；
+复算方式见 §2 的命令。
 
-## 2. 当前树规模（2026-09-21 实测，收缩后）
+## 2. 当前树规模（机械复算）
+
+复算方式（`git ls-files` + 逐文件 `os.path.getsize`，与 `tools/gates.sh` 的「入库体积」项同源）：
+
+```bash
+git ls-files | awk -F/ '{print ($1=="src" ? "src/attnview/" : (NF==1 ? "根文件" : $1"/"))}' | sort | uniq -c
+python3 - <<'EOF'
+import os, subprocess
+files = subprocess.run(["git","ls-files"],capture_output=True,text=True).stdout.split()
+print(len(files), sum(os.path.getsize(f) for f in files))
+EOF
+```
 
 | 区域 | 文件数 | 体量 | 说明 |
 | --- | ---: | ---: | --- |
-| `evidence/` | 248 | 13.58 MiB | 历史证据层 154 / 4.28 MiB + stage-05 冒烟批 94 / 9.30 MiB（§3 末尾待裁项） |
-| `tools/` | 31 | 0.47 MiB | 含 `p2-oracle-aggregate.py`（oracle 聚合段派生）与 `pub-evidence-registry.py`（索引生成/门禁） |
-| `reports/` | 29 | 0.47 MiB | 含生成物 `evidence-index.md`、规则与登记表 `evidence-registry.json` |
+| `evidence/` | 256 | 13.59 MiB | 历史证据层 + stage-05 冒烟批（§3 末尾待裁项） |
+| `reports/` | 31 | 0.51 MiB | 含生成物 `evidence-index.md`、规则与登记表 `evidence-registry.json` |
+| `tools/` | 36 | 0.51 MiB | 含 `_lib.py`（工具层共享实现）、`gates.sh`（门禁入口）、`git-hooks/pre-commit` |
 | `vllm-patch/` | 11 | 0.39 MiB | `manifest.json` + 2 个新增文件 + 8 个上游改写副本 |
-| `tests/` | 21 | 0.37 MiB | — |
+| `tests/` | 24 | 0.38 MiB | 含 `conftest.py`（统一 `sys.path`）与 `_support.py`（共享装载器） |
 | `logs/` | 12 | 0.30 MiB | 安装与 serve 日志（含三次失败尝试原日志） |
 | `src/attnview/` | 20 | 0.17 MiB | 内核 |
-| 根文件 | 13 | 0.06 MiB | `.gitignore`、`LICENSE`、`NOTICE`、`env.sh`、`install-runtime.sh`、`verify-runtime.sh`、`setup-local-cuda.sh`、`requirements.freeze*.txt`、`README.md`、`CONTRIBUTING.md`、`.gitmessage` |
+| 根文件 | 14 | 0.07 MiB | `.gitignore`、`LICENSE`、`NOTICE`、`env.sh`、`install-runtime.sh`、`verify-runtime.sh`、`setup-local-cuda.sh`、`requirements*.txt`、`pyproject.toml`、`README.md`、`CONTRIBUTING.md`、`.gitmessage` |
 | `configs/` | 7 | 0.04 MiB | — |
 | `docs/` | 1 | 0.02 MiB | `references/da-paper-extract.md` |
-| **合计** | **393** | **15.86 MiB** | 其中可再收缩项见 §3 末尾与 `reports/evidence-index.md` 自检段 |
+| **合计** | **412** | **15.97 MiB** | 单文件最大 3.74 MiB；可再收缩项见 §3 末尾与 `reports/evidence-index.md` 自检段 |
 
-旧的「360 文件 / evidence 228 / tools 28 / reports 24 / configs 6 / 根 9」计数已失效：本轮新增 stage-05 冒烟批、
-两个工具与登记表，并按 §3 移出 75 个历史证据件。
+计数时点：本条提交的**索引状态**（`git ls-files` 的集合 + 逐文件当前字节）。此后任何提交都会
+改变这些数字——改完请用上面的命令复算本节，不要凭记忆改。
 
 ## 3. 证据范围收缩（2026-09-21 执行，以新提交落地）
 

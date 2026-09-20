@@ -81,18 +81,32 @@ git log --oneline --decorate              # 边界处直接看到 tag
 
 ## 3 机械门禁（提交前自跑）
 
-测试仍使用现有 unittest 用例，由 pytest 统一收集。首次运行时在项目虚拟环境补齐固定的开发依赖：
+唯一入口是 `tools/gates.sh`（版本化钩子 `tools/git-hooks/pre-commit` 直接调用它，因此 `git commit` 会自动跑）：
+
+```bash
+bash tools/gates.sh                          # 全部门禁，任一项失败即非零退出
+git config core.hooksPath tools/git-hooks    # 每个 clone 启用一次
+```
+
+它按顺序跑下面 7 项，每一项都会执行（不因前一项失败而中断）：
+
+| 项 | 命令 |
+| --- | --- |
+| CPU 套件 | `python -m pytest tests/ -q` |
+| 静态检查 | `python -m ruff check .`（规则集与唯一忽略项见 `pyproject.toml`） |
+| 补丁树一致 | `python tools/p2-gen-patch.py --check`（重算清单并核对 `patched/`、`files/`、`src/attnview/`） |
+| 证据索引 | `python3 tools/pub-evidence-registry.py --check` |
+| 脱敏 | `python3 tools/pub-desensitize.py --check` |
+| 入库体积 | `du -b` 每个入库文件 → 单文件 ≤10 MB |
+| 密钥模式 | `gh[p]_` / `hf_` / `sk-` / `AKIA…` / 私钥头 → 期望空 |
+
+临时跳过（仅在明确知道原因时）：`git commit --no-verify`。
+
+首次运行时在项目虚拟环境补齐固定的开发依赖（pytest 与 ruff 都锁在 `requirements.dev.txt`）：
 
 ```bash
 source env.sh
 uv pip install --python "$ATTNVIEW_PYTHON" -c requirements.freeze.txt -r requirements.dev.txt
-```
-
-```bash
-python -m pytest tests/ -q                                     # CPU 套件
-python3 tools/pub-desensitize.py --check                       # 必须 exit 0
-git ls-files -z | xargs -0 du -b | sort -rn | head -3          # 最大文件 ≤10 MB
-git ls-files -z | xargs -0 grep -lIE '(gh[p]_|github[_]pat_|hf_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY)'   # 期望空
 ```
 
 `pub-desensitize.py --check` 覆盖三类内部标识：容器主机名、GPU UUID、内部协调目录。绝对路径（`/root/autodl-tmp/attnview`）是有意保留的功能性活值，不在该工具的默认规则内。
@@ -132,8 +146,10 @@ git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4}-
 
 | 层 | 命令 |
 | --- | --- |
+| 全部机械门禁（单一入口） | `bash tools/gates.sh` |
 | CPU 协议层与检查 | `python -m pytest tests/ -q` |
 | 运行环境 | `bash verify-runtime.sh` |
+| 补丁生成与一致性 | `python tools/p2-gen-patch.py` / `python tools/p2-gen-patch.py --check` |
 | 补丁部署（事务化） | `python tools/p2-apply-patch.py apply \| verify \| revert` |
 | 证据索引（生成物，勿手改） | 复核 `python3 tools/pub-evidence-registry.py --check`；重生成 `python3 tools/pub-evidence-registry.py --write` |
 

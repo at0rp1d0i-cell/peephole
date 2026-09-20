@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# 版本化 pre-commit：只做转发，门禁实现只有一份（tools/gates.sh）。
+#
+# 启用（每个 clone 一次）：git config core.hooksPath tools/git-hooks
+# 临时跳过：git commit --no-verify（仅用于明确知道原因时）
+set -euo pipefail
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/gates.sh"

@@ -1,0 +1,25 @@
+# 工具配置。本仓库不是可安装包（没有 [project] / [build-system]），
+# 这里只放 pytest 与 ruff 的配置，供 `tools/gates.sh` 与本地编辑器共用。
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# `tests/conftest.py` 负责把 tools → src → 仓库根放进 sys.path（过去由每个测试文件自己插）。
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+# 归档与生成物不参与静态检查：`evidence/` 是按 run 冻结的历史快照（改它等于改证据），
+# `vllm-patch/patched/` 由 `tools/p2-gen-patch.py` 生成（真身在 `vllm-patch/files/` 与 pin 源码）。
+extend-exclude = ["evidence", "vllm-patch/patched"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    # 本项目的正文注释是"一行一句"的中文长行（含对齐表格），按 88/120 折行会破坏可读性。
+    # 这是**有意的取舍**，不是漏配：类型与逻辑错误由 F/B 规则覆盖，行长不是错误。
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["_lib", "_support", "attnview", "tests", "tools"]

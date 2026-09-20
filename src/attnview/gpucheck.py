@@ -7,8 +7,9 @@ KV 内容不变、追加写 slot 纪律、常驻性、行隔离、敏感度）�
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
