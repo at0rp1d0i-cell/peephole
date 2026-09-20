@@ -125,11 +125,18 @@ def main() -> int:
     # ---------- 1. 位置:语义 vs 块外扩;与已验收夹具逐步一致 ----------
     idx_cross = 6          # 0 基下标 6 ⇒ 第 7 个 decode(local)
     mask = bridge.mask_at(idx_cross)
-    chk("读取位置 = 块外扩后截断到 KV 有效长度(784*3+1=2353)", len(mask.read_positions) == 2353
-        and mask.blocks == (0, 8, 9, 10) and sum(mask.effective_per_block) == 2353,
-        blocks=list(mask.blocks), per_block=list(mask.effective_per_block))
-    chk("语义位置为原始 span 并集(1087)且被读取位置覆盖(外扩只增不减)",
-        len(mask.semantic_positions) == 1087 and set(mask.semantic_positions) <= set(mask.read_positions))
+    lw, snk, pl = tuple(fixture["local_window_span"]), tuple(fixture["sink_span"]), int(fixture["prompt_len"])
+    kv_expect = bridge.kv_len_at(idx_cross)
+    sem_expect = (snk[1] - snk[0]) + (min(lw[1], pl) - lw[0]) + (kv_expect - pl)
+    chk("语义位置 = sink ∪ local_window ∪ response(按夹具 span 推导)",
+        len(mask.semantic_positions) == sem_expect, got=len(mask.semantic_positions), want=sem_expect)
+    chk("读取位置 = 语义位置向块边界外扩后截断(块集与每块计数自洽,且被验收产物核对)",
+        len(mask.read_positions) == sum(mask.effective_per_block)
+        and set(mask.blocks) == {p // block_size for p in mask.read_positions}
+        and mask.blocks == tuple(sorted(set(mask.blocks)))
+        and max(mask.read_positions) == kv_expect - 1
+        and len(mask.read_positions) > len(mask.semantic_positions),
+        blocks=list(mask.blocks), per_block=list(mask.effective_per_block), read=len(mask.read_positions))
     bad = []
     for s_ in fixture["steps"]:
         mm = independent_visible_positions(
