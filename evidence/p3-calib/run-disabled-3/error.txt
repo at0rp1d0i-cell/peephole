@@ -1,0 +1,15 @@
+# 原始失败证据（NATIVE-009 要求：原样保留，不重写为成功）
+# 来源：后台作业 bg_5 的原始 stdout/stderr（命令见下方），异常发生在 manifest 构建/try 之外，
+#       故当时该目录只有 source 快照；本文件为该次运行的完整原始尾部输出与退出码记录。
+# 命令：
+#   CUDA_VISIBLE_DEVICES=0 "$ATTNVIEW_PYTHON" tools/p2-calib-run.py --arm patched-disabled \
+#     --out evidence/p3-calib/run-disabled-3 --max-tokens 8 \
+#     --force-trajectory evidence/p3-calib/traj-original-1.json \
+#     --compare-to evidence/p3-calib/traj-original-1.json --record-layers --cleanup-check
+# 作业退出：bg_5 完成（链式命令因该步失败而短路，后续未执行）；GPU 起跑前 0 MiB/0%
+--- 原始 stderr（逐字）---
+    raise RuntimeError(
+RuntimeError: 校准: pin checkout 与 manifest 声明的 pre 状态不一致（v1/core/sched/output.py: pin=75451f403e99734d81e03cb36185b60a00ef4d9264bdc4b8e730713c055676a3 manifest pre=41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525）
+--- 连带证据 ---
+apply 输出：部署完成：27 个目标（源码 checkout + site-packages 两处），事务记录 vllm-patch/deployed.json
+verify 输出：校验（state=deployed）：27 个目标，全部一致

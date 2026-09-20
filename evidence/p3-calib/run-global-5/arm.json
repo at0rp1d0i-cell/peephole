@@ -1,0 +1,50 @@
+{
+  "target_req_id": "calib-main-patched-global-20260918-154011-b721072b",
+  "tokens": [
+    [
+      [
+        27
+      ]
+    ],
+    [
+      [
+        9461
+      ]
+    ],
+    [
+      [
+        29
+      ]
+    ],
+    [
+      [
+        7081
+      ]
+    ],
+    [
+      [
+        799
+      ]
+    ],
+    [
+      [
+        10642
+      ]
+    ],
+    [
+      [
+        11540
+      ]
+    ],
+    [
+      [
+        557
+      ]
+    ]
+  ],
+  "force_log": "evidence/p3-calib/run-global-5/force.jsonl",
+  "logits_path": "evidence/p3-calib/run-global-5/logits.pt",
+  "trace_path": "evidence/p3-calib/run-global-5/steps.jsonl",
+  "note": "tokens 为同轨迹强制序列（tokens[step][row]）；文件在 add_request 之后、首次 step() 之前写入",
+  "external_req_id": "calib-main-patched-global-20260918-154011"
+}

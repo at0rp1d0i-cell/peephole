@@ -1,0 +1,55 @@
+{
+  "schema": "attnview.p2-calib-trajectory/v1",
+  "tokens": [
+    [
+      [
+        27
+      ]
+    ],
+    [
+      [
+        9461
+      ]
+    ],
+    [
+      [
+        29
+      ]
+    ],
+    [
+      [
+        7081
+      ]
+    ],
+    [
+      [
+        799
+      ]
+    ],
+    [
+      [
+        10642
+      ]
+    ],
+    [
+      [
+        11540
+      ]
+    ],
+    [
+      [
+        557
+      ]
+    ]
+  ],
+  "arm": "original",
+  "request_id": "calib-main-original-20260918-152745",
+  "internal_request_id": "calib-main-original-20260918-152745-b26d3b86",
+  "prompt_len": 1505,
+  "prompt_token_ids_sha256": "6a35213f583fd1b1ff1936c66bddffa12c9abcc3310888f4af4a325453352055",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "trajectory_source": "natural-greedy",
+  "logits_sha256": "24c6ad2fe504141dc65db3278c0cfdb7874ef9ae1a07064af02b709c2b849974",
+  "created_cst": "2026-09-18 15:27:48 +0800",
+  "max_tokens": 8
+}

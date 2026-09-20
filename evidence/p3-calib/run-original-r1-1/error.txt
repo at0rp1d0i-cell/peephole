@@ -1,0 +1,58 @@
+Traceback (most recent call last):
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 1922, in main
+    manifest_path = out / "manifest.json"
+                    ~~~~^~~~~~~~~~~~~~~~~~
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 1641, in _run
+    internal_main_id = ledger["internal_id"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 972, in drive_main_request
+    "external_id": str(external_id),
+              ^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/llm_engine.py", line 307, in step
+    outputs = self.engine_core.get_output()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 320, in get_output
+    outputs, model_executed = self.engine_core.step_fn()
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 609, in step
+    future = self.model_executor.execute_model(scheduler_output, non_block=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 131, in execute_model
+    output.result()
+  File "/root/autodl-tmp/attnview/pythons/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/pythons/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 109, in collective_rpc
+    result = run_method(self.driver_worker, method, args, kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/worker_base.py", line 375, in execute_model
+    return self.worker.execute_model(scheduler_output)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu_worker.py", line 1170, in execute_model
+    output = self.model_runner.execute_model(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_runner.py", line 1776, in execute_model
+    model_output = self.model(**model_inputs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 472, in wrapper
+    self._begin_step(kwargs)
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 499, in _begin_step
+    raise RuntimeError(
+RuntimeError: 校准: 本步 positions 形状 (3, 1505) 不是一维绝对位置，无法作为独立参考

@@ -1,0 +1,177 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "check": "cancel_req_produced_token",
+      "ok": true,
+      "detail": "A 产出 token=[27]（步数 1）——未见 token 即失败"
+    },
+    {
+      "check": "cancel_req_state_unobservable_documented",
+      "ok": true,
+      "detail": "协议状态不可从宿主侧观察（已记录）：宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+    },
+    {
+      "check": "cancel_req_active_before_abort",
+      "ok": true,
+      "detail": "取消前 scheduler.requests 含 A：True"
+    },
+    {
+      "check": "abort_removed_from_scheduler",
+      "ok": true,
+      "detail": "abort 后 scheduler.requests 含 A：False"
+    },
+    {
+      "check": "cancel_req_gone_after_cleanup",
+      "ok": true,
+      "detail": "清理 1 轮后 scheduler_has_req=False unfinished=0"
+    },
+    {
+      "check": "cancel_req_state_release_documented",
+      "ok": true,
+      "detail": "无法从宿主侧观察协议状态（已明确记录）：宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）；以 scheduler.requests/未完成计数释放作为替代证据"
+    },
+    {
+      "check": "worker_req_ids_release_evidence_recorded",
+      "ok": true,
+      "detail": "worker 侧 `execute_model_state.input_batch.req_ids` 是**上一次 forward 的快照**（清理轮无调度步即不更新）：last=None；真正的 worker 侧释放以随后新请求的批次内容为准（见 worker_req_ids_after_new_request）"
+    },
+    {
+      "check": "new_req_produced_token",
+      "ok": true,
+      "detail": "B 产出 token=[27, 9461]（步数 2，finished=True）"
+    },
+    {
+      "check": "new_req_state_unobservable_documented",
+      "ok": true,
+      "detail": "B 的协议状态不可从宿主侧观察（已明确记录）：宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+    },
+    {
+      "check": "worker_req_ids_after_new_request",
+      "ok": true,
+      "detail": "worker 侧批次内容不可从宿主观察（已记录），以 engine 侧状态作为替代证据"
+    },
+    {
+      "check": "new_req_released_after_finish",
+      "ok": true,
+      "detail": "B 正常结束后 scheduler.requests 含 B：False"
+    },
+    {
+      "check": "normal_req_produced_token_and_finished",
+      "ok": true,
+      "detail": "C 产出 token=[27, 9461, 29, 7081] finished=True"
+    },
+    {
+      "check": "normal_req_released_after_finish",
+      "ok": true,
+      "detail": "正常结束后 scheduler.requests 含 C：False"
+    },
+    {
+      "check": "follow_req_produced_token",
+      "ok": true,
+      "detail": "D 产出 token=[27, 9461]（步数 2，finished=True）"
+    },
+    {
+      "check": "cleanup_flow_completed",
+      "ok": true,
+      "detail": "清理段全部步骤执行完毕（无异常中断）"
+    }
+  ],
+  "observations": {
+    "ids": {
+      "cancel": {
+        "external_id": "calib-cleanup-cancel-1789716468",
+        "internal_id": "calib-cleanup-cancel-1789716468-bc314eb8",
+        "randomized": true
+      },
+      "new": {
+        "external_id": "calib-cleanup-new-1789716468",
+        "internal_id": "calib-cleanup-new-1789716468-833703b6",
+        "randomized": true
+      },
+      "normal": {
+        "external_id": "calib-cleanup-normal-1789716468",
+        "internal_id": "calib-cleanup-normal-1789716468-87c121c4",
+        "randomized": true
+      },
+      "follow": {
+        "external_id": "calib-cleanup-follow-1789716468",
+        "internal_id": "calib-cleanup-follow-1789716468-bd10dd2a",
+        "randomized": true
+      }
+    },
+    "cancel_req": {
+      "tokens": [
+        27
+      ],
+      "steps": 1
+    },
+    "cancel_req_state": {
+      "observable": false,
+      "reason": "宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+    },
+    "scheduler_has_cancel_before_abort": true,
+    "scheduler_has_cancel_after_abort": false,
+    "cleanup_rounds": {
+      "rounds": 1,
+      "scheduler_has_req": false,
+      "unfinished": 0,
+      "worker_req_ids": null
+    },
+    "cancel_req_state_after_cleanup": {
+      "observable": false,
+      "reason": "宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+    },
+    "worker_req_ids_last_step": null,
+    "new_req": {
+      "tokens": [
+        27,
+        9461
+      ],
+      "steps": 2,
+      "finished": true
+    },
+    "new_req_probes": {
+      "1": {
+        "state": {
+          "observable": false,
+          "reason": "宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+        },
+        "worker_req_ids": null
+      },
+      "2": {
+        "state": {
+          "observable": false,
+          "reason": "宿主侧取不到 engine 的 attnview 对象（原版无该对象，或层级不同）"
+        },
+        "worker_req_ids": null
+      }
+    },
+    "normal_req": {
+      "tokens": [
+        27,
+        9461,
+        29,
+        7081
+      ],
+      "steps": 4,
+      "finished": true
+    },
+    "follow_req": {
+      "tokens": [
+        27,
+        9461
+      ],
+      "steps": 2,
+      "finished": true
+    }
+  },
+  "extra_args": null,
+  "request_ids": {
+    "cancel": "calib-cleanup-cancel-1789716468",
+    "new": "calib-cleanup-new-1789716468",
+    "normal": "calib-cleanup-normal-1789716468",
+    "follow": "calib-cleanup-follow-1789716468"
+  },
+  "failed_checks": []
+}

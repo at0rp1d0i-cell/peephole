@@ -1,0 +1,9 @@
+{
+  "target_req_id": "calib-main-original-20260918-152745-b26d3b86",
+  "tokens": [],
+  "force_log": null,
+  "logits_path": null,
+  "trace_path": null,
+  "note": "original 臂无补丁钩子：logits 由宿主级捕获写入 logits.pt（本文件不被读取）",
+  "external_req_id": "calib-main-original-20260918-152745"
+}

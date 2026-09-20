@@ -1,0 +1,523 @@
+[
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1505,
+    "attention_kv_len_next": 1506
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 1,
+    "effect_step": 2,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1506,
+    "attention_kv_len_next": 1507
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 2,
+    "effect_step": 3,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [
+      "noop"
+    ],
+    "written_after": 1507,
+    "attention_kv_len_next": 1508
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 3,
+    "effect_step": 4,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1508,
+    "attention_kv_len_next": 1509
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 4,
+    "effect_step": 5,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1509,
+    "attention_kv_len_next": 1510
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 5,
+    "effect_step": 6,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1510,
+    "attention_kv_len_next": 1511
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 6,
+    "effect_step": 7,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1511,
+    "attention_kv_len_next": 1512
+  },
+  {
+    "req_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "parse_step": 7,
+    "effect_step": 8,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1512,
+    "attention_kv_len_next": 1513
+  },
+  {
+    "request_id": "calib-main-patched-global-20260918-153331-8388ad16",
+    "arm": "da",
+    "num_segments": 1,
+    "prompt_len": 1505,
+    "generated_tokens": 8,
+    "written_kv_len": 1512,
+    "attention_kv_len_next": 1513,
+    "stop_token_index": null,
+    "final_mode": "global",
+    "focus_attempts": 0,
+    "focus_successes": 0,
+    "anomalies": [],
+    "flush_events": [],
+    "steps": [
+      {
+        "token_index": 0,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 1,
+        "written_kv_len": 1505,
+        "attention_kv_len_next": 1506,
+        "next_write_position": 1505,
+        "events": []
+      },
+      {
+        "token_index": 1,
+        "token_id": 9461,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 2,
+        "written_kv_len": 1506,
+        "attention_kv_len_next": 1507,
+        "next_write_position": 1506,
+        "events": []
+      },
+      {
+        "token_index": 2,
+        "token_id": 29,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 3,
+        "written_kv_len": 1507,
+        "attention_kv_len_next": 1508,
+        "next_write_position": 1507,
+        "events": [
+          {
+            "kind": "noop",
+            "name": "global",
+            "mode_before": "global",
+            "mode_after": "global",
+            "refs": [],
+            "closed_at_token_index": 2,
+            "effect_step": 3,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": false
+          }
+        ]
+      },
+      {
+        "token_index": 3,
+        "token_id": 7081,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 4,
+        "written_kv_len": 1508,
+        "attention_kv_len_next": 1509,
+        "next_write_position": 1508,
+        "events": []
+      },
+      {
+        "token_index": 4,
+        "token_id": 799,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 5,
+        "written_kv_len": 1509,
+        "attention_kv_len_next": 1510,
+        "next_write_position": 1509,
+        "events": []
+      },
+      {
+        "token_index": 5,
+        "token_id": 10642,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 6,
+        "written_kv_len": 1510,
+        "attention_kv_len_next": 1511,
+        "next_write_position": 1510,
+        "events": []
+      },
+      {
+        "token_index": 6,
+        "token_id": 11540,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 7,
+        "written_kv_len": 1511,
+        "attention_kv_len_next": 1512,
+        "next_write_position": 1511,
+        "events": []
+      },
+      {
+        "token_index": 7,
+        "token_id": 557,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 8,
+        "written_kv_len": 1512,
+        "attention_kv_len_next": 1513,
+        "next_write_position": 1512,
+        "events": []
+      }
+    ],
+    "note": "finished:length",
+    "applied_step": null
+  },
+  {
+    "req_id": "calib-cleanup-cancel-1789716815-953eb51f",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1505,
+    "attention_kv_len_next": 1506
+  },
+  {
+    "req_id": "calib-cleanup-new-1789716815-a090ff46",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1505,
+    "attention_kv_len_next": 1506
+  },
+  {
+    "req_id": "calib-cleanup-new-1789716815-a090ff46",
+    "parse_step": 1,
+    "effect_step": 2,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1506,
+    "attention_kv_len_next": 1507
+  },
+  {
+    "request_id": "calib-cleanup-new-1789716815-a090ff46",
+    "arm": "da",
+    "num_segments": 1,
+    "prompt_len": 1505,
+    "generated_tokens": 2,
+    "written_kv_len": 1506,
+    "attention_kv_len_next": 1507,
+    "stop_token_index": null,
+    "final_mode": "global",
+    "focus_attempts": 0,
+    "focus_successes": 0,
+    "anomalies": [
+      {
+        "kind": "anomaly",
+        "name": "global",
+        "mode_before": "global",
+        "mode_after": "global",
+        "refs": [],
+        "closed_at_token_index": 2,
+        "effect_step": 3,
+        "reason": "incomplete_tag",
+        "detail": "未闭合标签缓冲 7 字符",
+        "is_focus_attempt": false
+      }
+    ],
+    "flush_events": [
+      {
+        "kind": "anomaly",
+        "name": "global",
+        "mode_before": "global",
+        "mode_after": "global",
+        "refs": [],
+        "closed_at_token_index": 2,
+        "effect_step": 3,
+        "reason": "incomplete_tag",
+        "detail": "未闭合标签缓冲 7 字符",
+        "is_focus_attempt": false
+      }
+    ],
+    "steps": [
+      {
+        "token_index": 0,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 1,
+        "written_kv_len": 1505,
+        "attention_kv_len_next": 1506,
+        "next_write_position": 1505,
+        "events": []
+      },
+      {
+        "token_index": 1,
+        "token_id": 9461,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 2,
+        "written_kv_len": 1506,
+        "attention_kv_len_next": 1507,
+        "next_write_position": 1506,
+        "events": []
+      }
+    ],
+    "note": "finished:length",
+    "applied_step": null
+  },
+  {
+    "req_id": "calib-cleanup-normal-1789716815-9836978c",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1505,
+    "attention_kv_len_next": 1506
+  },
+  {
+    "req_id": "calib-cleanup-normal-1789716815-9836978c",
+    "parse_step": 1,
+    "effect_step": 2,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1506,
+    "attention_kv_len_next": 1507
+  },
+  {
+    "req_id": "calib-cleanup-normal-1789716815-9836978c",
+    "parse_step": 2,
+    "effect_step": 3,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [
+      "noop"
+    ],
+    "written_after": 1507,
+    "attention_kv_len_next": 1508
+  },
+  {
+    "req_id": "calib-cleanup-normal-1789716815-9836978c",
+    "parse_step": 3,
+    "effect_step": 4,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1508,
+    "attention_kv_len_next": 1509
+  },
+  {
+    "request_id": "calib-cleanup-normal-1789716815-9836978c",
+    "arm": "da",
+    "num_segments": 1,
+    "prompt_len": 1505,
+    "generated_tokens": 4,
+    "written_kv_len": 1508,
+    "attention_kv_len_next": 1509,
+    "stop_token_index": null,
+    "final_mode": "global",
+    "focus_attempts": 0,
+    "focus_successes": 0,
+    "anomalies": [],
+    "flush_events": [],
+    "steps": [
+      {
+        "token_index": 0,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 1,
+        "written_kv_len": 1505,
+        "attention_kv_len_next": 1506,
+        "next_write_position": 1505,
+        "events": []
+      },
+      {
+        "token_index": 1,
+        "token_id": 9461,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 2,
+        "written_kv_len": 1506,
+        "attention_kv_len_next": 1507,
+        "next_write_position": 1506,
+        "events": []
+      },
+      {
+        "token_index": 2,
+        "token_id": 29,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 3,
+        "written_kv_len": 1507,
+        "attention_kv_len_next": 1508,
+        "next_write_position": 1507,
+        "events": [
+          {
+            "kind": "noop",
+            "name": "global",
+            "mode_before": "global",
+            "mode_after": "global",
+            "refs": [],
+            "closed_at_token_index": 2,
+            "effect_step": 3,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": false
+          }
+        ]
+      },
+      {
+        "token_index": 3,
+        "token_id": 7081,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 4,
+        "written_kv_len": 1508,
+        "attention_kv_len_next": 1509,
+        "next_write_position": 1508,
+        "events": []
+      }
+    ],
+    "note": "finished:length",
+    "applied_step": null
+  },
+  {
+    "req_id": "calib-cleanup-follow-1789716815-b997af2b",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1505,
+    "attention_kv_len_next": 1506
+  },
+  {
+    "req_id": "calib-cleanup-follow-1789716815-b997af2b",
+    "parse_step": 1,
+    "effect_step": 2,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 1506,
+    "attention_kv_len_next": 1507
+  },
+  {
+    "request_id": "calib-cleanup-follow-1789716815-b997af2b",
+    "arm": "da",
+    "num_segments": 1,
+    "prompt_len": 1505,
+    "generated_tokens": 2,
+    "written_kv_len": 1506,
+    "attention_kv_len_next": 1507,
+    "stop_token_index": null,
+    "final_mode": "global",
+    "focus_attempts": 0,
+    "focus_successes": 0,
+    "anomalies": [
+      {
+        "kind": "anomaly",
+        "name": "global",
+        "mode_before": "global",
+        "mode_after": "global",
+        "refs": [],
+        "closed_at_token_index": 2,
+        "effect_step": 3,
+        "reason": "incomplete_tag",
+        "detail": "未闭合标签缓冲 7 字符",
+        "is_focus_attempt": false
+      }
+    ],
+    "flush_events": [
+      {
+        "kind": "anomaly",
+        "name": "global",
+        "mode_before": "global",
+        "mode_after": "global",
+        "refs": [],
+        "closed_at_token_index": 2,
+        "effect_step": 3,
+        "reason": "incomplete_tag",
+        "detail": "未闭合标签缓冲 7 字符",
+        "is_focus_attempt": false
+      }
+    ],
+    "steps": [
+      {
+        "token_index": 0,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 1,
+        "written_kv_len": 1505,
+        "attention_kv_len_next": 1506,
+        "next_write_position": 1505,
+        "events": []
+      },
+      {
+        "token_index": 1,
+        "token_id": 9461,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 2,
+        "written_kv_len": 1506,
+        "attention_kv_len_next": 1507,
+        "next_write_position": 1506,
+        "events": []
+      }
+    ],
+    "note": "finished:length",
+    "applied_step": null
+  }
+]
