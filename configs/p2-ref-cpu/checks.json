@@ -12,5 +12,6 @@
     "test-only 开关默认关闭,生产路径无调用点"
   ],
   "tokenizer_dir": "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
-  "accepted_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json"
+  "accepted_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json",
+  "timeline_config": "configs/p2-masked-prep/crossblock.json"
 }

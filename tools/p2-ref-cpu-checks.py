@@ -41,8 +41,9 @@ def load_timeline(cfg: dict, fixture: dict) -> tuple[TimelineBridge, list[dict]]
     from transformers import AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained(str(REPO / cfg["tokenizer_dir"]), trust_remote_code=False)
+    timeline_cfg = json.loads((REPO / cfg["timeline_config"]).read_text())
     idx, decls = 0, []
-    for piece in cfg["generation_script"]:
+    for piece in timeline_cfg["generation_script"]:
         n = len(tok.encode(piece["text"], add_special_tokens=False))
         idx += n
         decls.append({"parse_index_0based": idx - 1, "mode": piece["expected_mode_after"],
