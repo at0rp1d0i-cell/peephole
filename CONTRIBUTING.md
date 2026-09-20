@@ -61,7 +61,7 @@ git log --oneline --decorate              # 边界处直接看到 tag
 
 ### 1.5 反例（都来自本仓历史，供对照）
 
-- **单行超长**：`stage-05 NATIVE-052:结构检查——q_len 取自搬运前标量…` 320 字符挤在 subject 里 → `git log --oneline` 不可读，证据与未验证项没有位置。仓库里 62 条提交 subject >100 字符，都是这个形态。
+- **单行超长**：`stage-05 NATIVE-052:结构检查——q_len 取自搬运前标量…` 320 字符挤在 subject 里 → `git log --oneline` 不可读，证据与未验证项没有位置。2026-09-21 实测：156 条提交里 62 条 subject >100 字符，最长 320。
 - **第二套风格**：`fix(scope): describe the change in english`——英文 Conventional 风格、无正文、无证据、无未验证项。同一仓库里并存两套提交风格本身就是"乱"的来源；要换风格就整仓换，别一条一条换。
 - **无可核对内容**：`docs: 修一些文档`——没说改了什么、凭什么算完成。
 
@@ -100,6 +100,18 @@ git ls-files -z | xargs -0 grep -lIE '(ghp_|github_pat_|hf_[A-Za-z0-9]{30,}|sk-[
 ```bash
 git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|/root/autodl-tmp/attnview-supervision' $(git rev-list --all) | wc -l   # 期望 0
 ```
+
+### 5.1 历史消息规范的边界（2026-09-21 决定）
+
+本规范生效点之前的 **156 条提交**（含 2 条英文 Conventional 风格、无正文的提交）**保留原始消息，不回溯改写**。理由：其中 141 条是"阶段 + 工作单"打头的长单行，规范化等于逐条重写文案——机械拆分只能产出 `收尾`、`R1 返工` 这类空壳 subject；而代价是二次 `force-push`、二次 SHA 映射（证据 manifest 的 `head` 字段再次失效）与一次完整重核。收益只是观感统一，风险落在已经公开的历史上。风格分界点即 §1 的生效日期。
+
+### 5.2 推送前的尾部整理
+
+未推送的提交在推送前整理到新模板——这正是"阶段边界才推"换来的空间：
+
+- 各作者整理**自己的**未推送提交；共享工作区里不改写他人的提交（见 §2）。
+- 整理清单：subject 同构且 ≤72 字符；正文与 `Work-order` / `Evidence` / `Verified` / `Unverified` 四个 trailer 齐备。
+- 推送前跑 §3 门禁；推送后按本节开头做 clone 复核。
 
 ## 6 验证入口
 
