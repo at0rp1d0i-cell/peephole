@@ -19,14 +19,19 @@
 - 上限满足：启动 ≤15 min（实测 ≈49 s）、单请求 ≤180 s（实测 ≤3.76 s）。
 - `patched` 两臂的 cleanup 验收按可观察效果判定：带载荷请求 B 的登记/解析/无受限计划/生命周期释放（registry/config/detok/pending）
   与真实取消均通过；`enforce_global` 的 mark 检查按**真实协议模式条件**判定（全程 global ⇒ `marks=[]` 正确；非 global ⇒ 必须有 mark）。
-- 四臂均以 `--compare-to` 机械断言逐 token 相同；候选强制 token 与原始采样分列记录（`force.jsonl`）。
+- **轨迹来源与比对口径**：`original` 两轮走**自然 greedy**，其中**首轮**（`run-original-3a`）生成轨迹基线、**不带** `--compare-to`；
+  第二轮（`run-original-3b`）才用 `--compare-to` 与首轮逐 token 比对。两候选臂走**测试专用 teacher forcing**
+  （`--force-trajectory` 回放同一轨迹）并各自 `--compare-to`；候选的强制 token 与原始采样分列记录于 `force.jsonl`。
+- **各 run 实际 HEAD**：`run-original-3a`/`3b` = `07de025`；`run-disabled-4`/`run-global-4` = `c65d8e5`；
+  `run-disabled-5`/`run-global-5` = `757eddd`。运行期间各 run 的脚本哈希不变（起时快照见 `<run>/source/`，`manifest.script_sha256`）。
 
 ## 2. 重复性与等价性（数值，CPU 读取已保存张量）
 
 | 比较 | 结论 | 证据 |
 | --- | --- | --- |
 | `original` #1 vs #2 | 8 logits + 16 FA 层输出 × 8 步 = **136 对张量**：全部有限、shape 一致、**逐元素相同（max_abs=0）** | 主代理独立复核 `original-repeat-tensors.json` |
-| `patched-disabled`/`patched-global` vs `original` #1 | 共 **272 对张量**：全部有限、**逐元素相同（max_abs=0）** | 主代理独立复核 `patched-v4-main-tensors.json` |
+| **v4** 候选（`run-disabled-4`/`run-global-4`）vs `original` #1 | 共 **272 对张量**：全部有限、**逐元素相同（max_abs=0）** | 主代理独立复核 `patched-v4-main-tensors.json`（SHA256 `887bae9b…a1b29756`）|
+| **v5 最终** 候选（`run-disabled-5`/`run-global-5`）| 两 run **exit 0 / failures [] / cleanup true**；全层捕获与 8 logits 亦逐元素相同 | `final-v5-artifacts.json`（SHA256 `79e1a40f…84c4e9`）|
 | 四臂 capture 字节一致性 | 四臂 `capture/layers.npz` **字节完全相同**（含 Q/K/V/位置/输出/scale 元数据） | 主代理独立复核 `capture-byte-identity.json`（SHA256 `e60ec7d1…437008`） |
 
 ⇒ **主请求范围内，DA/global 路径引入的附加数值偏差为 0**（与关闭臂、原版逐元素相同）。
@@ -41,6 +46,8 @@
   **decode 最大 0.1179962158**；首个 decode 步 min 0.00414 / median 0.01490 / max 0.09901。
 - **跨实现两样本核对**（主代理，NumPy float64，逐 head 重算两个最坏点）：0.2600652519 / 0.1179977043，
   与 FP32 报告差 1.73e-5 / 1.49e-6（证据 `oracle-worstcase-independent.json`）。**仅为两样本核对，不是全量独立 oracle。**
+- **只完成一份 oracle**：重复子进程曾随串联命令**启动后被取消**，只保留首份计算；两候选按**完整捕获哈希**复用同一输入，
+  **不写成"从未重复运行"**、也不写成"三次独立 oracle"。
 - **口径**（不越界）：报告字段 `rel_err` = `max_abs_err / L2(out)`，**不是**逐元素 `allclose` 的 rtol；
   `dtype_name=None` 不得读作"模型 dtype 未知"——模型 dtype 由 manifest 的 BF16 与逐层 `capture_dtype_L{n}` 给出来源。
   误差含 BF16 舍入与 FA2 与 dense FP32 的实现差异；**本轮不设容差、不套用阶段 04 阈值**。
@@ -51,3 +58,21 @@
 - FA2 **生效值**以显式配置为门禁；运行期 `Using FlashAttention version 2` 的日志核对仍待补。
 - canonical 块表与 FA metadata 的块号单位未独立核验（只作记录）；硬判据是 FA `seq_lens[0] == 本步最后位置 + 1`。
 - 正式 masked 容差须后续**预冻结**（依据本报告与后续取样），不得直接沿用旧阈值。
+
+## 5. 复跑入口与当前环境
+
+- **CPU 测试**（复用已通过记录，不为报告重跑）：`source ./env.sh && CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" -m unittest tests.test_p2_calib_hooks tests.test_p2_calib_oracle`。
+  全量：`bash tools/p1cpu-run-tests.sh`（未部署源码树）→ 308 项 OK（报告提交前 29.494 s、提交后 29.903 s 两次记录）。
+  现存工具输出仅**末尾摘要**，未保存完整日志 —— 本报告不伪造完整日志。
+- **oracle 参考**：`CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py --capture evidence/p3-calib/run-original-3a/capture/layers.npz --out evidence/p3-calib/oracle-original-3a.json`
+- **四臂复跑（新目录）**：未部署态先跑
+  `--arm original --out evidence/p3-calib/run-original-N1 --max-tokens 8 --emit-trajectory <traj>`（首轮不 compare-to）
+  → 第二轮 `--arm original --out …run-original-N2 --compare-to <traj>`
+  → `"$ATTNVIEW_PYTHON" tools/p2-apply-patch.py apply && … verify`
+  → `--arm patched-disabled --out …run-disabled-N --force-trajectory <traj> --compare-to <traj> --cleanup-check`
+  → `--arm patched-global --out …run-global-N --force-trajectory <traj> --compare-to <traj> --cleanup-check`
+  → 结束后 `revert`。
+- **当前环境（本报告 HEAD `85cfacf`）**：源码树**未部署**（checkout 与安装副本逐字节一致、无已部署 `attnview_engine.py`、
+  无 `orig/`、无事务记录）；工作区干净；GPU 0 MiB。
+- **诊断时间口径**：四臂的 startup/请求耗时**包含**捕获与校准专用同步（强制钩子含 D2H/H2D、logits 捕获含显式 D2H），
+  **不得**作为性能结论。
