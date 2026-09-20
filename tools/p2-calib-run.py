@@ -699,15 +699,33 @@ class LayerCapture:
                     f"{self.markers[self.request_step]} vs {marker}"
                 )
             self._step_metadata = attn_metadata
-        self.records[self.request_step][index] = {
-            "q": query.detach().to("cpu", dtype=torch.float32),
-            "k": key.detach().to("cpu", dtype=torch.float32),
-            "v": value.detach().to("cpu", dtype=torch.float32),
-            "out": out.detach().to("cpu", dtype=torch.float32),
+        # 标量**先行独立记录**:即使不搬运任何 Q/out 张量,相位/长度证据也必须保留
+        # (否则 `_end_step` 依赖 rec["q"].shape[0] 会 KeyError,连全步位置校验都会丢)。
+        meta_all = self.__dict__.setdefault("record_meta", {})
+        meta_all.setdefault(self.request_step, {})[index] = {
+            "q_len": int(query.shape[0]),
+            "device_dtype": str(query.dtype),
+            "scale": self.scales[index],
+            "layer_name": self.layer_names.get(index, f"index{index}"),
+            "moved_tensors": False,
+        }
+        bounded = bool(getattr(self, "bounded_capture", False))
+        step = int(self.request_step)
+        keep_q_out = (not bounded) or (step in set(getattr(self, "representative_decodes", ()) or ()))
+        keep_kv = (not bounded) or (step == 1) or True   # prefill KV 一次 + 每 decode 追加 KV
+        rec: dict = {
             "device_dtype": str(query.dtype),
             "scale": self.scales[index],
             "layer_name": self.layer_names.get(index, f"index{index}"),
         }
+        if keep_kv:
+            rec["k"] = key.detach().to("cpu", dtype=torch.float32)
+            rec["v"] = value.detach().to("cpu", dtype=torch.float32)
+        if keep_q_out:
+            rec["q"] = query.detach().to("cpu", dtype=torch.float32)
+            rec["out"] = out.detach().to("cpu", dtype=torch.float32)
+            meta_all[step][index]["moved_tensors"] = True
+        self.records[self.request_step][index] = rec
 
     @staticmethod
     def _step_marker(attn_metadata) -> dict | None:
@@ -764,7 +782,9 @@ class LayerCapture:
         self._step_positions = None
         if not layers:
             raise RuntimeError(f"校准: 目标请求第 {step} 步没有任何全注意力层被观测到（无法给出参考）")
-        q_lens = {int(rec["q"].shape[0]) for rec in layers.values()}
+        scalars = (self.__dict__.get("record_meta", {}).get(step) or {})
+        q_lens = {int(scalars[i]["q_len"]) for i in scalars} or {
+            int(rec["q"].shape[0]) for rec in layers.values() if "q" in rec}
         if len(q_lens) != 1:
             raise RuntimeError(f"校准: 目标请求第 {step} 步各层 q_len 不一致：{sorted(q_lens)}")
         q_len = q_lens.pop()
@@ -885,17 +905,27 @@ class LayerCapture:
         arrays: dict[str, object] = {}
         decode_index = int(step) - 1
         for index, rec in sorted((self.records.get(step) or {}).items()):
-            q, k, v, out = rec["q"], rec["k"], rec["v"], rec["out"]
+            k, v = rec.get("k"), rec.get("v")
+            q, out = rec.get("q"), rec.get("out")
             if step == 1:
-                arrays[f"k_prefill_L{index}"] = k.transpose(0, 1).contiguous().numpy()
-                arrays[f"v_prefill_L{index}"] = v.transpose(0, 1).contiguous().numpy()
-                arrays[f"q_step{step}_L{index}"] = q.transpose(0, 1).contiguous().numpy()
-                arrays[f"out_step{step}_L{index}"] = out.transpose(0, 1).contiguous().numpy()
+                # prefill KV **只导一次**;bounded 模式下不保存 prefill 的 Q/out
+                if k is not None:
+                    arrays[f"k_prefill_L{index}"] = k.transpose(0, 1).contiguous().numpy()
+                if v is not None:
+                    arrays[f"v_prefill_L{index}"] = v.transpose(0, 1).contiguous().numpy()
+                if q is not None:
+                    arrays[f"q_step{step}_L{index}"] = q.transpose(0, 1).contiguous().numpy()
+                if out is not None:
+                    arrays[f"out_step{step}_L{index}"] = out.transpose(0, 1).contiguous().numpy()
             else:
-                arrays[f"decode_q_step{decode_index}_L{index}"] = q.transpose(0, 1).contiguous().numpy()
-                arrays[f"decode_out_step{decode_index}_L{index}"] = out.transpose(0, 1).contiguous().numpy()
-                arrays[f"k_current_step{decode_index}_L{index}"] = k.transpose(0, 1).contiguous().numpy()
-                arrays[f"v_current_step{decode_index}_L{index}"] = v.transpose(0, 1).contiguous().numpy()
+                if k is not None:
+                    arrays[f"k_current_step{decode_index}_L{index}"] = k.transpose(0, 1).contiguous().numpy()
+                if v is not None:
+                    arrays[f"v_current_step{decode_index}_L{index}"] = v.transpose(0, 1).contiguous().numpy()
+                if q is not None:
+                    arrays[f"decode_q_step{decode_index}_L{index}"] = q.transpose(0, 1).contiguous().numpy()
+                if out is not None:
+                    arrays[f"decode_out_step{decode_index}_L{index}"] = out.transpose(0, 1).contiguous().numpy()
             arrays[f"scale_L{index}"] = np.array(float(rec["scale"]))
             arrays[f"capture_dtype_L{index}"] = np.array(str(rec["device_dtype"]))
             arrays[f"layer_name_L{index}"] = np.array(str(rec["layer_name"]))
@@ -943,6 +973,16 @@ class LayerCapture:
             "positions": {str(s): self.positions[s] for s in sorted(self.positions)},
             "prev_req_ids": {str(s): v for s, v in sorted(self.prev_req_ids.items())},
         }
+
+
+REPRESENTATIVE_DECODES = (6, 7, 20, 25)
+
+
+def configure_bounded_capture(capture: LayerCapture, arm: str, *, representative_decodes=None) -> None:
+    """仅 `patched-masked` 开启 bounded capture(默认代表 decode 6/7/20/25);旧三臂行为逐字不变。"""
+    capture.bounded_capture = arm == "patched-masked"
+    capture.representative_decodes = tuple(representative_decodes or REPRESENTATIVE_DECODES)
+    capture.record_meta = {}
 
 
 def install_capture(llm) -> LayerCapture:
@@ -1002,10 +1042,17 @@ def dump_capture(capture: LayerCapture, path: Path) -> None:
             arrays[name] = value
     arrays.update(per_layer)
 
-    first = capture.records[1]
-    any_rec = next(iter(first.values()))
-    num_heads, head_dim = int(any_rec["q"].shape[1]), int(any_rec["q"].shape[2])
-    num_kv_heads = int(any_rec["k"].shape[1])
+    # 几何从**任一步任一层**的真实张量取:bounded 模式下 prefill 不保存 Q,
+    # 因此不能假定 `records[1]` 必有 "q"(代表 decode 步的 Q 仍在)。
+    q_rec = next((rec for step in sorted(capture.records) for rec in capture.records[step].values()
+                  if "q" in rec), None)
+    kv_rec = next((rec for step in sorted(capture.records) for rec in capture.records[step].values()
+                   if "k" in rec), None)
+    if kv_rec is None:
+        raise RuntimeError("校准: 捕获里没有任何 K/V(至少需要 prefill 的 canonical KV)")
+    num_heads = int(q_rec["q"].shape[1]) if q_rec is not None else None
+    head_dim = int((q_rec or kv_rec)["q" if q_rec is not None else "k"].shape[2])
+    num_kv_heads = int(kv_rec["k"].shape[1])
     scales = {round(float(rec["scale"]), 12) for step in capture.records for rec in capture.records[step].values()}
     if len(scales) != 1:
         raise RuntimeError(f"校准: 捕获到多个不同 scale：{sorted(scales)}（元数据不得被最后一层覆盖）")
@@ -2134,6 +2181,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     )
 
     capture = install_capture(llm) if args.record_layers else None
+    if capture is not None:
+        configure_bounded_capture(capture, args.arm)
     capture_host = args.capture_host_logits
     if capture_host is None:
         capture_host = not patched
