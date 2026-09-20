@@ -29,6 +29,8 @@
   门禁失败，因此必须补规则，不能只让它安静地出现在生成物里。
 - `A9` `registered_sets` 的 `count`/`bytes` 与磁盘不一致。口径：`glob` 展开 **减去**已逐个登记的
   成员（树内上表 / 树外登记表）后必须等于登记值——组级数字不再是无人复算的字面量。
+  该组声明为 `remote-only`（字节留在数据盘）时，盘上只剩"已逐个登记"的成员（或一个都没有）
+  则降级为提示：新 clone 没有数据盘，属预期差异，不是漂移。
 - 提示（不判失败）：工作区未跟踪、未忽略的产物（进行中的 run），入库前必须先在规则表里分类。
 
 ## 用法
@@ -166,7 +168,7 @@ def find_violations(model: dict) -> tuple:
         model["published"],
         model["only"],
     )
-    errors, notes = [], []
+    errors, notes, env_notes = [], [], []
     only_globs = [e["glob"] for e in doc.get("registered_only", [])]
 
     both = [r["path"] for r in published if matches_any(r["path"], only_globs)]
@@ -274,9 +276,22 @@ def find_violations(model: dict) -> tuple:
     for entry in doc.get("registered_sets", []):
         expanded = set(expand_glob(entry["glob"]))
         if not expanded:
-            errors.append(f"A9 集合登记在磁盘上无匹配：{entry['glob']}")
+            # `remote-only` 声明"字节不在仓内、留在数据盘"：在没有挂数据盘的检出（例如新 clone）上
+            # 这属正常差异，无法复算 → 只提示；其它状态的组里应当有件在盘上，缺失仍是错误。
+            if entry.get("status") == "remote-only":
+                # 环境相关提示：只打印、**不进生成物**——否则索引会随机器状态漂移（新 clone 上 A6 永远红）。
+                env_notes.append(
+                    f"A9 集合登记无法复算（原始件不在本机盘上，属预期）：`{entry['glob']}`"
+                )
+            else:
+                errors.append(f"A9 集合登记在磁盘上无匹配：{entry['glob']}")
             continue
         derived = expanded - published_paths - removed_paths
+        if not derived and entry.get("status") == "remote-only" and entry["count"] > 0:
+            # 组里只剩"已逐个登记"的成员、原始件（.npz/.pt 等）不在本机盘上（例如新 clone）。
+            # 环境相关提示：只打印、**不进生成物**——否则索引会随机器状态漂移（新 clone 上 A6 永远红）。
+            env_notes.append(f"A9 集合登记无法复算（原始件不在本机盘上，属预期）：`{entry['glob']}`")
+            continue
         got_count = len(derived)
         got_bytes = sum(os.path.getsize(abs_path(p)) for p in derived)
         if (got_count, got_bytes) != (entry["count"], entry["bytes"]):
@@ -299,7 +314,7 @@ def find_violations(model: dict) -> tuple:
             notes.append(f"同哈希（{rows[0]['bytes']:,} B，小于阈值、保留）：{', '.join(paths)}")
         else:
             errors.append(f"A5 入库文件逐字节重复（{rows[0]['bytes']:,} B）：{', '.join(paths)}")
-    return errors, notes, refs
+    return errors, notes, env_notes, refs
 
 
 def render(model: dict, notes: list) -> str:
@@ -445,7 +460,7 @@ def main(argv=None) -> int:
     doc.setdefault("rules", [])
 
     model = build(doc)
-    errors, notes, _ = find_violations(model)
+    errors, notes, env_notes, _ = find_violations(model)
     rendered = render(model, notes)
     # 先把违规打印出来，再决定是否落盘：`--write` 也会写出一个已知违规的索引，
     # 顺序反了会让操作者先看到"written"再看到 FAIL。
@@ -466,6 +481,9 @@ def main(argv=None) -> int:
             errors.append(f"A6 {INDEX_FILE} 与工作区不一致（重新 --write）")
     else:
         errors.append(f"A6 {INDEX_FILE} 不存在")
+
+    for w in env_notes:
+        print(f"WARN {w}")
 
     if model["pending"]:
         print(
