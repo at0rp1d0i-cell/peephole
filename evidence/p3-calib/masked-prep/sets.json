@@ -688,6 +688,20 @@
   },
   "checks": [
     {
+      "name": "首 decode 有效尾长 == note（local）",
+      "ok": true,
+      "got": 2577,
+      "want": 2577,
+      "kv_len": 7281
+    },
+    {
+      "name": "首 decode 有效尾长 == note（focus1）",
+      "ok": true,
+      "got": 4145,
+      "want": 4145,
+      "kv_len": 7281
+    },
+    {
       "name": "local 可见块 == note",
       "ok": true,
       "got": [
