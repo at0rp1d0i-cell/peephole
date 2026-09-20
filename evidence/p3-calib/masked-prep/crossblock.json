@@ -8634,6 +8634,7 @@
   "negative_controls": [
     {
       "label": "A 已分配但未写入的块 10 声明可见(kv=7839,分配 0..10)",
+      "kind": "构造失败测试(未形成可读计划)",
       "kwargs": {
         "req_id": "cross-neg",
         "mode": "local",
@@ -8665,11 +8666,11 @@
       },
       "rejected": true,
       "error_type": "AttnViewConfigError",
-      "error": "needed_width=4 与可见块数 5 不一致：压缩表的前缀语义会索引不存在的列",
-      "read_slots_produced": false
+      "error": "needed_width=4 与可见块数 5 不一致：压缩表的前缀语义会索引不存在的列"
     },
     {
       "label": "B 可见块 10 超出已分配前缀 0..9(global,kv=7841)",
+      "kind": "构造失败测试(未形成可读计划)",
       "kwargs": {
         "req_id": "cross-neg",
         "mode": "global",
@@ -8692,8 +8693,7 @@
       },
       "rejected": true,
       "error_type": "ReadViewError",
-      "error": "可见块 10 超出已分配块数 10（I3/I8：读取视图不得引用未分配块）",
-      "read_slots_produced": false
+      "error": "可见块 10 超出已分配块数 10（I3/I8：读取视图不得引用未分配块）"
     },
     {
       "label": "C 有效尾长与末块有效数各减 1(真实计划派生)",
@@ -8734,9 +8734,10 @@
         "attention_kv_len": 7845
       },
       "validate_layer": "通过(算术自洽,不构成拒绝)",
-      "exact_equality_gate": "拒绝",
+      "cpu_test_criterion_exact_equality": "拒绝",
       "rejected": true,
-      "reason": "与合同推导出的计划逐字段精确相等门禁拒绝(seqused_k/tail_len/effective_per_block/visible/width);该门禁是适配层落位前的判据,拒绝先于任何读取 ⇒ 不越界、不触碰未初始化槽",
+      "kind": "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)",
+      "reason": "本 CPU 测试判据 = 与合同推导计划的逐字段精确相等(seqused_k/tail_len/effective_per_block/visible/width);**本轮未实测生产适配层是否拒绝此类改动**(adapter 仅有 last_visible < allocated 检查),也不为此改动生产路径。",
       "slot_audit": {
         "rows": [
           {
@@ -8770,8 +8771,7 @@
         ],
         "all_slots_written": true,
         "any_out_of_range": false
-      },
-      "read_slots_produced": false
+      }
     },
     {
       "label": "D seqused_k 减 1(真实计划派生,其余不动)",
@@ -8812,9 +8812,10 @@
         "attention_kv_len": 7845
       },
       "validate_layer": "通过(算术自洽,不构成拒绝)",
-      "exact_equality_gate": "拒绝",
+      "cpu_test_criterion_exact_equality": "拒绝",
       "rejected": true,
-      "reason": "与合同推导出的计划逐字段精确相等门禁拒绝(seqused_k/tail_len/effective_per_block/visible/width);该门禁是适配层落位前的判据,拒绝先于任何读取 ⇒ 不越界、不触碰未初始化槽",
+      "kind": "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)",
+      "reason": "本 CPU 测试判据 = 与合同推导计划的逐字段精确相等(seqused_k/tail_len/effective_per_block/visible/width);**本轮未实测生产适配层是否拒绝此类改动**(adapter 仅有 last_visible < allocated 检查),也不为此改动生产路径。",
       "slot_audit": {
         "rows": [
           {
@@ -8848,8 +8849,7 @@
         ],
         "all_slots_written": true,
         "any_out_of_range": false
-      },
-      "read_slots_produced": false
+      }
     },
     {
       "label": "E 已写但不可见完整块替换已写可见块(8→3,形状不变)",
@@ -8898,6 +8898,7 @@
       ],
       "visible_set_contract_rejects": true,
       "rejected": true,
+      "kind": "派生样本(计划可构造;由精确可见集合合同拒绝)",
       "reason": "**精确可见集合就是结构合同**:候选报告的可见集合必须等于由协议 span 独立推导的集合;块 3 虽已写且完整,但不属于 local 的可见集合 ⇒ 结构合同拒绝。**不需要数值 oracle**。",
       "slot_audit": {
         "rows": [
@@ -8932,8 +8933,7 @@
         ],
         "all_slots_written": true,
         "any_out_of_range": false
-      },
-      "read_slots_produced": false
+      }
     }
   ],
   "checks": [
@@ -9079,38 +9079,141 @@
       ]
     },
     {
-      "name": "负对照全部未产生读取(拒绝先于读取)",
-      "ok": true,
-      "produced": []
-    },
-    {
-      "name": "拒绝样本的槽位审计:无'声称已读但未写/越界'的槽",
+      "name": "C/D/E 槽位审计严格通过(等长、0≤claimed≤written、块已分配、槽均已写)",
       "ok": true,
       "audit": [
         [
-          "A 已分配但未写入的块 10 声明可见(kv=7839,分配 0..10)",
-          null,
-          null
-        ],
-        [
-          "B 可见块 10 超出已分配前缀 0..9(global,kv=7841)",
-          null,
-          null
-        ],
-        [
           "C 有效尾长与末块有效数各减 1(真实计划派生)",
           true,
-          false
+          [
+            {
+              "block": 0,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 8,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 9,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 10,
+              "claimed": 4,
+              "written": 5,
+              "allocated": true,
+              "slot_written": true
+            }
+          ]
         ],
         [
           "D seqused_k 减 1(真实计划派生,其余不动)",
           true,
-          false
+          [
+            {
+              "block": 0,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 8,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 9,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 10,
+              "claimed": 5,
+              "written": 5,
+              "allocated": true,
+              "slot_written": true
+            }
+          ]
         ],
         [
           "E 已写但不可见完整块替换已写可见块(8→3,形状不变)",
           true,
-          false
+          [
+            {
+              "block": 0,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 3,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 9,
+              "claimed": 784,
+              "written": 784,
+              "allocated": true,
+              "slot_written": true
+            },
+            {
+              "block": 10,
+              "claimed": 5,
+              "written": 5,
+              "allocated": true,
+              "slot_written": true
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "A/B 为'构造失败'类样本(构造阶段即抛错,不冒充安全读取样本)",
+      "ok": true,
+      "kinds": [
+        [
+          "A 已分配但未写入的块 10 声明可见(kv=7839,",
+          "构造失败测试(未形成可读计划)",
+          "AttnViewConfigError"
+        ],
+        [
+          "B 可见块 10 超出已分配前缀 0..9(global",
+          "构造失败测试(未形成可读计划)",
+          "ReadViewError"
+        ],
+        [
+          "C 有效尾长与末块有效数各减 1(真实计划派生)",
+          "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)",
+          null
+        ],
+        [
+          "D seqused_k 减 1(真实计划派生,其余不动)",
+          "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)",
+          null
+        ],
+        [
+          "E 已写但不可见完整块替换已写可见块(8→3,形状不变)",
+          "派生样本(计划可构造;由精确可见集合合同拒绝)",
+          null
         ]
       ]
     },
@@ -9165,5 +9268,6 @@
     ],
     "block10_written_len": 0
   },
+  "test_scope": "本 CPU 脚本**不执行任何读取**(无 GPU、无 gather/copy):'拒绝先于读取'是生产路径的编码事实,**本轮未实测**;此处只断言(1)构造失败类样本在构造阶段抛错,(2)派生样本的可见集合/形状/槽位审计,(3)E 由精确可见集合合同拒绝,(4)C/D 由本脚本新增的 CPU 测试判据拒绝。",
   "failed": []
 }
