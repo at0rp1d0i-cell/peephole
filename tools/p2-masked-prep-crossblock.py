@@ -67,14 +67,17 @@ def main() -> int:
         raise RuntimeError("filler 上限不足")
     while lo < hi:
         mid = (lo + hi) // 2
-        hi = mid if len(render(mid)[2].token_ids) >= target else lo + 1 if False else (lo := mid + 1)
+        if len(render(mid)[2].token_ids) >= target:
+            hi = mid
+        else:
+            lo = mid + 1
     best = None
     for u in range(max(0, lo - 2), lo + 3):
         for f in range(0, int(cfg["max_fine_units"]) + 1):
-            ctx, segs, arm = render(u, f)
-            n = len(arm.token_ids)
-            if best is None or abs(n - target) < abs(len(best[2].token_ids) - target):
-                best = (u, f, ctx, segs, arm)
+            ctx_u, segs_u, arm_u = render(u, f)
+            n = len(arm_u.token_ids)
+            if best is None or abs(n - target) < abs(len(best[4].token_ids) - target):
+                best = (u, f, ctx_u, segs_u, arm_u)
             if n == target:
                 break
     units, fine_n, ctx, segs, arm = best
