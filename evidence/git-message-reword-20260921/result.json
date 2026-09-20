@@ -1,0 +1,9 @@
+{
+  "trees_equal": true,
+  "status_equal": true,
+  "index_equal": true,
+  "origin_unchanged": true,
+  "commits": 9,
+  "messages_changed": 3,
+  "new_head": "333a8974de1f5bb4778cdb338678c18ed5154d86"
+}

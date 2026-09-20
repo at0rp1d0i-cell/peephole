@@ -1,0 +1,9 @@
+40f404f evidence(smoke): 保存诊断失败与成功运行的可审计文本证据
+c022fbf docs(smoke): 交付首次真实诊断报告与检查点收尾记录
+3289dac chore(checks): 固定测试依赖并修复扫描示例自匹配
+49c255c docs(contributing): 记录历史规范化边界与推送前尾部整理
+604a9bb docs(contributing): 阶段由 tag 标识，subject 不再带阶段前缀
+01ad171 fix(smoke): observe inference tensors and preserve failed request evidence
+45e5e57 docs(contributing): 提交信息与提交门禁规范
+ba05322 docs(smoke): record launch review and bind output token comparison
+bfa728a fix(smoke): gate masked diagnostic on per-forward FA evidence

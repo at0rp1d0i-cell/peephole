@@ -1,0 +1,74 @@
+[
+  {
+    "old": "40f404fbf796f362c5b16fdaf90588f145dd0677",
+    "new": "333a8974de1f5bb4778cdb338678c18ed5154d86",
+    "tree": "eb874fa7f68646560f47e3f121b68571898b6b13",
+    "message_changed": false,
+    "subject": "evidence(smoke): 保存诊断失败与成功运行的可审计文本证据",
+    "length": 36
+  },
+  {
+    "old": "c022fbfc0ff85ce5e493b04011f517752a98cf5e",
+    "new": "174003b0d25ee84894203358a87c0c7f8a7ffac7",
+    "tree": "15c66bf84ff05cfc51cc35d1749269b97ec0756c",
+    "message_changed": false,
+    "subject": "docs(smoke): 交付首次真实诊断报告与检查点收尾记录",
+    "length": 31
+  },
+  {
+    "old": "3289dac781b7df5eaffc94f163838fc5e2435451",
+    "new": "25832df36ecd92c151276c432c32b586d63f78f2",
+    "tree": "1a43446476201d12b7e7644b25a54add18b322d4",
+    "message_changed": false,
+    "subject": "chore(checks): 固定测试依赖并修复扫描示例自匹配",
+    "length": 31
+  },
+  {
+    "old": "49c255cfa376f2dc035d4dd5d60d9f4655baeeb1",
+    "new": "a7eea3a393ce24945976e9f8d7faf6b22ecd6c59",
+    "tree": "0f3c8c389396075d51354da3537435904f248f86",
+    "message_changed": false,
+    "subject": "docs(contributing): 记录历史规范化边界与推送前尾部整理",
+    "length": 37
+  },
+  {
+    "old": "604a9bb47cf9482e3feab328e29f87263c5512a0",
+    "new": "051c2673108098d5c33e28411b6055f0d958c09d",
+    "tree": "8ceea14e8a08a72b58d738c7f236fd2b2957299d",
+    "message_changed": false,
+    "subject": "docs(contributing): 阶段由 tag 标识，subject 不再带阶段前缀",
+    "length": 46
+  },
+  {
+    "old": "01ad1719aae85dcc93be184c1497fa1335189c94",
+    "new": "6125877c3c5142fd9a5396b0def084f53780f78c",
+    "tree": "a9312c75f71fbd667f88cb09c4df350363fb47ed",
+    "message_changed": true,
+    "subject": "fix(smoke): 兼容推理张量观测并保留请求失败证据",
+    "length": 29
+  },
+  {
+    "old": "45e5e5700ec610f7d5cbc484fff488b68e8b1999",
+    "new": "73d3c0596970cae692ca5c3a4e1c43ac39bb10c3",
+    "tree": "08b5dbb5cdab4a70c5cbd85113dd933c400116d6",
+    "message_changed": false,
+    "subject": "docs(contributing): 提交信息与提交门禁规范",
+    "length": 31
+  },
+  {
+    "old": "ba05322d91d7fca97ebffefe181fd95de841b7a6",
+    "new": "7a2e4a3cf6f80c0619b74cad7c9480d3c65a3340",
+    "tree": "599bbc6e2c3ed1220a8210d8bc50a25dd7adce97",
+    "message_changed": true,
+    "subject": "docs(smoke): 记录启动审查并绑定实际输出轨迹比较",
+    "length": 30
+  },
+  {
+    "old": "bfa728a05c9e69223d2269524ed53c6a2c12ad1c",
+    "new": "7d1d0d0dd351473730467f1e677a8a48c03ffc25",
+    "tree": "f8e881f225a6b38925aade68b0e9e287d281eb8b",
+    "message_changed": true,
+    "subject": "fix(smoke): 用逐步全注意力实测证据约束诊断结果",
+    "length": 29
+  }
+]

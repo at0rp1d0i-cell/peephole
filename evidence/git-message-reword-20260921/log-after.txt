@@ -1,0 +1,9 @@
+333a897 evidence(smoke): 保存诊断失败与成功运行的可审计文本证据
+174003b docs(smoke): 交付首次真实诊断报告与检查点收尾记录
+25832df chore(checks): 固定测试依赖并修复扫描示例自匹配
+a7eea3a docs(contributing): 记录历史规范化边界与推送前尾部整理
+051c267 docs(contributing): 阶段由 tag 标识，subject 不再带阶段前缀
+6125877 fix(smoke): 兼容推理张量观测并保留请求失败证据
+73d3c05 docs(contributing): 提交信息与提交门禁规范
+7a2e4a3 docs(smoke): 记录启动审查并绑定实际输出轨迹比较
+7d1d0d0 fix(smoke): 用逐步全注意力实测证据约束诊断结果

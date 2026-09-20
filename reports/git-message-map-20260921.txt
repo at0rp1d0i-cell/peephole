@@ -1,0 +1,19 @@
+# 2026-09-21 未推送尾部消息整理（只改指定三条消息，不改对应提交树）
+# origin/main 保持 57f1871636854cd478baf2dc7eac6504a1622d29，已推送历史不动。
+# 用户指定 bfa728a、ba05322、01ad171；其余消息逐字不变。
+# 重写前依要求先提交自己的门禁修复、报告、文本证据，因此尾部从6条变为9条。
+# 在独立干净worktree执行交互式reword，逐条核对树后以旧HEAD为条件原子更新main。
+# 共享工作区状态、暂存内容及origin/main在更新前后均一致。
+# 这份映射及验收材料是重写后的追加提交，不属于被验证的9条消息整理范围。
+# 原始实验manifest/source/head.txt保持运行时SHA，禁止回填新SHA冒充当时运行版本。
+# 实测验收见 evidence/git-message-reword-20260921/。
+# old_sha new_sha message_changed
+bfa728a05c9e69223d2269524ed53c6a2c12ad1c 7d1d0d0dd351473730467f1e677a8a48c03ffc25 yes
+ba05322d91d7fca97ebffefe181fd95de841b7a6 7a2e4a3cf6f80c0619b74cad7c9480d3c65a3340 yes
+45e5e5700ec610f7d5cbc484fff488b68e8b1999 73d3c0596970cae692ca5c3a4e1c43ac39bb10c3 no
+01ad1719aae85dcc93be184c1497fa1335189c94 6125877c3c5142fd9a5396b0def084f53780f78c yes
+604a9bb47cf9482e3feab328e29f87263c5512a0 051c2673108098d5c33e28411b6055f0d958c09d no
+49c255cfa376f2dc035d4dd5d60d9f4655baeeb1 a7eea3a393ce24945976e9f8d7faf6b22ecd6c59 no
+3289dac781b7df5eaffc94f163838fc5e2435451 25832df36ecd92c151276c432c32b586d63f78f2 no
+c022fbfc0ff85ce5e493b04011f517752a98cf5e 174003b0d25ee84894203358a87c0c7f8a7ffac7 no
+40f404fbf796f362c5b16fdaf90588f145dd0677 333a8974de1f5bb4778cdb338678c18ed5154d86 no
