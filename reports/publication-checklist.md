@@ -135,7 +135,7 @@ git add -A && git status --short                                    # 确认待�
 # 1) 历史残留模式（脱敏目标）在全部 commit 上期望 0：
 git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|/root/autodl-tmp/attnview[-]supervision' $(git rev-list --all)   # 实测：空（0）
 # 2) 密钥模式期望空：
-git ls-files -z | xargs -0 grep -lIE '(ghp_|github_pat_|hf_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY)'   # 期望：空
+git ls-files -z | xargs -0 grep -lIE '(gh[p]_|github[_]pat_|hf_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY)'   # 期望：空
 # 3) 二进制/大件兜底：单文件 ≤10 MB（二进制类型由 §1/§4 的 .gitignore 规则排除）：
 git ls-files -z | xargs -0 du -b | sort -rn | head -3               # 实测：最大 8.27 MB（evidence/p3-calib/oracle-original-3a.json）
 git commit -m "..." && git push -u origin main

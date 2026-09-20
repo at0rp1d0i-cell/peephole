@@ -1,0 +1,5 @@
+# Development-only test runner. Existing unittest cases remain the test source.
+# Install with -c requirements.freeze.txt to preserve the runtime dependency pins.
+pytest==9.0.2
+iniconfig==2.3.0
+pluggy==1.6.0

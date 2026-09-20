@@ -280,7 +280,7 @@ $ git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4
 | 类别 | 实测 | 说明 |
 | --- | ---: | --- |
 | 私人邮箱 | 0 | 唯一邮箱样命中是 `git@github.com`（SSH 地址，非个人邮箱） |
-| `ghp_` / `github_pat_` / `hf_` / `sk-` / `AKIA` / 私钥块 / Slack token | 0 | 全部 0 |
+| `gh[p]_` / `github[_]pat_` / `hf_` / `sk-` / `AKIA` / 私钥块 / Slack token | 0 | 全部 0 |
 | MAC 地址 | 0 | — |
 | IPv4 形态命中 | 216 | 74 处是 `127.0.0.1`（回环）；124 处是**版本号**（如 `nvidia-*==<x.y.z.w>`、`cuda-toolkit==…`）；18 处落在私网段，其中 13 处仍是版本号（`nvidia-curand==10.4.0.35`），5 处是平台内部地址（下方单列；把本报告自身的 2 处提及算上共 7 处） |
 | IPv4 中的真实公开地址 | 3 | `evidence/after/network-tools.txt` 里 DNS 解析结果：`github.com`、`hf-mirror.com`、`objects.githubusercontent.com`（公开服务地址，不构成泄露） |
