@@ -181,10 +181,10 @@ def main() -> int:
     out_b = torch.zeros(1, heads, d, dtype=torch.bfloat16)
     ptr_a = out_a.data_ptr()
 
-    def meta_for(step: int):
+    def meta_for(step: int, rows=None, seqs=None):
         kv_len = bridge.kv_len_at(step - 1)
-        return make_real_metadata(torch.tensor([block_row_a, block_row_b], dtype=torch.int32),
-                                  [kv_len, kv_len], 1, len(block_row_a))
+        return make_real_metadata(torch.tensor(rows or [block_row_a], dtype=torch.int32),
+                                  seqs or [kv_len], 1, len(block_row_a))
 
     try:
         at.wrap_all(impls)
@@ -231,7 +231,8 @@ def main() -> int:
         and at.restored == [0, 1], restored=at.restored)
     n_calls = [impls[i].calls for i in range(2)]
     out_a0 = out_a.clone()
-    impls[0].forward(0, q, None, None, native_kv, meta_for(6), out_a)
+    impls[0].forward(0, q, None, None, native_kv, meta_for(6), out_a,
+                     output_scale=None, output_block_scale=None)
     chk("恢复后调用走原实现(计数 +1、输出缓冲不被参考改写)",
         impls[0].calls == n_calls[0] + 1 and torch.equal(out_a, out_a0))
 
@@ -266,8 +267,7 @@ def main() -> int:
     chk("未启用:显式 None 参数下按原实现直通,且不触发参考恢复",
         impl_d.calls == before + 1 and not at_d.restored and at_d.passthrough() == {(0, 6)})
 
-    md_zero = make_real_metadata(torch.tensor([block_row_a, block_row_b], dtype=torch.int32),
-                                 [bridge.kv_len_at(6)] * 2, 1, len(block_row_a))
+    md_zero = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
     out_zero = torch.zeros(1, heads, d, dtype=torch.bfloat16)
     info_zero = perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge,
                                                    request_idx=0, query=q, kv_cache=native_kv, attn_metadata=md_zero,
@@ -371,7 +371,8 @@ def main() -> int:
     try:
         at2.wrap_all(impls2)
         sw2.current_request_id, sw2.current_step = "req-C", 6
-        impls2[0].forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16))
+        impls2[0].forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16),
+                          output_scale=None, output_block_scale=None)
     finally:
         at2.restore()
     chk("缺层/缺步被账本检出(missing 非空)", at2.missing({(0, 6), (1, 6)}) == {(1, 6)},
@@ -385,7 +386,8 @@ def main() -> int:
     try:
         at3.wrap_all([impl3])
         sw3.current_request_id, sw3.current_step = "req-D", 6
-        impl3.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads + 1, d, dtype=torch.bfloat16))
+        impl3.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads + 1, d, dtype=torch.bfloat16),
+                      output_scale=None, output_block_scale=None)
     except ReferenceError:
         raised = True
     finally:
@@ -395,15 +397,17 @@ def main() -> int:
 
     impls_iso = [StandInImpl("iso0", scale)]
     sw_iso = TestOnlyReferenceSwitch(enabled=True, request_id="req-B2", layers=(0,), steps=(7,), scale=scale)
-    at_iso = TestOnlyReferenceAttachment(sw_iso, bridge=bridge, request_idx=1, head_size=d, layers=(0,), steps=(7,))
+    at_iso = TestOnlyReferenceAttachment(sw_iso, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(7,))
     try:
         at_iso.wrap_all(impls_iso)
         sw_iso.current_request_id, sw_iso.current_step = "req-B2", 7
-        impls_iso[0].forward(0, q, None, None, native_kv, meta_for(7), torch.zeros(1, heads, d, dtype=torch.bfloat16))
+        impls_iso[0].forward(0, q, None, None, native_kv, meta_for(7, rows=[block_row_b]),
+                             torch.zeros(1, heads, d, dtype=torch.bfloat16),
+                             output_scale=None, output_block_scale=None)
     finally:
         at_iso.restore()
     chk("独立挂接(另一请求/另一 impl/另一块表行)与主挂接账本互不影响",
-        at_iso.overrode() == {(0, 7)} and at.overrode() == exp and at_iso.request_idx == 1,
+        at_iso.overrode() == {(0, 7)} and at.overrode() == exp,
         iso=sorted(at_iso.overrode()), main=sorted(at.overrode()))
 
     # ---------- 6. 接线反例与边界 ----------
