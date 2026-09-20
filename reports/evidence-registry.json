@@ -63,6 +63,11 @@
  "default_status": "unclassified",
  "rules": [
   {
+   "glob": "evidence/git-message-reword-*/**",
+   "status": "delivered",
+   "note": "提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致"
+  },
+  {
    "glob": "evidence/p0-model/**",
    "status": "delivered",
    "note": "阶段 02 模型身份/配置/协议事实与冻结点"

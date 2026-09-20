@@ -28,10 +28,10 @@
 | `unclassified` | 未分类——门禁失败 |
 | `pending` | 工作区未跟踪——入库前先分类 |
 
-树内产物 **260 个 / 14,553,118 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
+树内产物 **268 个 / 14,558,166 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
 树外登记件的原件归档在 `/root/autodl-tmp/attnview-evidence-archive`（远端数据盘），字节与 sha256 以本表为准；仓内不发行其字节。
 
-## 树内：随仓发行（260 个 / 14,553,118 B）
+## 树内：随仓发行（268 个 / 14,558,166 B）
 
 | 文件 | 字节 | sha256 | 说明 |
 | --- | ---: | --- | --- |
@@ -46,6 +46,14 @@
 | `evidence/after/vllm_cli.txt` | 1,162 | `40960bd7c950d219c9837b46a703b4dacbf625530008c6aff6d9ea9e874307e0` | 阶段 01 环境探针最终态与 verify-runtime.sh 输出 |
 | `evidence/before/env-report-20260917-1559.md` | 86,605 | `5eda90017629ba69c0c9e8dd23a2dc258c5627a871f64b8e16d5980b42e8b4ae` | 阶段 01 环境探针基线段（未经 env.sh） |
 | `evidence/cuda-setup.log` | 1,382 | `885a838e7724f9d31ac90b9e0801f35b247fba1a2c2f3e7258c34034479812ad` | 环境与迁移记录 |
+| `evidence/git-message-reword-20260921/log-after.txt` | 671 | `fe02dd27b5d6f4be2c4c0c124e3ac967a52061426884469b71e4f9d79583b9b0` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/log-before.txt` | 682 | `9e27fbd0c7436b230140d6d73f9edca7e94dcb466a780c99a5176446fc852dd7` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/mapping.json` | 2,758 | `f33390860217288555a092d80d5157c14a2ecb6f781a253c22c2d11439a39cae` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/result.json` | 199 | `669ec59f17e3832c54a10c396ef1e1026075c330c4f018ddb2fda46eccaf13f3` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/status-after.txt` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/status-before.txt` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/trees-after.txt` | 369 | `7ae324509c41667b8611fd56a54fcc8241304a54eae0ba305a749d7e32a8a1fa` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
+| `evidence/git-message-reword-20260921/trees-before.txt` | 369 | `7ae324509c41667b8611fd56a54fcc8241304a54eae0ba305a749d7e32a8a1fa` | 提交信息重写的过程记录（before/after 对照、mapping、result、trees/status 快照）；随仓发行以便核对重写前后一致 |
 | `evidence/move-to-data-disk.txt` | 969 | `2503b5bee95f8d7f6855ad6905f129d7b0314a977e6d8239fe265057dc044fe4` | 环境与迁移记录 |
 | `evidence/p0-model/cuda-upgrade-freeze-after.txt` | 4,118 | `33585d37b124ca2dc86518d8c6606a03795ce3f21bd8e7e18139871a5d34a07f` | 阶段 02 模型身份/配置/协议事实与冻结点 |
 | `evidence/p0-model/e0-baseline.txt` | 1,131 | `1abd77b6f767afc9ce525e743291bfc074f561c6697d3e06a3e8ba62c5a357c5` | 阶段 02 模型身份/配置/协议事实与冻结点 |
@@ -460,5 +468,5 @@
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/state.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/state.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/step_plan.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/step_plan.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/trace.py
-- 入库 260 个 / 树外登记 78 个 / 在盘未入库 0 个
+- 入库 268 个 / 树外登记 78 个 / 在盘未入库 0 个
 - 引用扫描面：reports, configs + README.md, CONTRIBUTING.md, .gitmessage
