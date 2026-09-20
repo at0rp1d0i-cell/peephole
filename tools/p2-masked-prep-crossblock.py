@@ -182,7 +182,7 @@ def main() -> int:
             req_id="cross-neg", mode="local", refs=(), effect_step=1,
         )
         base_kw.update(over)
-        rec: dict = {"label": label, "kwargs": {k: (list(v) if isinstance(v, tuple) else v) for k, v in base_kw.items()}}
+        rec: dict = {"label": label, "kind": "构造失败测试(未形成可读计划)", "kwargs": {k: (list(v) if isinstance(v, tuple) else v) for k, v in base_kw.items()}}
         try:
             if "raw_table" in over:
                 t_ = over["raw_table"]
@@ -271,13 +271,17 @@ def main() -> int:
             layer["validate_layer"] = "通过(算术自洽,不构成拒绝)"
         except Exception as exc:  # noqa: BLE001
             layer["validate_layer"] = f"拒绝 {type(exc).__name__}: {str(exc)[:160]}"
-        layer["exact_equality_gate"] = "拒绝" if (
+        # 注意:这是**本 CPU 脚本新增的测试判据**(与合同推导计划的逐字段精确相等),
+        # **不是**适配层既有行为;`attnview_adapter.py:695-711` 只检查 last_visible < allocated。
+        layer["cpu_test_criterion_exact_equality"] = "拒绝" if (
             kw["seqused_k"] != base_plan_kw["seqused_k"] or kw["tail_len"] != base_plan_kw["tail_len"]
             or kw["effective_per_block"] != base_plan_kw["effective_per_block"]
         ) else "通过"
-        layer["rejected"] = layer["exact_equality_gate"] == "拒绝"
-        layer["reason"] = ("与合同推导出的计划逐字段精确相等门禁拒绝(seqused_k/tail_len/effective_per_block/visible/width);"
-                           "该门禁是适配层落位前的判据,拒绝先于任何读取 ⇒ 不越界、不触碰未初始化槽")
+        layer["rejected"] = layer["cpu_test_criterion_exact_equality"] == "拒绝"
+        layer["kind"] = "派生样本(计划可构造;由**本脚本新增的 CPU 测试判据**拒绝)"
+        layer["reason"] = ("本 CPU 测试判据 = 与合同推导计划的逐字段精确相等(seqused_k/tail_len/effective_per_block/visible/width);"
+                           "**本轮未实测生产适配层是否拒绝此类改动**(adapter 仅有 last_visible < allocated 检查),"
+                           "也不为此改动生产路径。")
         report["negative_controls"].append(layer)
 
     # 负对照 5:把真实 local 计划中一个**已写且完整**的可见块(8)换成**已写但不可见**的完整块(3),
@@ -295,10 +299,11 @@ def main() -> int:
     e_layer["independent_expected_visible"] = indep_expected
     e_layer["visible_set_contract_rejects"] = sorted(adv["visible_logical_blocks"]) != sorted(indep_expected)
     e_layer["rejected"] = bool(e_layer["visible_set_contract_rejects"])
+    e_layer["kind"] = "派生样本(计划可构造;由精确可见集合合同拒绝)"
     e_layer["reason"] = ("**精确可见集合就是结构合同**:候选报告的可见集合必须等于由协议 span 独立推导的集合;"
                          "块 3 虽已写且完整,但不属于 local 的可见集合 ⇒ 结构合同拒绝。**不需要数值 oracle**。")
 
-    def slot_audit(visible, effective_per_block, kv_len, allocated) -> dict:
+    def slot_audit(visible, effective_per_block, kv_len, allocated) -> dict:  # noqa: D401
         rows = []
         for b, c in zip(visible, effective_per_block):
             start = b * bs
@@ -316,7 +321,7 @@ def main() -> int:
             mv = rc["mutated"]
             rc["slot_audit"] = slot_audit(mv.get("visible_logical_blocks", []),
                                           mv.get("effective_per_block", []), honest["kv_len"], len(canonical))
-        rc.setdefault("read_slots_produced", False)
+        rc.setdefault("kind", "派生样本")
 
     # --- 判定 ---
     def chk(name, ok, **extra):
@@ -333,13 +338,27 @@ def main() -> int:
         modes=[(s["gen_step"], s["mode"], s["effect_step"]) for s in steps])
     chk("负对照全部被拒绝", all(n["rejected"] for n in report["negative_controls"]),
         rejected=[(n["label"], n["rejected"], n.get("error_type") or n.get("validate_layer")) for n in report["negative_controls"]])
-    chk("负对照全部未产生读取(拒绝先于读取)", all(not n.get("read_slots_produced") for n in report["negative_controls"]),
-        produced=[n["label"] for n in report["negative_controls"] if n.get("read_slots_produced")])
-    chk("拒绝样本的槽位审计:无'声称已读但未写/越界'的槽", all(
-        (n.get("slot_audit") or {}).get("all_slots_written", True) or not n.get("read_slots_produced", False)
-        for n in report["negative_controls"]),
-        audit=[(n["label"], (n.get("slot_audit") or {}).get("all_slots_written"),
-                (n.get("slot_audit") or {}).get("any_out_of_range")) for n in report["negative_controls"]])
+    derived = [n for n in report["negative_controls"] if "slot_audit" in n and n.get("slot_audit")]
+    def audit_ok(n) -> bool:
+        sa = n["slot_audit"]
+        rows = sa.get("rows") or []
+        if not rows:
+            return False
+        if len(rows) != len(n["mutated"]["visible_logical_blocks"]):
+            return False
+        if len(n["mutated"]["effective_per_block"]) != len(n["mutated"]["visible_logical_blocks"]):
+            return False
+        return all(r["allocated"] and 0 <= r["claimed"] <= r["written"] for r in rows) and sa["all_slots_written"]
+    chk("C/D/E 槽位审计严格通过(等长、0≤claimed≤written、块已分配、槽均已写)",
+        bool(derived) and all(audit_ok(n) for n in derived),
+        audit=[(n["label"], audit_ok(n), n["slot_audit"]["rows"]) for n in derived])
+    chk("A/B 为'构造失败'类样本(门禁在构造阶段即抛错,不冒充安全读取样本)",
+        all(n.get("kind", "").startswith("构造失败") or n.get("error_type") for n in report["negative_controls"]
+            if n is not None) and all(n.get("error_type") for n in report["negative_controls"] if "slot_audit" not in n),
+        kinds=[(n["label"][:28], n.get("error_type")) for n in report["negative_controls"] if "slot_audit" not in n])
+    report["test_scope"] = ("本 CPU 脚本**不执行任何读取**(无 GPU、无 gather/copy):'拒绝先于读取'是生产路径的编码事实,"
+                            "**本轮未实测**;此处只断言(1)构造失败类样本在构造阶段抛错,(2)派生样本的可见集合/形状/槽位审计,"
+                            "(3)E 由精确可见集合合同拒绝,(4)C/D 由本脚本新增的 CPU 测试判据拒绝。")
     chk("样本 E 由精确可见集合合同拒绝(不依赖数值 oracle)", 
         next((n for n in report["negative_controls"] if n["label"].startswith("E ")), {}).get("rejected") is True)
     report["failed"] = [c["name"] for c in report["checks"] if not c["ok"]]
