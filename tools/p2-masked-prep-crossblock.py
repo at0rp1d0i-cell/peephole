@@ -162,6 +162,15 @@ def main() -> int:
         actual_row = list(table.padded_row(max_width))
         expected_row = [canonical[int(b)] for b in ind_blocks] or [0]
         expected_row = expected_row + [expected_row[-1]] * (max_width - len(expected_row))
+        ev_digest = [{"kind": e.kind, "name": e.name, "mode_after": e.mode_after, "refs": list(e.refs),
+                      "closed_at_token_index": e.closed_at_token_index, "effect_step": e.effect_step} for e in rec.events]
+        declared_here = tag_at.get(t)
+        ev_ok = True
+        if declared_here is not None:
+            trans = [e for e in rec.events if e.kind == "transition"]
+            ev_ok = (len(trans) == 1 and trans[0].mode_after == declared_here["expected_mode_after"]
+                     and tuple(trans[0].refs) == tuple(declared_here["refs"])
+                     and trans[0].closed_at_token_index == t and trans[0].effect_step == t + 1)
         report["steps"].append({
             "gen_index_0based": t, "decode_count_1based": t + 1, "token_id": tid, "token_text": text,
             "kv_len": kv, "written_len_independent": written,
@@ -171,7 +180,7 @@ def main() -> int:
             "mode_match": (plan.mode == exp_mode and tuple(plan.refs) == tuple(exp_refs)),
             "parse_effect_step": rec.effect_step,
             "tag_parsed_this_step": tag_at.get(t), "expected_effect_decode_1based": (t + 1) if tag_at.get(t) else None,
-            "effect_step_match": (rec.effect_step == t + 1) if tag_at.get(t) else True,
+            "events": ev_digest, "event_check_ok": ev_ok,
             "visible_blocks_candidate": list(plan.visible_logical_blocks),
             "visible_blocks_independent": ind_blocks,
             "counts_candidate": list(plan.effective_per_block), "counts_independent": ind_counts,
@@ -366,10 +375,11 @@ def main() -> int:
         all(n["internally_consistent"] and n["rejected"] and (n["plan_fields"] or {}).get("tail_len") is not None
             for n in negs if n["kind"].startswith("派生样本(读取另一个")),
         plan_fields=[(n["label"][:22], n["plan_fields"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
-    chk("独立审计", "逐步:候选解析事件与独立期望一致(解析于 t、消费于 t+1)",
-        all(s["effect_step_match"] for s in steps),
-        bad=[(s["decode_count_1based"], s["parse_effect_step"], s["expected_effect_decode_1based"])
-             for s in steps if not s["effect_step_match"]])
+    chk("独立审计", "四个声明闭合点:候选 events 恰有预期 transition 且 closed_at/effect/mode_after/refs 逐项一致",
+        sum(1 for s in steps if s["tag_parsed_this_step"] is not None) == 4
+        and all(s["event_check_ok"] for s in steps),
+        declared=[(s["decode_count_1based"], s["tag_parsed_this_step"], s["events"])
+                  for s in steps if s["tag_parsed_this_step"] is not None])
     chk("独立审计", "每步 mode/refs 与独立时间线(config 声明)一致",
         all(s["mode_match"] for s in steps),
         bad=[(s["decode_count_1based"], s["mode"], s["mode_independent"]) for s in steps if not s["mode_match"]])
