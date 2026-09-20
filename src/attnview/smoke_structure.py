@@ -77,6 +77,11 @@ def expectations_from_config(*, timeline_config: Path, doc_fixture: Path, tokeni
 
 
 def _require(obj: Any, name: str, *, where: str):
+    """读取真实字段;**缺失即失败**(支持对象属性与 dict 记录两种真实形态)。"""
+    if isinstance(obj, dict):
+        if name not in obj:
+            raise StructureError(f"{where}: 缺少真实字段 {name!r}（不得猜测，字段缺失即失败）")
+        return obj[name]
     if obj is None or not hasattr(obj, name):
         raise StructureError(f"{where}: 缺少真实字段 {name!r}（不得猜测，字段缺失即失败）")
     return getattr(obj, name)
@@ -122,7 +127,14 @@ def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpecta
             raise StructureError(
                 f"第 {forward} 步记录 {len(layers)} 层，与要求的 {want_layers} 层不一致（缺层/漏层即失败）")
         meta = positions[forward]
-        got_len = int(_require(meta, "q_len", where=f"capture.positions[{forward}]"))
+        # q_len 的真实来源:`record_meta`(标量,搬运前独立记录);兼容 positions 里带 q_len 的实现。
+        rec_meta = (capture.__dict__.get("record_meta", {}) or {}).get(forward) or {}
+        if rec_meta:
+            got_len = int(next(iter(rec_meta.values()))["q_len"])
+        elif isinstance(meta, dict) and "q_len" in meta:
+            got_len = int(meta["q_len"])
+        else:
+            raise StructureError(f"capture 第 {forward} 步缺少 q_len 证据(record_meta 与 positions 都没有):fail closed")
         want_len = prompt_len if forward == 1 else 1
         if got_len != want_len:
             raise StructureError(f"第 {forward} 步 q_len={got_len} 与预期 {want_len} 不符")
@@ -135,8 +147,9 @@ def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpecta
             exp.total_read == len(range(0, 0)) + exp.total_read)
     # canonical 行与 slot_mappings 的真实观测（缺失即失败，不猜）
     canon = _physical_row_from_runner(runner, decode_index=1)
-    slots = _require(runner, "input_buffers", where="runner")
-    _require(slots, "slot_mappings", where="runner.input_buffers")
+    # 真实 slot 映射(pin `model_runner.py:771`):`execute_model_state.slot_mappings_by_layer`
+    state = _require(runner, "execute_model_state", where="runner")
+    _require(state, "slot_mappings_by_layer", where="runner.execute_model_state")
     chk("runner canonical 行可读(长度为逻辑块数上限)", len(canon) >= 1, f"len={len(canon)}")
     chk("runner slot_mappings 可读", True)
     # trace 步号换算:override.step = decode_index;capture forward = decode_index + 1

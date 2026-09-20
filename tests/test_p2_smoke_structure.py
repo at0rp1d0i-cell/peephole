@@ -33,9 +33,9 @@ class FakeTables:
         self.input_block_tables = rows
 
 
-class FakeBuffers:
+class FakeExecState:
     def __init__(self, slots):
-        self.slot_mappings = slots
+        self.slot_mappings_by_layer = slots
 
 
 class StructureCheckTest(unittest.TestCase):
@@ -53,8 +53,9 @@ class StructureCheckTest(unittest.TestCase):
         impls = [self.impls_cls() for _ in range(2)]          # 两个"层"
         model = self.model_cls(impls, prompt_len=self.PROMPT)
         capture, runner = self._h._armed(model, impls, prompt_len=self.PROMPT)
+        # 固定 pin 形状的字段:`block_tables.input_block_tables` 与 `execute_model_state.slot_mappings_by_layer`
         runner.block_tables = FakeTables([[3, 5, 7, 9] * 8])
-        runner.input_buffers = FakeBuffers(torch.arange(4096, dtype=torch.int64))
+        runner.execute_model_state = FakeExecState(torch.arange(4096, dtype=torch.int64))
         runner.next_step(list(range(self.PROMPT)))
         model.forward(positions=torch.arange(self.PROMPT, dtype=torch.int64))
         for i in range(1, self.DECODES + 1):
@@ -98,7 +99,7 @@ class StructureCheckTest(unittest.TestCase):
 
     def test_missing_runner_fields_fail_closed(self):
         capture, runner = self._lifecycle()
-        del runner.input_buffers
+        del runner.execute_model_state
         with self.assertRaises(StructureError):
             check_capture_structure(capture=capture, expectations=self._expectations(), runner=runner,
                                     trace={"override_steps": []}, prompt_len=self.PROMPT, block_size=4,
