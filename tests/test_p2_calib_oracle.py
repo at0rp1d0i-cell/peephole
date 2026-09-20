@@ -123,9 +123,12 @@ def write_npz(path: Path, arrays: dict, drop: tuple[str, ...] = ()) -> Path:
     return path
 
 
-def run_cli(capture: Path, out: Path) -> subprocess.CompletedProcess:
+def run_cli(capture: Path, out: Path, points: Path | None = None) -> subprocess.CompletedProcess:
+    command = [sys.executable, str(ORACLE_PATH), "--capture", str(capture), "--out", str(out)]
+    if points is not None:
+        command += ["--points", str(points)]
     return subprocess.run(
-        [sys.executable, str(ORACLE_PATH), "--capture", str(capture), "--out", str(out)],
+        command,
         capture_output=True,
         text=True,
         cwd=str(REPO),
@@ -736,6 +739,258 @@ class DecodeStepReferenceTest(unittest.TestCase):
                     with self.assertRaises(ORACLE.CaptureError) as ctx:
                         ORACLE.load_capture(capture)
                 self.assertIn(keyword, str(ctx.exception))
+
+
+# ---------------------------------------------------------------- 9. 选定点模式
+
+
+class PointsModeTest(unittest.TestCase):
+    """`--points`：只算选定点并额外给尺度指标；未给 `--points` 时默认（全量）行为不变。"""
+
+    PROMPT_LEN, HEAD_DIM, NUM_HEADS, NUM_KV_HEADS = 4, 4, 2, 1
+    LAYERS, PREFILL_STEP, DECODE_STEPS = (0, 1), 5, (1, 2)
+    OFFSET = 0.002  # out = ref + OFFSET，保证误差非零且已知
+    # 层 1 用不同的 K/V 缩放，保证“按层选点”确实取到该层自己的张量。
+    K_FACTOR, V_FACTOR = {0: 1.0, 1: -1.5}, {0: 1.0, 1: 0.75}
+    PREFILL_K = ([[1.0, 0.0, 0.5, -1.0], [0.0, 1.0, -0.5, 0.25], [1.0, 1.0, 0.5, 0.5], [0.5, -0.5, 1.0, -0.25]],)
+    PREFILL_V = ([[1.0, 2.0, -1.0, 0.5], [3.0, 4.0, 0.25, -0.5], [0.5, 0.25, 1.0, 1.0], [-1.0, 1.0, 0.5, 2.0]],)
+    PREFILL_Q = (
+        ([1.0, 0.5, -0.25, 1.5], [0.5, -0.5, 0.25, 1.0], [0.25, 1.0, 0.5, -0.5], [1.5, 0.25, -1.0, 0.5]),
+        ([-0.5, 1.0, 0.75, 0.25], [0.25, 0.5, -0.75, 1.0], [1.0, -0.25, 0.5, 0.75], [0.75, 1.5, -0.5, -0.25]),
+    )
+    DECODE_Q = {
+        1: ([0.5, -1.0, 0.25, 0.75], [1.0, 0.25, -0.5, 1.5]),
+        2: ([0.25, 1.5, -0.75, 0.5], [-0.25, 0.5, 1.0, -1.0]),
+    }
+    CURRENTS = {
+        1: {"k": [[[0.5, -0.5, 1.0, 0.25]]], "v": [[[0.25, -0.75, 0.5, -1.0]]]},
+        2: {"k": [[[-0.25, 1.0, 0.5, -0.75]]], "v": [[[1.5, 0.5, -0.25, 0.75]]]},
+    }
+    SELECTED = {
+        "prefill": [{"layer": 0, "position": 1}, {"layer": 1, "position": 3}],
+        "decode": [{"layer": 0, "step": 2}, {"layer": 1, "step": 2}],
+    }
+
+    @property
+    def scale(self) -> float:
+        return 1.0 / math.sqrt(self.HEAD_DIM)
+
+    def prefill_kv(self, layer: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return (
+            torch.tensor(self.PREFILL_K, dtype=torch.float32) * self.K_FACTOR[layer],
+            torch.tensor(self.PREFILL_V, dtype=torch.float32) * self.V_FACTOR[layer],
+        )
+
+    def current_kv(self, step: int, layer: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return (
+            torch.tensor(self.CURRENTS[step]["k"], dtype=torch.float32) * self.K_FACTOR[layer],
+            torch.tensor(self.CURRENTS[step]["v"], dtype=torch.float32) * self.V_FACTOR[layer],
+        )
+
+    def reference_tensor(self, scope: str, step: int, layer: int) -> torch.Tensor:
+        """与工具同一参考函数算出的 [H, q_len, D] 参考（本用例验证选定点的接线与指标）。"""
+        k, v = self.prefill_kv(layer)
+        if scope == "decode":
+            for earlier in range(1, step + 1):
+                k_current, v_current = self.current_kv(earlier, layer)
+                k = torch.cat((k, k_current), dim=1)
+                v = torch.cat((v, v_current), dim=1)
+            q = torch.tensor([[row] for row in self.DECODE_Q[step]], dtype=torch.float32)
+            positions = [self.PROMPT_LEN + step - 1]
+        else:
+            q = torch.tensor(self.PREFILL_Q, dtype=torch.float32)
+            positions = list(range(self.PROMPT_LEN))
+        return ORACLE.dense_reference(
+            q, k, v, positions, self.scale, self.NUM_HEADS, self.NUM_KV_HEADS
+        )
+
+    def arrays(self) -> dict:
+        arrays: dict = meta_arrays(
+            prompt_len=self.PROMPT_LEN,
+            scale=self.scale,
+            num_heads=self.NUM_HEADS,
+            num_kv_heads=self.NUM_KV_HEADS,
+            head_dim=self.HEAD_DIM,
+            layer=list(self.LAYERS),
+        )
+        arrays[f"positions_step{self.PREFILL_STEP}"] = np.asarray(
+            list(range(self.PROMPT_LEN)), dtype=np.int64
+        )
+        for layer in self.LAYERS:
+            k, v = self.prefill_kv(layer)
+            arrays[f"k_prefill_L{layer}"] = k.numpy()
+            arrays[f"v_prefill_L{layer}"] = v.numpy()
+            arrays[f"q_step{self.PREFILL_STEP}_L{layer}"] = np.asarray(self.PREFILL_Q, dtype=np.float32)
+            arrays[f"out_step{self.PREFILL_STEP}_L{layer}"] = (
+                self.reference_tensor("prefill", self.PREFILL_STEP, layer) + self.OFFSET
+            ).numpy()
+            for step in self.DECODE_STEPS:
+                k_current, v_current = self.current_kv(step, layer)
+                arrays[f"decode_q_step{step}_L{layer}"] = np.asarray(
+                    [[row] for row in self.DECODE_Q[step]], dtype=np.float32
+                )
+                arrays[f"decode_out_step{step}_L{layer}"] = (
+                    self.reference_tensor("decode", step, layer) + self.OFFSET
+                ).numpy()
+                arrays[f"k_current_step{step}_L{layer}"] = k_current.numpy()
+                arrays[f"v_current_step{step}_L{layer}"] = v_current.numpy()
+                arrays[f"decode_pos_step{step}"] = np.asarray(
+                    [self.PROMPT_LEN + step - 1], dtype=np.int64
+                )
+        return arrays
+
+    def expected_point_metrics(self, scope: str, step: int, index: int, layer: int) -> dict:
+        """独立重算该点指标（用捕获里的 out 行与上文的参考行）。"""
+        arrays = self.arrays()
+        if scope == "prefill":
+            out = torch.tensor(arrays[f"out_step{step}_L{layer}"], dtype=torch.float32)
+        else:
+            out = torch.tensor(arrays[f"decode_out_step{step}_L{layer}"], dtype=torch.float32)
+        ref = self.reference_tensor(scope, step, layer)
+        out_row, ref_row = out[:, index, :], ref[:, index, :]
+        diff = ref_row - out_row
+        magnitude = ref_row.abs().flatten()
+        l2_diff = float(torch.linalg.vector_norm(diff))
+        l2_out = float(torch.linalg.vector_norm(out_row))
+        l2_ref = float(torch.linalg.vector_norm(ref_row))
+        return {
+            "elements": int(ref_row.numel()),
+            "max_abs_err": float(diff.abs().max()),
+            "rms_err": float(torch.sqrt(torch.mean(diff * diff))),
+            "rel_l2_out": l2_diff / l2_out,
+            "rel_l2_ref": l2_diff / l2_ref,
+            "abs_ref_p50": float(torch.quantile(magnitude, 0.5)),
+            "abs_ref_p99": float(torch.quantile(magnitude, 0.99)),
+            "abs_ref_near_zero_fraction": float((magnitude <= 1e-3).to(torch.float32).mean()),
+            "rel_err": float(diff.abs().max()) / l2_out,
+        }
+
+    def test_selected_points_match_full_mode_at_the_same_points(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", self.arrays())
+            full_path = Path(tmp) / "full.json"
+            points_path = Path(tmp) / "points.json"
+            selected_path = Path(tmp) / "selected.json"
+            points_path.write_text(json.dumps(self.SELECTED), encoding="utf-8")
+            full = run_cli(capture, full_path)
+            self.assertEqual(full.returncode, 0, full.stderr)
+            selected = run_cli(capture, selected_path, points_path)
+            self.assertEqual(selected.returncode, 0, selected.stderr)
+            full_report = json.loads(full_path.read_text(encoding="utf-8"))
+            report = json.loads(selected_path.read_text(encoding="utf-8"))
+
+        # 只算选定点：4 个点 < 全量 12 个点（2 层 ×（4 个 prefill 位置 + 2 个 decode 步））。
+        self.assertEqual(full_report["summary"]["comparisons"], 12)
+        self.assertEqual(report["mode"], "points")
+        self.assertEqual(report["points_requested"], {"prefill": 2, "decode": 2, "total": 4})
+        self.assertEqual(report["summary"]["comparisons"], 4)
+        self.assertEqual(report["summary"]["points_requested"], 4)
+        self.assertEqual(report["summary"]["layers"], [0, 1])
+        self.assertIn("point_records", report["definitions"])
+
+        key = lambda item: (item["scope"], item["layer"], item["step"], item["position"])
+        full_by_point = {key(item): item for item in full_report["comparisons"]}
+        seen: dict[tuple, dict] = {}
+        for item in report["comparisons"]:
+            baseline = full_by_point.pop(key(item), None)
+            self.assertIsNotNone(baseline, f"选定点 {key(item)} 不在全量结果里")
+            for metric in ("max_abs_err", "rms_err", "out_norm", "ref_norm", "rel_err", "keys_used"):
+                self.assertEqual(item[metric], baseline[metric], f"{key(item)} 的 {metric} 与全量模式不一致")
+            index = item["position"] if item["scope"] == "prefill" else 0
+            expected = self.expected_point_metrics(item["scope"], item["step"], index, item["layer"])
+            for metric, want in expected.items():
+                self.assertAlmostEqual(item[metric], want, places=6, msg=f"{key(item)} 的 {metric}")
+            self.assertIs(item["rel_err_is_allclose_rtol"], False)
+            seen[key(item)] = item
+        self.assertTrue(full_by_point)  # 全量模式确实还有未选中的点
+        # 同一 (scope, step, position) 的两个层各自取到自己的张量 → 尺度指标必须不同。
+        self.assertNotEqual(
+            seen[("decode", 0, 2, self.PROMPT_LEN + 1)]["out_norm"],
+            seen[("decode", 1, 2, self.PROMPT_LEN + 1)]["out_norm"],
+        )
+
+    def test_default_report_is_unchanged_without_points(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", self.arrays())
+            first_path = Path(tmp) / "first.json"
+            second_path = Path(tmp) / "second.json"
+            first = run_cli(capture, first_path)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            second = run_cli(capture, second_path)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            report = json.loads(first_path.read_text(encoding="utf-8"))
+            again = json.loads(second_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            sorted(report),
+            ["capture", "comparisons", "generated_at_cst", "metadata", "non_finite", "numerics",
+             "per_layer", "per_scope", "per_step", "schema", "summary", "warnings"],
+        )
+        self.assertEqual(
+            sorted(report["comparisons"][0]),
+            ["finite", "keys_used", "layer", "max_abs_err", "out_norm", "position", "ref_norm",
+             "rel_err", "rms_err", "scope", "step"],
+        )
+        self.assertEqual(report["summary"]["comparisons"], 12)
+        self.assertNotIn("points_requested", report["summary"])
+        # 同一命令重复运行的报告逐键一致（只有时间戳字段不同）。
+        report.pop("generated_at_cst")
+        again.pop("generated_at_cst")
+        self.assertEqual(report, again)
+        self.assertEqual(report["summary"]["decode_steps_referenced"], [1, 2])
+        self.assertEqual(report["summary"]["prefill_steps"], [self.PREFILL_STEP])
+
+    def test_invalid_points_file_exits_2(self) -> None:
+        cases = {
+            "未知键": ({"prefill": [{"layer": 0, "position": 1}], "other": []}, "未知键"),
+            "缺 position 键": ({"prefill": [{"layer": 0}]}, "缺 ['position']"),
+            "空列表": ({"prefill": [], "decode": []}, "没有任何点"),
+            "非整数": ({"decode": [{"layer": 0, "step": "1"}]}, "必须是整数"),
+        }
+        for label, (payload, keyword) in cases.items():
+            with self.subTest(label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    points_path = Path(tmp) / "points.json"
+                    points_path.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaises(ORACLE.CaptureError) as ctx:
+                        ORACLE.load_points(points_path)
+                    self.assertIn(keyword, str(ctx.exception))
+        # 至少一条走真实 CLI：退出码 2、无报告、stderr 指名。
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", self.arrays())
+            points_path = Path(tmp) / "points.json"
+            points_path.write_text(json.dumps(cases["缺 position 键"][0]), encoding="utf-8")
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(capture, report_path, points_path)
+            self.assertEqual(proc.returncode, 2)
+            self.assertIn("缺 ['position']", proc.stderr)
+            self.assertFalse(report_path.exists())
+
+    def test_points_absent_from_capture_exit_2(self) -> None:
+        cases = {
+            "层不存在": ({"prefill": [{"layer": 99, "position": 1}]}, "不在捕获层集合"),
+            "prefill 位置不存在": ({"prefill": [{"layer": 0, "position": 9}]}, "不在捕获的记录步里"),
+            "decode 步不存在": ({"decode": [{"layer": 0, "step": 9}]}, "不在捕获里"),
+        }
+        for label, (payload, keyword) in cases.items():
+            with self.subTest(label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    capture = ORACLE.load_capture(write_npz(Path(tmp) / "capture.npz", self.arrays()))
+                    points_path = Path(tmp) / "points.json"
+                    points_path.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaises(ORACLE.CaptureError) as ctx:
+                        ORACLE.build_report(capture, ORACLE.load_points(points_path))
+                    self.assertIn(keyword, str(ctx.exception))
+        # CLI 层证据：越界点 → 退出码 2、不产报告。
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = write_npz(Path(tmp) / "capture.npz", self.arrays())
+            points_path = Path(tmp) / "points.json"
+            points_path.write_text(json.dumps(cases["decode 步不存在"][0]), encoding="utf-8")
+            report_path = Path(tmp) / "report.json"
+            proc = run_cli(capture, report_path, points_path)
+            self.assertEqual(proc.returncode, 2)
+            self.assertIn("step9", proc.stderr)
+            self.assertFalse(report_path.exists())
 
 
 if __name__ == "__main__":

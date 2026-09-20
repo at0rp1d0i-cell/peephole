@@ -4,6 +4,17 @@
 用法：
     source /root/attnview/env.sh
     "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py --capture <capture.npz> --out <report.json>
+    # 选定点模式（只算少量点；默认全量行为不变）：
+    "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py --capture <capture.npz> --out <report.json> \
+        --points <points.json>
+    其中 points.json 形如
+        {"prefill": [{"layer": 14, "position": 123}, …],
+         "decode":  [{"layer": 14, "step": 1}, …]}
+    选定点模式下每个点在报告的 `comparisons` 数组里（scope=prefill|decode，字段与全量模式同键同值），
+    并额外给出尺度指标：`l2_diff`、`rel_l2_out`、`rel_l2_ref`、`|ref|` 的 p50/p99、
+    `abs_ref_near_zero_fraction`（|ref| ≤ 1e-3 占比）、`elements`。
+    注意 `rel_err`（= max_abs_err / L2(out)）是既有口径，**不是** torch.allclose 的 rtol
+    （报告里以 `rel_err_is_allclose_rtol=false` 标注）。本工具不给任何通过/不通过阈值。
 
 退出码：0=全部比较有限且报告已写出；2=参数/格式/必需元数据缺失；3=存在非有限值（报告仍写出）。
 
@@ -68,6 +79,17 @@ import torch
 SCHEMA = "attnview.p2-calib-oracle/v1"
 COMPUTE_DTYPE = "float32"
 REL_ERR_EPS = 1e-12
+# 选定点模式：|ref| ≤ 该阈值视为“近零”，用于报告参考幅度分布（不是通过/不通过判据）。
+NEAR_ZERO_THRESHOLD = 1e-3
+# 选定点模式额外给出的尺度指标（非有限值时为 null）。
+EXTENDED_NUMERIC_KEYS = (
+    "l2_diff",
+    "rel_l2_out",
+    "rel_l2_ref",
+    "abs_ref_p50",
+    "abs_ref_p99",
+    "abs_ref_near_zero_fraction",
+)
 REQUIRED_SCALARS = ("prompt_len", "scale", "num_heads", "num_kv_heads", "head_dim")
 
 _LAYER_K = re.compile(r"^k_prefill_L(\d+)$")
@@ -528,6 +550,30 @@ def _group_stats(comparisons: list[dict], key_of) -> dict:
 METRIC_KEYS = ("max_abs_err", "rms_err", "out_norm", "ref_norm", "rel_err")
 
 
+def _scale_metrics(ref_row: torch.Tensor, out_row: torch.Tensor) -> dict:
+    """选定点模式的尺度指标：L2 相对误差与参考幅度分布（不含任何通过/不通过判定）。"""
+    ref = ref_row.to(torch.float32)
+    out = out_row.to(torch.float32)
+    diff = ref - out
+    l2_diff = float(torch.linalg.vector_norm(diff))
+    l2_out = float(torch.linalg.vector_norm(out))
+    l2_ref = float(torch.linalg.vector_norm(ref))
+    magnitude = ref.abs().flatten()
+    return {
+        "elements": int(ref.numel()),
+        "l2_diff": l2_diff,
+        "rel_l2_out": l2_diff / max(l2_out, REL_ERR_EPS),
+        "rel_l2_ref": l2_diff / max(l2_ref, REL_ERR_EPS),
+        "abs_ref_p50": float(torch.quantile(magnitude, 0.5)),
+        "abs_ref_p99": float(torch.quantile(magnitude, 0.99)),
+        "abs_ref_near_zero_fraction": float(
+            (magnitude <= NEAR_ZERO_THRESHOLD).to(torch.float32).mean()
+        ),
+        # 明确标注：既有 rel_err 不是 allclose 的 rtol。
+        "rel_err_is_allclose_rtol": False,
+    }
+
+
 def _comparison_item(
     *,
     scope: str,
@@ -539,8 +585,12 @@ def _comparison_item(
     out_row: torch.Tensor,
     ref_row: torch.Tensor,
     non_finite: list[dict],
+    extended: bool = False,
 ) -> dict:
-    """单个 (scope, layer, step, position) 的比较项；非有限值单列进 non_finite，指标置 null。"""
+    """单个 (scope, layer, step, position) 的比较项；非有限值单列进 non_finite，指标置 null。
+
+    `extended=True`（选定点模式）时额外给出尺度指标（L2 相对误差、|ref| 分位数与近零占比）。
+    """
     item = {
         "scope": scope,
         "layer": layer,
@@ -570,59 +620,167 @@ def _comparison_item(
                 }
             )
         item.update({key: None for key in METRIC_KEYS})
+        if extended:
+            item.update({key: None for key in EXTENDED_NUMERIC_KEYS})
+            item.update({"elements": int(out_row.numel()), "rel_err_is_allclose_rtol": False})
     else:
         item.update(_metrics(ref_row, out_row))
+        if extended:
+            item.update(_scale_metrics(ref_row, out_row))
     return item
 
 
-def build_report(capture: dict) -> dict:
+# ---------------------------------------------------------------- 选定点模式
+
+
+def load_points(path: Path) -> dict:
+    """读取选定点 JSON：{"prefill": [{"layer","position"}], "decode": [{"layer","step"}]}。
+
+    只负责格式校验；点是否存在于捕获里由 build_report 在选定点模式下核查（缺即报错，不产报告）。
+    """
+    if not path.is_file():
+        raise CaptureError(f"选定点文件不存在：{path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CaptureError(f"选定点文件不是合法 JSON：{path}：{exc}") from exc
+    if not isinstance(payload, dict):
+        raise CaptureError('选定点文件必须是 JSON 对象：{"prefill": [...], "decode": [...]}')
+    unknown = sorted(set(payload) - {"prefill", "decode"})
+    if unknown:
+        raise CaptureError(f"选定点文件出现未知键：{', '.join(unknown)}（只接受 prefill/decode）")
+
+    points: dict[str, list[dict]] = {"prefill": [], "decode": []}
+    for scope, keys in (("prefill", ("layer", "position")), ("decode", ("layer", "step"))):
+        raw = payload.get(scope, [])
+        if not isinstance(raw, list):
+            raise CaptureError(f"选定点 {scope} 必须是列表")
+        for index, item in enumerate(raw):
+            if not isinstance(item, dict):
+                raise CaptureError(f"选定点 {scope}[{index}] 必须是对象：{item!r}")
+            missing = sorted(set(keys) - set(item))
+            extra = sorted(set(item) - set(keys))
+            if missing or extra:
+                raise CaptureError(
+                    f"选定点 {scope}[{index}] 键不符：需要 {list(keys)}；"
+                    f"缺 {missing or '无'}；多 {extra or '无'}"
+                )
+            for key in keys:
+                if isinstance(item[key], bool) or not isinstance(item[key], int):
+                    raise CaptureError(f"选定点 {scope}[{index}].{key} 必须是整数：{item[key]!r}")
+            points[scope].append(item)
+    if not points["prefill"] and not points["decode"]:
+        raise CaptureError("选定点文件没有任何点（prefill 与 decode 都为空）")
+    return points
+
+
+def _prefill_position_index(steps: dict) -> dict[int, list[tuple[int, int]]]:
+    index_of: dict[int, list[tuple[int, int]]] = {}
+    for step in sorted(steps):
+        for index, position in enumerate(steps[step]["positions"]):
+            index_of.setdefault(int(position), []).append((step, index))
+    return index_of
+
+
+def _prefill_hint(steps: dict) -> str:
+    if not steps:
+        return "（捕获里没有 prefill 记录步）"
+    parts = [
+        f"step{step}: {len(record['positions'])} 个位置（{record['positions'][0]}..{record['positions'][-1]}）"
+        for step, record in sorted(steps.items())
+    ]
+    return "；".join(parts)
+
+
+def _selected_comparisons(capture: dict, points: dict, non_finite: list[dict]) -> list[dict]:
+    """只算选定点：每点走与全量模式相同的参考实现，因此同点指标同值（额外给尺度指标）。"""
     meta = capture["meta"]
     layers = capture["layers"]
     steps = capture["steps"]
     decode_steps = capture["decode_steps"]
+    num_heads, num_kv_heads = meta["num_heads"], meta["num_kv_heads"]
+    index_of = _prefill_position_index(steps)
+    comparisons: list[dict] = []
 
-    non_finite: list[dict] = []
-    warnings = list(capture["warnings"])
-    # scale 来源声明为 derived 时（非运行时真实值），它进入全部误差 → 单列为已知近似来源。
-    scale_source = meta["scale_source"]
-    scale_derived = isinstance(scale_source, str) and "derived" in scale_source.lower()
-    if scale_derived:
-        warnings.append(
-            f"scale 来源声明为 {scale_source}（非运行时真实值）：该假设进入本报告全部误差，属已知近似来源"
+    for point in points["prefill"]:
+        layer, position = int(point["layer"]), int(point["position"])
+        if layer not in layers:
+            raise CaptureError(f"选定 prefill 点 L{layer} 不在捕获层集合 {sorted(layers)} 中")
+        matches = index_of.get(position, [])
+        if not matches:
+            raise CaptureError(
+                f"选定 prefill 点 L{layer}/位置 {position} 不在捕获的记录步里：{_prefill_hint(steps)}"
+            )
+        if len(matches) > 1:
+            raise CaptureError(
+                f"选定 prefill 点 L{layer}/位置 {position} 在多个记录步里出现 {matches}："
+                f"请改用能唯一定位的点"
+            )
+        step, index = matches[0]
+        record = steps[step]
+        q_row = record["q"][layer][:, index : index + 1, :]
+        ref = dense_reference(
+            q_row, layers[layer]["k"], layers[layer]["v"], [position], meta["scale"], num_heads, num_kv_heads
         )
-    # 捕获级扫描：prefill K/V 与 decode 当前 token 的 K/V 全数组（含未被任何 query 用到的尾部）。
-    for layer in sorted(layers):
-        for kind in ("k", "v"):
-            tensor = layers[layer][kind]
-            count = _nonfinite_count(tensor)
-            if count:
-                non_finite.append(
-                    {
-                        "level": "capture",
-                        "layer": layer,
-                        "step": None,
-                        "tensor": f"{kind}_prefill_L{layer}",
-                        "non_finite": count,
-                        "elements": int(tensor.numel()),
-                    }
+        comparisons.append(
+            _comparison_item(
+                scope="prefill",
+                layer=layer,
+                step=step,
+                position=position,
+                keys_used=position + 1,
+                q_row=q_row[:, 0, :],
+                out_row=record["out"][layer][:, index, :],
+                ref_row=ref[:, 0, :],
+                non_finite=non_finite,
+                extended=True,
+            )
+        )
+
+    for point in points["decode"]:
+        layer, step = int(point["layer"]), int(point["step"])
+        if layer not in layers:
+            raise CaptureError(f"选定 decode 点 L{layer} 不在捕获层集合 {sorted(layers)} 中")
+        if step not in decode_steps:
+            raise CaptureError(
+                f"选定 decode 点 step{step} 不在捕获里：可用 {sorted(decode_steps)}"
+            )
+        record = decode_steps[step]
+        k_chain = layers[layer]["k"]
+        v_chain = layers[layer]["v"]
+        for earlier in sorted(decode_steps):
+            if earlier > step:
+                break
+            k_chain = torch.cat((k_chain, decode_steps[earlier]["k_current"][layer]), dim=1)
+            v_chain = torch.cat((v_chain, decode_steps[earlier]["v_current"][layer]), dim=1)
+        for index, position in enumerate(record["positions"]):
+            q_row = record["q"][layer][:, index : index + 1, :]
+            ref = dense_reference(
+                q_row, k_chain, v_chain, [position], meta["scale"], num_heads, num_kv_heads
+            )
+            comparisons.append(
+                _comparison_item(
+                    scope="decode",
+                    layer=layer,
+                    step=step,
+                    position=int(position),
+                    keys_used=int(position) + 1,
+                    q_row=q_row[:, 0, :],
+                    out_row=record["out"][layer][:, index, :],
+                    ref_row=ref[:, 0, :],
+                    non_finite=non_finite,
+                    extended=True,
                 )
-        for step in sorted(decode_steps):
-            for kind in ("k_current", "v_current"):
-                tensor = decode_steps[step][kind].get(layer)
-                if tensor is None:  # load_capture 已拦
-                    continue
-                count = _nonfinite_count(tensor)
-                if count:
-                    non_finite.append(
-                        {
-                            "level": "capture",
-                            "layer": layer,
-                            "step": step,
-                            "tensor": f"{kind}_step{step}_L{layer}",
-                            "non_finite": count,
-                            "elements": int(tensor.numel()),
-                        }
-                    )
+            )
+    return comparisons
+
+
+def _all_comparisons(capture: dict, non_finite: list[dict]) -> list[dict]:
+    """全量模式：所有 (scope, layer, step, position) 都出参考与指标。"""
+    meta = capture["meta"]
+    layers = capture["layers"]
+    steps = capture["steps"]
+    decode_steps = capture["decode_steps"]
 
     comparisons: list[dict] = []
     for layer in sorted(layers):
@@ -693,6 +851,63 @@ def build_report(capture: dict) -> dict:
                         non_finite=non_finite,
                     )
                 )
+    return comparisons
+
+
+def build_report(capture: dict, points: dict | None = None) -> dict:
+    meta = capture["meta"]
+    layers = capture["layers"]
+    steps = capture["steps"]
+    decode_steps = capture["decode_steps"]
+
+    non_finite: list[dict] = []
+    warnings = list(capture["warnings"])
+    # scale 来源声明为 derived 时（非运行时真实值），它进入全部误差 → 单列为已知近似来源。
+    scale_source = meta["scale_source"]
+    scale_derived = isinstance(scale_source, str) and "derived" in scale_source.lower()
+    if scale_derived:
+        warnings.append(
+            f"scale 来源声明为 {scale_source}（非运行时真实值）：该假设进入本报告全部误差，属已知近似来源"
+        )
+    # 捕获级扫描：prefill K/V 与 decode 当前 token 的 K/V 全数组（含未被任何 query 用到的尾部）。
+    for layer in sorted(layers):
+        for kind in ("k", "v"):
+            tensor = layers[layer][kind]
+            count = _nonfinite_count(tensor)
+            if count:
+                non_finite.append(
+                    {
+                        "level": "capture",
+                        "layer": layer,
+                        "step": None,
+                        "tensor": f"{kind}_prefill_L{layer}",
+                        "non_finite": count,
+                        "elements": int(tensor.numel()),
+                    }
+                )
+        for step in sorted(decode_steps):
+            for kind in ("k_current", "v_current"):
+                tensor = decode_steps[step][kind].get(layer)
+                if tensor is None:  # load_capture 已拦
+                    continue
+                count = _nonfinite_count(tensor)
+                if count:
+                    non_finite.append(
+                        {
+                            "level": "capture",
+                            "layer": layer,
+                            "step": step,
+                            "tensor": f"{kind}_step{step}_L{layer}",
+                            "non_finite": count,
+                            "elements": int(tensor.numel()),
+                        }
+                    )
+
+    comparisons: list[dict] = (
+        _selected_comparisons(capture, points, non_finite)
+        if points is not None
+        else _all_comparisons(capture, non_finite)
+    )
 
     per_layer = _group_stats(comparisons, lambda item: item["layer"])
     per_scope = _group_stats(comparisons, lambda item: item["scope"])
@@ -718,16 +933,19 @@ def build_report(capture: dict) -> dict:
                 }
             )
 
-    referenced_decode_steps = sorted(
+    finite = [item for item in comparisons if item["finite"]]
+    compared_layers = sorted({item["layer"] for item in comparisons})
+    compared_prefill_steps = sorted(
+        {item["step"] for item in comparisons if item["scope"] == "prefill"}
+    )
+    compared_decode_steps = sorted(
         {item["step"] for item in comparisons if item["scope"] == "decode"}
     )
-
-    finite = [item for item in comparisons if item["finite"]]
     summary = {
-        "layers": sorted(layers),
-        "prefill_steps": sorted(steps),
-        "decode_steps": sorted(decode_steps),
-        "decode_steps_referenced": referenced_decode_steps,
+        "layers": compared_layers,
+        "prefill_steps": compared_prefill_steps,
+        "decode_steps": compared_decode_steps,
+        "decode_steps_referenced": compared_decode_steps,
         "comparisons": len(comparisons),
         "finite_comparisons": len(finite),
         "comparisons_by_scope": {
@@ -741,7 +959,7 @@ def build_report(capture: dict) -> dict:
         "rel_err_eps": REL_ERR_EPS,
     }
 
-    return {
+    report = {
         "schema": SCHEMA,
         "generated_at_cst": now_cst(),
         "capture": {"path": capture["path"], "sha256": capture["sha256"]},
@@ -776,6 +994,31 @@ def build_report(capture: dict) -> dict:
         "warnings": warnings,
     }
 
+    if points is not None:
+        # 选定点模式：只加自己的字段，默认（全量）报告不变。
+        report["mode"] = "points"
+        report["points_requested"] = {
+            "prefill": len(points["prefill"]),
+            "decode": len(points["decode"]),
+            "total": len(points["prefill"]) + len(points["decode"]),
+        }
+        report["definitions"] = {
+            "point_records": "每个选定点的记录在 comparisons 数组里（scope=prefill|decode，字段与全量模式同键同值）",
+            "elements": "该点元素数 = 该 query 的 head 数 × head_dim",
+            "l2_diff": "‖out - ref‖₂（同一批元素）",
+            "rel_l2_out": f"‖out - ref‖₂ / max(‖out‖₂, {REL_ERR_EPS:g})",
+            "rel_l2_ref": f"‖out - ref‖₂ / max(‖ref‖₂, {REL_ERR_EPS:g})",
+            "abs_ref_p50": "|ref| 的 50% 分位数（torch.quantile，linear 插值）",
+            "abs_ref_p99": "|ref| 的 99% 分位数（同上）",
+            "abs_ref_near_zero_fraction": f"|ref| ≤ {NEAR_ZERO_THRESHOLD:g} 的元素占比",
+            "rel_err": "max_abs_err / max(‖out‖₂, 1e-12)：既有口径；这是绝对误差相对 L2 尺度的比值，"
+            "不是 torch.allclose 的 rtol（每条记录另有 rel_err_is_allclose_rtol=false 标注）",
+            "no_thresholds": "本报告不含任何通过/不通过判定（阈值未冻结，由用户决定）",
+        }
+        report["summary"]["mode"] = "points"
+        report["summary"]["points_requested"] = report["points_requested"]["total"]
+    return report
+
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
@@ -783,11 +1026,18 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--capture", required=True, help="捕获 npz 路径（prefill K/V + 逐步 q/out + 元数据）")
     parser.add_argument("--out", required=True, help="JSON 报告输出路径")
+    parser.add_argument(
+        "--points",
+        default=None,
+        help='可选：选定点 JSON，形如 {"prefill":[{"layer":14,"position":123}],'
+        '"decode":[{"layer":14,"step":1}]}；只算这些点并额外给尺度指标（不给则保持全量行为）',
+    )
     args = parser.parse_args(argv)
 
     try:
         capture = load_capture(Path(args.capture))
-        report = build_report(capture)
+        points = load_points(Path(args.points)) if args.points else None
+        report = build_report(capture, points)
     except CaptureError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 2
@@ -809,8 +1059,10 @@ def main(argv=None) -> int:
     ]
     layer_max = max(layer_maxima) if layer_maxima else None
     shown = "none" if layer_max is None else f"{layer_max:.6e}"
+    points_suffix = f" points={summary['points_requested']}" if "points_requested" in summary else ""
     print(
-        f"p2-calib-oracle: comparisons={summary['comparisons']} "
+        f"p2-calib-oracle: comparisons={summary['comparisons']}"
+        f"{points_suffix} "
         f"finite={summary['finite_comparisons']} layers={len(summary['layers'])} "
         f"prefill_steps={len(summary['prefill_steps'])} decode_steps={len(summary['decode_steps'])} "
         f"max_abs_err_max={shown} "
