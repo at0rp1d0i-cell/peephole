@@ -3,11 +3,25 @@
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
   "target_prompt_len": 7839,
-  "target_reason": "prompt 末尾 = 7839 ⇒ 首 decode 的 kv = 7840 = 块 10 起点：仅 1 步即跨 784 块边界,总长 ≤8192",
+  "target_reason": "prompt 末尾 = 7840-1 = 7839 ⇒ 首 decode 的 kv = 7840 = 块 10 起点：仅 1 个 decode 步即跨 784 块边界,总长 ≤8192(粗单位+单字细调精确命中)",
   "filler_unit": "这是用于把公开合成上下文长度调整到块边界的附加说明段落。",
   "max_filler_units": 400,
-  "generation_script": ["平面", "几何", "推理", "<local>", "继续", "推导", "<focus>", "1", "再看"],
-  "modes_to_expand": ["global", "local", "focus1"],
+  "generation_script": [
+    "平面",
+    "几何",
+    "推理",
+    "<local>",
+    "继续",
+    "推导",
+    "<focus>",
+    "1",
+    "再看"
+  ],
+  "modes_to_expand": [
+    "global",
+    "local",
+    "focus1"
+  ],
   "negative_controls": {
     "unwritten_allocated_block": "已分配但未写入的块 10 被声明可见(分配 0..10,kv=7839)",
     "block_beyond_allocated": "可见块 10 超出已分配前缀 0..9",
@@ -17,5 +31,7 @@
     "CPU/设计范围:不加载模型、不上 GPU、不出数值容差",
     "门禁为 src/attnview 既有 StepPlan.validate + resolve_canonical_mapping + gpukv 校验(不新造框架)",
     "本文件不修改任何阈值与既有结论"
-  ]
+  ],
+  "fine_char": "。",
+  "max_fine_units": 80
 }

@@ -52,8 +52,10 @@ def main() -> int:
     question = fixture["question"]
     base = fixture["document"]
 
-    def render(units: int):
-        ctx = base + ("\n\n" + cfg["filler_unit"]) * units
+    fine = cfg["fine_char"]
+
+    def render(units: int, fine_n: int = 0):
+        ctx = base + ("\n\n" + cfg["filler_unit"]) * units + fine * fine_n
         _ids, offsets = _tokenize_with_offsets(tok, ctx)
         segs = segment_context(ctx, build_offsets_index(offsets))
         arm = render_arm("da", segs, question, ctx, tok, enable_thinking=False)
@@ -72,14 +74,21 @@ def main() -> int:
         else:
             lo = mid + 1
     cands = []
-    for u in (max(0, lo - 1), lo, lo + 1):
-        c, s, a = render(u)
-        cands.append((abs(len(a.token_ids) - target), u, c, s, a))
-    cands.sort(key=lambda x: (x[0], x[1]))
-    gap, units, ctx, segs, arm = cands[0]
+    for u in range(max(0, lo - 2), lo + 3):
+        best_f = None
+        for f in range(0, int(cfg["max_fine_units"]) + 1):
+            c, sg, a = render(u, f)
+            n = len(a.token_ids)
+            if best_f is None or abs(n - target) < abs(best_f[0] - target):
+                best_f = (n, f, c, sg, a)
+            if n == target:
+                break
+        cands.append((abs(best_f[0] - target), u, best_f[1], best_f[2], best_f[3], best_f[4]))
+    cands.sort(key=lambda x: (x[0], x[1], x[2]))
+    gap, units, fine_n, ctx, segs, arm = cands[0]
     prompt_len = len(arm.token_ids)
     block_size = bs
-    assert gap == 0, f"未能精确命中目标 prompt_len={target}(最接近 {prompt_len});按 block_size 调整 filler_unit"
+    assert gap == 0, f"未能精确命中目标 prompt_len={target}(最接近 {prompt_len});需调整 fine_char/上限"
 
     layout = TokenLayout(
         prompt_len=prompt_len,
@@ -92,7 +101,7 @@ def main() -> int:
     report = {
         "config": str(args.config), "fixture": cfg["fixture"], "block_size": bs,
         "target_prompt_len": target, "prompt_len": prompt_len,
-        "filler_units": units, "context_sha256": hashlib.sha256(ctx.encode()).hexdigest(),
+        "filler_units": units, "fine_units": fine_n, "context_sha256": hashlib.sha256(ctx.encode()).hexdigest(),
         "prompt_sha256": hashlib.sha256(arm.rendered.encode()).hexdigest(),
         "token_ids_sha256": hashlib.sha256(bytes(str(list(arm.token_ids)), "utf-8")).hexdigest(),
         "token_ids_count": len(arm.token_ids),
