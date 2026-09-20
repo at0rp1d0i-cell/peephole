@@ -300,6 +300,22 @@ class CalibHookTest(unittest.TestCase):
         self.assertEqual(table.tolist(), [[0, 0, 0], [0, 0, 0]], "trace 不得改写入参")
 
 
+    def test_override_trace_accepts_inference_tensor_without_fabricated_version(self):
+        trace = self.dir / "inference-steps.jsonl"
+        self.write_arm(trace=trace)
+        with torch.inference_mode():
+            table = torch.zeros((1, 3), dtype=torch.int32)
+            self.mod.calibration_note_override(
+                _override(), req_ids=["r-main"],
+                scheduler_output=SimpleNamespace(num_scheduled_tokens={"r-main": 1}),
+                inputs={"fa_group_table": table})
+        record = json.loads(trace.read_text())
+        self.assertIsNone(record["inputs"]["fa_group_table"]["version"])
+        self.assertFalse(record["inputs"]["fa_group_table"]["version_observable"])
+        self.assertEqual(record["override"]["seqused_k"], [3137])
+        self.assertEqual(table.tolist(), [[0, 0, 0]])
+
+
 class FakeFlashAttentionImpl:
     """最小真实契约替身：ABC 普通方法（非 nn.Module）、持有真实 `impl.scale`。"""
 

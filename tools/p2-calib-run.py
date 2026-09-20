@@ -2312,6 +2312,28 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         request_s = req_watch.elapsed
         if request_s > REQUEST_BUDGET_S:  # 双保险
             raise BudgetExceeded(f"主请求耗时 {request_s:.1f}s 超过预算 {REQUEST_BUDGET_S}s")
+    except Exception as exc:
+        if args.arm == "patched-masked":
+            if capture is not None:
+                capture.disarm()
+                manifest["capture"] = capture.summary()
+            manifest["masked_structure"] = {
+                "ok": False, "incomplete_request": True,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            manifest["engine_traces"] = dump_engine_traces(llm, out / "engine-traces-failure.json")
+            cleanup = {"attempted": True, "external_id": external_main_id}
+            try:
+                with Watchdog(CLEANUP_BUDGET_S, "failure-cleanup", out, manifest_path):
+                    engine.abort_request([external_main_id])
+                    engine.step()
+                cleanup["scheduler_has_request"] = _scheduler_has(engine, internal_main_id)
+                cleanup["protocol_state"] = protocol_state(llm, internal_main_id)
+            except Exception as cleanup_exc:
+                cleanup["error"] = f"{type(cleanup_exc).__name__}: {cleanup_exc}"
+            manifest["failure_cleanup"] = cleanup
+            save_manifest(manifest_path, manifest)
+        raise
     finally:
         if capture is not None:
             capture.disarm()

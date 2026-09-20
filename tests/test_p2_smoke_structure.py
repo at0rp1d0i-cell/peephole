@@ -166,7 +166,7 @@ class StructureCheckTest(unittest.TestCase):
         timeline["block_size"] = 4
         config_path = self.h.dir / "timeline.json"
         config_path.write_text(json.dumps(timeline))
-        for corrupt in (False, True):
+        for corrupt in (False, True, "request_error"):
             with self.subTest(corrupt=corrupt), ExitStack() as stack:
                 out = self.h.dir / str(corrupt)
                 out.mkdir()
@@ -177,11 +177,15 @@ class StructureCheckTest(unittest.TestCase):
                             for i in range(1, 30)], out / "logits.pt")
                 if corrupt:
                     capture.structure[7][capture.layer_names[0]]["seq_len"] += 1
-                llm = NS(llm_engine=NS(model_executor=NS(collective_rpc=lambda *a, **k: {})))
+                aborted = []
+                llm = NS(llm_engine=NS(model_executor=NS(collective_rpc=lambda *a, **k: {}),
+                                      abort_request=lambda ids: aborted.extend(ids), step=lambda: []))
                 stack.enter_context(patch.dict(sys.modules, {"vllm": NS(LLM=lambda **k: llm),
                     "vllm.config.attention": NS(AttentionConfig=lambda **k: k)}))
                 def drive(*a, on_first_step, **k):
                     on_first_step()
+                    if corrupt == "request_error":
+                        raise RuntimeError("inference trace failure")
                     return dict(tokens=[1] * 29, steps=29, consuming_steps=29, other_request_outputs=[])
                 def dump(llm, path):
                     path.write_text(json.dumps(trace["parsed_steps"]))
@@ -195,7 +199,7 @@ class StructureCheckTest(unittest.TestCase):
                     "submit_request": lambda *a: {"internal_id": "r-main"},
                     "drive_main_request": drive,
                     "scheduler_requests": lambda e: {"r-main": NS(prompt_token_ids=list(range(34)))},
-                    "_scheduler_has": lambda e, req: req == "r-main",
+                    "_scheduler_has": lambda e, req: req == "r-main" and not aborted,
                     "protocol_state": lambda *a: {"observable": True},
                     "canonical_blocks": lambda *a: {"observable": False},
                     "dump_engine_traces": dump,
@@ -204,6 +208,15 @@ class StructureCheckTest(unittest.TestCase):
                     stack.enter_context(patch.object(self.driver, name, impl))
                 cleanup = stack.enter_context(patch.object(self.driver, "run_cleanup_check", return_value={"ok": True}))
                 manifest = {"config": {}}
+                if corrupt == "request_error":
+                    with self.assertRaisesRegex(RuntimeError, "inference trace failure"):
+                        self.driver._run(args, manifest, out / "manifest.json", None, self.payload,
+                                         list(range(34)), {"attnview": self.payload}, out / "arm.json")
+                    self.assertTrue(aborted)
+                    self.assertFalse(manifest["failure_cleanup"]["scheduler_has_request"])
+                    self.assertTrue(manifest["masked_structure"]["incomplete_request"])
+                    self.assertTrue((out / "engine-traces-failure.json").exists())
+                    continue
                 code = self.driver._run(args, manifest, out / "manifest.json", None, self.payload,
                                         list(range(34)), {"attnview": self.payload}, out / "arm.json")
                 self.assertEqual(code, int(corrupt), manifest.get("failures"))

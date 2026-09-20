@@ -262,7 +262,10 @@ def calibration_note_override(
                 "shape": list(t.shape),
                 "dtype": str(t.dtype),
                 "data_ptr": int(t.data_ptr()),
-                "version": int(getattr(t, "_version", -1)),
+                # Inference tensors deliberately have no version counter. Absence
+                # is not evidence of immutability; keep it explicit in the trace.
+                "version": None if torch.is_inference(t) else int(t._version),
+                "version_observable": not torch.is_inference(t),
             }
             for name, t in inputs.items()
             if hasattr(t, "data_ptr")
