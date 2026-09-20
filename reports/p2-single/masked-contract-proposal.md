@@ -33,7 +33,16 @@
   - `rel_l2_out = ‖out − ref‖₂ / ‖out‖₂`，`rel_l2_ref = ‖out − ref‖₂ / ‖ref‖₂`
   - 参考幅度：`|ref|` 的 p50/p99、**接近零占比**（如 `|ref| ≤ 1e-3` 的比例）——近零处绝对误差天然小、相对误差会放大，必须并列报告。
   - **既有报告的 `rel_err = max_abs_err / L2(out)` 不是 allclose 的逐元素 rtol**，草案不再以它当逐元素判据。
-- 上游可用性核对（待补机械核验）：本 pin 测试对 FA 后端的数值断言方式/dtype/误差来源需逐个查证，**未核对前不得**拿上游测试指标当模型层容差依据。
+- **上游可用性核对（已完成，只读侦察）**：结论 **不能直接用作**本项目"BF16 模型层 vs 独立 FP32 dense"的容差依据，**只能作量级参考**。证据：
+  - 唯一明确的"BF16 FA 输出 vs **独立 FP32 dense 参考**"是 `vllm/tests/v1/attention/test_mm_prefix.py`（`DTYPE=bf16` L67，`_dense_reference` 全 FP32 L204-255），
+    断言 **atol=rtol=2e-2**（L372/L398/L417/L633），并含 mask 有效性反证（L393-395/L637-640）。
+  - kernel 级唯一系统测试 `tests/kernels/attention/test_flash_attn.py`：paged 参考 `ref_paged_attn`（L41-92，仅 scores/softmax 用 FP32），
+    **bf16 用 atol=1.5e-2 / rtol=1e-2**（fp8 放宽到 1.5e-1/1.5e-1）。
+  - backend-impl 级 `tests/v1/attention/test_attention_backends.py`：默认 **atol=rtol=1e-2**（L386-387），fp8 KV 6e-2/1e-1；mask 参考是同 dtype flex_attention，**不做 FP32 upcast**。
+  - 默认表 `tests/kernels/allclose_default.py`：bf16 **atol=1e-3 / rtol=1.6e-2**；生产实现 `vllm/v1/attention/backends/flash_attn.py` **全文件无数值断言**、无 FP32 upcast、`supported_dtypes=[fp16,bf16]`（L82）。
+  - **模型层（logits）没有逐元素容差**：`tests/models/utils.py` 的 `check_logprobs_close` 只做 **top-N 成员性**（L241-244），PPL 只有单向 `PPL_TOL=0.01`。
+  - 与 masked 直接相关的上游事实：`mask_mod` **仅 FA4 支持**（`vllm_flash_attn/flash_attn_interface.py:313-314`，FA2 报 `NotImplementedError`）⇒ 本项目的 masked 只能经**块表/`seqused_k`** 表达，不能依赖 FA2 的 `mask_mod`（与我们的落位方式一致）。
+  - 缺口：上游没有"BF16 模型层 logits vs 独立 FP32 dense"的逐元素先例；因此**我们的 logits 容差必须由自带有界校准形成**，不得直接搬用 2e-2/1e-2。
 - **本轮不给数值候选区间**（更正前一版）：此前的 `out_l2 ≈ 5` 无来源，且 `1e-3~3e-3` 无依据 —— 撤回。
   已有事实（来自 `oracle-original-3a.json` 的 decode 逐比较 `out_norm`）：**中位 46.6、最大 401.7**，说明输出幅度分位跨度很大，
   不能用一个量级去反推容差。**候选区间必须等"代表点结果 + 上游断言方式核对"完成后再提**，且届时仍只作**建议**交用户决定；
