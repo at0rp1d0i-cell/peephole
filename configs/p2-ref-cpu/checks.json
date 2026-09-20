@@ -1,0 +1,14 @@
+{
+  "note": "SUP-004 masked 参考执行:测试专用独立 dense 参考的 CPU 检查(不加载模型/不跑 GPU)",
+  "heads": 24,
+  "kv_heads": 4,
+  "head_dim": 256,
+  "num_hidden_layers": 64,
+  "block_size": 784,
+  "geometry_source": "models/.../config.json:text_config(只取注意力几何,不加载权重)",
+  "limits": [
+    "CPU/桩件:不据此宣称真实模型或 GPU 接线正确",
+    "不设数值阈值;FP32 vs cast 差异只作记录",
+    "test-only 开关默认关闭,生产路径无调用点"
+  ]
+}
