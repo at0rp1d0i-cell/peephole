@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import torch
 
@@ -105,12 +105,15 @@ def resolve_geometry(
         raise ReferenceError("metadata.block_table 必须是二维张量(每请求一行)")
     if not 0 <= request_idx < bt.shape[0]:
         raise ReferenceError(f"request_idx={request_idx} 超出 block_table 行数 {bt.shape[0]}")
-    row = [int(x) for x in bt[request_idx].tolist()]
+    kv_len = bridge.kv_len_at(step_index_0based)
+    nblocks = (kv_len + bridge.kernel_block_size - 1) // bridge.kernel_block_size
+    if bt.shape[0] != 1 or request_idx != 0 or bt.shape[1] < nblocks:
+        raise ReferenceError("Canonical block_table must cover the valid prefix of one request")
+    row = [int(x) for x in bt[request_idx, :nblocks].tolist()]
     if any(b < 0 for b in row):
         raise ReferenceError("block_table 行含负值(未分配槽不能进入参考)")
-    kv_len = bridge.kv_len_at(step_index_0based)
     seq_lens = getattr(attn_metadata, "seq_lens", None)
-    if not torch.is_tensor(seq_lens) or seq_lens.dim() != 1 or not 0 <= request_idx < seq_lens.shape[0]:
+    if not torch.is_tensor(seq_lens) or seq_lens.shape != (1,):
         raise ReferenceError("metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)")
     seq_lens_value = int(seq_lens[request_idx])
     if seq_lens_value != kv_len:
@@ -118,13 +121,14 @@ def resolve_geometry(
             f"metadata.seq_lens[{request_idx}]={seq_lens_value} 与独立时间线 KV 上界 {kv_len} 不一致")
     # 单请求:由 query_start_loc 长度判定(n+1 个边界 = n 个请求)
     qsl = getattr(attn_metadata, "query_start_loc", None)
-    if not torch.is_tensor(qsl) or qsl.dim() != 1 or qsl.numel() - 1 != 1:
+    if not torch.is_tensor(qsl) or qsl.shape != (2,) or qsl.tolist() != [0, 1]:
         raise ReferenceError(f"仅支持单请求:query_start_loc 给出 {None if not torch.is_tensor(qsl) else qsl.numel() - 1} 个请求")
     # 计数器(pin 可能全 0,不作相位证据):仅在已填充时交叉核对
     nd, nt = getattr(attn_metadata, "num_decode_reqs", None), getattr(attn_metadata, "num_decode_tokens", None)
     npf = getattr(attn_metadata, "num_prefill_tokens", None)
-    counters_populated = any(int(x or 0) for x in (nd, nt, npf))
-    if counters_populated and int(nd or 0) != 1:
+    npr = getattr(attn_metadata, "num_prefill_reqs", None)
+    counters_populated = any(int(x or 0) for x in (nd, nt, npf, npr))
+    if counters_populated and (int(nd or 0), int(nt or 0), int(npf or 0), int(npr or 0)) != (1, 1, 0, 0):
         raise ReferenceError(f"计数器已填充但与单请求 decode 冲突:num_decode_reqs={nd}")
     # 相位:必须由 harness 的 is_prefilling_np 明示为 decode(false);缺失或 prefill 即拒绝
     phase = bridge.is_prefilling_at(step_index_0based)
@@ -168,17 +172,22 @@ def perform_reference_attention_native(
         raise ReferenceError("缺少 impl.scale:参考必须使用真实 impl 的 scale")
     if float(switch.scale) and float(switch.scale) != float(impl_scale):
         raise ReferenceError(f"switch.scale={switch.scale} 与 impl.scale={impl_scale} 不一致")
+    if kv_cache.dim() != 4:
+        raise ReferenceError(f"Native KV must have four dimensions, got {tuple(kv_cache.shape)}")
     if kv_cache.shape[2] != bridge.kernel_block_size:
         raise ReferenceError(
             f"native KV 块长 {kv_cache.shape[2]} 与 kernel_block_size {bridge.kernel_block_size} 不一致")
-    if output.dtype != torch.bfloat16 or query.dtype != torch.bfloat16:
+    if any(t.dtype != torch.bfloat16 for t in (output, query, kv_cache)):
         raise ReferenceError(f"仅支持 BF16:query={query.dtype} output={output.dtype}")
+    if query.is_cuda and (torch.backends.cuda.matmul.allow_tf32 or torch.is_autocast_enabled("cuda")):
+        raise ReferenceError("FP32 reference requires TF32 and CUDA autocast to be disabled")
     causal = getattr(attn_metadata, "causal", None)
-    if causal is not None and bool(causal) is not True:
+    if causal is not True:
         raise ReferenceError(f"仅支持 causal=True,实际 {causal}")
-    n_decode = getattr(attn_metadata, "num_decode_reqs", None)
+    if getattr(attn_metadata, "use_cascade", False) or getattr(attn_metadata, "mm_prefix_query_range_tensor", None) is not None:
+        raise ReferenceError("Reference does not support cascade or multimodal bidirectional masks")
     num_tokens = getattr(attn_metadata, "num_actual_tokens", None)
-    if num_tokens is not None and int(num_tokens) != 1:
+    if num_tokens is None or int(num_tokens) != 1:
         raise ReferenceError(f"仅支持单 token decode,num_actual_tokens={num_tokens}")
     mask = bridge.mask_at(step_index_0based)
     key_cache, value_cache = unpack_native_kv(kv_cache, head_size)
@@ -203,6 +212,8 @@ def perform_reference_attention_native(
     target = output if output.dim() == 2 else output[0]        # 写回**对应视图**(缓冲本身不变)
     if tuple(target.shape) != tuple(casted.shape):
         raise ReferenceError(f"写回视图形状 {tuple(target.shape)} 与参考 {tuple(casted.shape)} 不一致")
+    if not torch.isfinite(fp32).all():
+        raise ReferenceError("Reference output contains nonfinite values")
     target.copy_(casted)
     if output.data_ptr() != ptr_before:
         raise ReferenceError("写回后 output 缓冲身份发生变化(不得替换缓冲)")
@@ -228,5 +239,5 @@ def perform_reference_attention_native(
         "impl_scale": float(impl_scale), "kv_block_len": int(kv_cache.shape[2]),
         "kv_strides": [int(s) for s in key_cache.stride()],
         "causal": bool(causal) if causal is not None else None,
-        "num_decode_reqs": int(n_decode) if n_decode is not None else None,
+        "num_decode_reqs": getattr(attn_metadata, "num_decode_reqs", None),
     }

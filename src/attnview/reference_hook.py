@@ -10,8 +10,9 @@ wrapper 收到的就是真实调用形态:
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import torch
 
@@ -37,6 +38,7 @@ class TestOnlyReferenceAttachment:
     ledger: list[dict[str, Any]] = field(default_factory=list)
     wrapped: dict[int, tuple[Any, Any]] = field(default_factory=dict)
     restored: list[int] = field(default_factory=list)
+    before_forward: Callable[..., None] | None = None
 
     def _call_entry(self, *, index: int, step: int, query, key, value, kv_cache, attn_metadata, output, impl):
         if self.bridge is None:
@@ -64,20 +66,30 @@ class TestOnlyReferenceAttachment:
             rid = self.switch.current_request_id or ""
             step = self.switch.current_step
             # 先判未启用/非目标:按**原签名**直通,不做任何额外参数检查(默认关闭时行为不变)
-            if not self.switch.should_override(request_id=rid, layer_idx=index, step=step):
+            if not self.switch.enabled or rid != self.switch.request_id:
                 self.ledger.append({"layer": index, "step": step, "request_id": rid, "action": "passthrough"})
                 return original(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
             try:
+                if self.before_forward is not None:
+                    self.before_forward(index=index, query=query, key=key, value=value,
+                                        kv_cache=kv_cache, metadata=attn_metadata)
+                if not self.switch.should_override(request_id=rid, layer_idx=index, step=step):
+                    self.ledger.append({"layer": index, "step": step, "request_id": rid, "action": "passthrough"})
+                    return original(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
                 # 目标请求:pin 每次都传 output_scale/output_block_scale(可能为 None);
                 # 显式 None = 未启用该特性,允许;非 None 或未知参数 = 量化/特殊特性,拒绝(不静默降级)。
-                unsupported = {k: v for k, v in kwargs.items() if v is not None}
+                known = {"output_scale", "output_block_scale"}
+                unsupported = {k: v for k, v in kwargs.items() if k not in known or v is not None}
                 if args or unsupported:
                     raise ReferenceError(
-                        f"出现未支持的额外参数(args={len(args)}, kwargs={sorted(unsupported)}):"
-                        "量化/特殊 attention 特性不得被静默丢弃")
+                        f"Unsupported attention arguments: args={len(args)}, kwargs={sorted(unsupported)}")
+                # 原调用者忽略返回值;用哨兵检出只返回新张量或遗漏写回。
+                output.fill_(float("nan"))
                 info = self._call_entry(index=index, step=step, query=query, key=key, value=value,
                                         kv_cache=kv_cache, attn_metadata=attn_metadata, output=output,
                                         impl=self.wrapped[index][0])
+                if not torch.isfinite(output).all():
+                    raise ReferenceError("Reference did not fully write the original output buffer, or produced nonfinite values")
                 self.ledger.append({"layer": index, "step": step, "request_id": rid, "action": "overrode", **info})
                 return None                     # 与生产接线一致:返回值被忽略,结果写在传入 output
             except Exception as exc:            # noqa: BLE001
@@ -92,18 +104,17 @@ class TestOnlyReferenceAttachment:
     def restore(self) -> None:
         """恢复**原方法本身**并断言身份一致(不是翻 bool)。"""
         for index, (impl, original) in list(self.wrapped.items()):
-            if index in self.restored:
-                continue
             impl.forward = original
             if impl.forward is not original:
                 raise ReferenceError(f"层 L{index} 恢复失败:forward 身份不一致")
-            self.restored.append(index)
+            if index not in self.restored:
+                self.restored.append(index)
 
     def wrap_all(self, impls: Sequence[object]) -> None:
         for index, impl in enumerate(impls):
             self.wrap_impl(index, impl)
 
-    def __enter__(self) -> "TestOnlyReferenceAttachment":
+    def __enter__(self) -> TestOnlyReferenceAttachment:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
@@ -128,10 +139,3 @@ class TestOnlyReferenceAttachment:
 
     def metrics(self) -> list[dict[str, Any]]:
         return [{k: v for k, v in e.items() if k not in ("action",)} for e in self.ledger if e["action"] == "overrode"]
-
-
-def _unused(obj: Any) -> Any:  # pragma: no cover - 保持与 torch 的类型关联,避免 lint 误报
-    return obj
-
-
-_unused(torch)

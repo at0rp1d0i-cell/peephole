@@ -13,8 +13,9 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 import torch
 
@@ -154,15 +155,15 @@ def gather_positions(
     need_blocks = last // block_size
     if need_blocks >= len(block_table):
         raise ReferenceError(f"位置 {last} 需要逻辑块 {need_blocks},但物理块表只有 {len(block_table)} 项")
-    k_rows, v_rows = [], []
-    for p in positions:
-        logical, offset = divmod(int(p), block_size)
-        phys = int(block_table[logical])
-        if not 0 <= phys < n_blocks:
-            raise ReferenceError(f"逻辑块 {logical} 的物理块号越界:{phys}")
-        k_rows.append(k_cache[phys, offset])
-        v_rows.append(v_cache[phys, offset])
-    return torch.stack(k_rows), torch.stack(v_rows)
+    if min(positions) < 0 or k_cache.shape != v_cache.shape or k_cache.shape[1] != block_size:
+        raise ReferenceError("Invalid positions or KV cache geometry")
+    physical = [int(block_table[int(p) // block_size]) for p in positions]
+    if any(not 0 <= p < n_blocks for p in physical):
+        raise ReferenceError("Physical block for a visible position is out of bounds")
+    # 批量 gather 只复制可见位置;不对整份原生 cache 做 contiguous。
+    ids = torch.tensor(physical, device=k_cache.device, dtype=torch.long)
+    offsets = torch.tensor([int(p) % block_size for p in positions], device=k_cache.device, dtype=torch.long)
+    return k_cache[ids, offsets], v_cache[ids, offsets]
 
 
 def dense_attention_fp32(

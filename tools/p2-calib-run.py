@@ -52,7 +52,6 @@ warmup 请求、未完成 prefill 的丢弃步、cleanup/其它请求都不进�
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -62,10 +61,13 @@ import sys
 import threading
 import time
 import traceback
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import torch
+
+from _lib import MODEL_REVISION, now_cst, sha256_file, sha256_text, venv_vllm_root
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
@@ -73,7 +75,7 @@ sys.path.insert(0, str(REPO / "src"))
 SNAPSHOT = (
     REPO
     / "models/hf-home/hub/models--Qwen--Qwen3.8-27B/snapshots"
-    / "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    / MODEL_REVISION
 )
 MAX_MODEL_LEN = 8192
 STARTUP_BUDGET_S = 15 * 60
@@ -81,10 +83,11 @@ REQUEST_BUDGET_S = 180
 CLEANUP_BUDGET_S = 120
 SEED = 20260918
 #: 三身份（唯一入口；`vanilla` / `da-global` 等旧名已删除）
-ARMS = ("original", "patched-disabled", "patched-global", "patched-masked")
+ARMS = ("original", "patched-disabled", "patched-global", "patched-masked", "patched-reference")
+FIXTURE_ARMS = ("patched-masked", "patched-reference")
 SCHEMA = "attnview.p2-calib-run/v2"
 
-INSTALLED_VLLM = REPO / "venvs/attnview/lib/python3.12/site-packages/vllm"
+INSTALLED_VLLM = venv_vllm_root(REPO)
 PIN_VLLM = REPO / "vllm/vllm"
 PATCH_ROOT = REPO / "vllm-patch"
 
@@ -102,22 +105,6 @@ QUESTION = "In one short sentence, state what a read view is."
 
 class BudgetExceeded(RuntimeError):
     """启动/请求超出工作单明确上限（15 分钟 / 180 秒 / 清理 120 秒）。"""
-
-
-def now_cst() -> str:
-    return datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S +0800")
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def sha256_token_ids(token_ids: list[int]) -> str:
@@ -208,7 +195,7 @@ class Watchdog:
         finally:
             os._exit(3)
 
-    def __enter__(self) -> "Watchdog":
+    def __enter__(self) -> Watchdog:
         self._timer = threading.Timer(self.seconds, self._fire)
         self._timer.daemon = True
         self._timer.start()
@@ -495,6 +482,9 @@ class LayerCapture:
         #: 本步 InputBatch（`prepare_inputs` 包裹得到）与逐步相位证据快照
         self.current_input_batch = None
         self.batch_phase: dict[int, dict] = {}
+        self.input_generation = 0
+        self.reference = None
+        self._restores = []
 
     # --- arming（由驱动在 engine 就绪后、提交主请求前调用） ------------------ #
 
@@ -503,10 +493,24 @@ class LayerCapture:
         self.prompt_len = int(prompt_len)
         self.stream_dir = Path(stream_dir)
         self.stream_dir.mkdir(parents=True, exist_ok=True)
+        if self.reference is not None:
+            self.reference.arm(req_id)
 
     def disarm(self) -> None:
         self.armed_req_id = None
         self._active = False
+        if self.reference is not None:
+            self.reference.disarm()
+
+    def restore(self) -> None:
+        self.disarm()
+        for obj, name, original in reversed(self._restores):
+            setattr(obj, name, original)
+            if getattr(obj, name) is not original:
+                raise RuntimeError(f"capture failed to restore {name}")
+        self._restores.clear()
+        if self.reference is not None:
+            self.reference.restore()
 
     # --- 安装 -------------------------------------------------------------- #
 
@@ -525,19 +529,27 @@ class LayerCapture:
             return result
 
         impl.forward = wrapper
+        self._restores.append((impl, "forward", original))
 
     def wrap_model(self, model: object) -> None:
         original = model.forward
 
         def wrapper(*args, **kwargs):
             self.step += 1
-            self._begin_step(kwargs)
             try:
-                return original(*args, **kwargs)
-            finally:
+                self._begin_step(kwargs)
+                result = original(*args, **kwargs)
+            except BaseException:
+                # Preserve the triggering error; partial layer coverage is
+                # exported by the driver, not reclassified as a completed step.
+                self._step_open = False
+                raise
+            else:
                 self._end_step()
+                return result
 
         model.forward = wrapper
+        self._restores.append((model, "forward", original))
 
     # --- 记录 -------------------------------------------------------------- #
 
@@ -590,6 +602,8 @@ class LayerCapture:
         # （pin `input_batch.py:29` `InputBuffers.positions`，由 `prepare_pos_seq_lens` 每步写入）。
         self.records.setdefault(self.request_step, {})
         self._step_open = True
+        if self.reference is not None:
+            self.reference.begin_step()
 
     def _logical_positions_from_runner(self, q_len: int) -> tuple[list[int], str]:
         """取本步**一维逻辑位置**（真实缓冲，按实际 token 数截取）。
@@ -647,10 +661,12 @@ class LayerCapture:
         def wrapper(*args, **kwargs):
             batch = original(*args, **kwargs)
             self.current_input_batch = batch
+            self.input_generation += 1
             return batch
 
         try:
             runner.prepare_inputs = wrapper
+            self._restores.append((runner, "prepare_inputs", original))
         except Exception:  # 只读替身/不可写对象：退化为 max_query_len 证据
             return
 
@@ -688,6 +704,7 @@ class LayerCapture:
             return
         if getattr(self, "structure_enabled", False):
             from vllm.forward_context import get_forward_context
+
             from attnview.smoke_structure import snapshot_layer
 
             name = self.layer_names[index]
@@ -900,10 +917,14 @@ class LayerCapture:
             "phase_markers": marker,
             "view": view,
         }
+        if self.reference is not None:
+            self.reference.end_step()
         if self.stream_dir is not None:
             self.flush(self.stream_dir)
             if getattr(self, "structure_enabled", False):
                 save_manifest(self.stream_dir / "structure.json", self.structure)
+            if self.reference is not None:
+                save_manifest(self.stream_dir / "reference.json", self.reference.report())
 
     # --- 导出 -------------------------------------------------------------- #
 
@@ -999,8 +1020,8 @@ REPRESENTATIVE_DECODES = (6, 7, 20, 25)
 
 
 def configure_bounded_capture(capture: LayerCapture, arm: str, *, representative_decodes=None) -> None:
-    """仅 `patched-masked` 开启 bounded capture(默认代表 decode 6/7/20/25);旧三臂行为逐字不变。"""
-    capture.bounded_capture = arm == "patched-masked"
+    """Use bounded capture for fixture arms; preserve the original three arms."""
+    capture.bounded_capture = arm in FIXTURE_ARMS
     capture.representative_decodes = tuple(representative_decodes or REPRESENTATIVE_DECODES)
     capture.record_meta = {}
 
@@ -1018,6 +1039,7 @@ def configure_structure_capture(capture: LayerCapture) -> None:
 def check_masked_run(*, capture, args, payload, req_id, engine_traces, manifest, log):
     """The real masked branch uses this gate; failures remain compatible with cleanup."""
     from transformers import AutoTokenizer
+
     from attnview.smoke_structure import check_capture_structure, expectations_from_config
 
     try:
@@ -1044,16 +1066,48 @@ def check_masked_run(*, capture, args, payload, req_id, engine_traces, manifest,
         log.check("masked_structure", False, manifest["masked_structure"]["error"])
 
 
-def install_capture(llm) -> LayerCapture:
+def build_reference_run(args, payload, trajectory_tokens):
+    from transformers import AutoTokenizer
+
+    from attnview.reference_bridge import TimelineBridge
+    from attnview.reference_run import ReferenceRun
+
+    config = json.loads(args.timeline_config.read_text())
+    tokenizer = AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False)
+    tokens, declarations = [], []
+    for piece in config["generation_script"]:
+        tokens.extend(tokenizer.encode(piece["text"], add_special_tokens=False))
+        declarations.append((len(tokens) - 1, piece["expected_mode_after"], tuple(piece["refs"])))
+    # The fixed script supplies 28 consumed tokens. The trajectory appends its
+    # last token once as the 29th sample, which has no successor forward.
+    expected_samples = tokens + tokens[-1:]
+    if expected_samples != trajectory_tokens or len(expected_samples) != args.max_tokens:
+        raise RuntimeError("reference trajectory differs from independently tokenized declaration script")
+    bridge = TimelineBridge(
+        prompt_len=payload["prompt_len"], kernel_block_size=config["block_size"],
+        sink_span=tuple(payload["sink_span"]), local_window_span=tuple(payload["local_window_span"]),
+        segment_spans=tuple(tuple(s) for s in payload["segment_spans"]), declarations=tuple(declarations))
+    return ReferenceRun(bridge, total_forwards=args.max_tokens)
+
+
+def install_capture(llm, *, reference=None) -> LayerCapture:
     """安装层观测：层集合取自 runner.attn_groups 的 FullAttentionSpec 组（运行期事实）。"""
     model, fa_layers = find_fa_layers(llm)
     _model, runner = _model_and_runner(llm)
     expected = {index: name for index, (name, _impl) in enumerate(fa_layers)}
     capture = LayerCapture(runner=runner, expected_layers=expected)
-    for index, (_name, impl) in enumerate(fa_layers):
-        capture.wrap_impl(index, impl)
-    capture.wrap_runner_inputs(runner)  # 本步 InputBatch（is_prefilling_np = 相位首选证据）
-    capture.wrap_model(model)
+    capture.reference = reference
+    try:
+        if reference is not None:
+            configure_structure_capture(capture)
+            reference.install(capture, fa_layers)
+        for index, (_name, impl) in enumerate(fa_layers):
+            capture.wrap_impl(index, impl)
+        capture.wrap_runner_inputs(runner)  # 本步 InputBatch（is_prefilling_np = 相位首选证据）
+        capture.wrap_model(model)
+    except BaseException:
+        capture.restore()
+        raise
     return capture
 
 
@@ -1348,7 +1402,7 @@ def canonical_blocks(engine, req_id: str) -> dict:
     return {"observable": True, "groups": groups}
 
 
-def block_table_evidence(canonical: dict, capture: "LayerCapture") -> dict:
+def block_table_evidence(canonical: dict, capture: LayerCapture) -> dict:
     """worker 侧 FA metadata 块表首行前缀 vs engine 侧 canonical 块表（执行视图是否为 global 的旁证）。
 
     口径：若走受限读视图，`attn_utils.py` 会把 FA 组的 `block_table` 换成"按读视图挑选/压缩"的
@@ -1571,7 +1625,7 @@ def drive_cleanup_rounds(llm, req_id: str, *, max_rounds: int = 16) -> dict:
 
 def arm_llm_overrides(arm: str) -> dict:
     """按臂的 LLM kwargs 覆盖(纯函数,便于 CPU 测试)。仅 masked 臂固定 prefill 上界,旧三臂不变。"""
-    return {"max_num_batched_tokens": 8192} if arm == "patched-masked" else {}
+    return {"max_num_batched_tokens": 8192} if arm in FIXTURE_ARMS else {}
 
 
 def read_max_num_batched_tokens(llm, *, prompt_len: int):
@@ -1616,7 +1670,7 @@ def cleanup_enforce_checks(*, enforce_global: bool, config_enforce_global, marks
                         f"B 全程协议模式为 global(真实模式 {observed_modes})⇒ 无覆写 mark 属正确结果(marks={marks[:2]})"))
         else:
             out.append(("new_req_enforce_global_step_recorded", False,
-                        f"无法从真实状态观察到 B 的协议模式 ⇒ 不得据此断言 marks 是否应存在"))
+                        "无法从真实状态观察到 B 的协议模式 ⇒ 不得据此断言 marks 是否应存在"))
     else:
         out.append((name, config_enforce_global is False,
                     f"masked 臂载荷配置 enforce_global={config_enforce_global}(期望 False:不得经 enforce_global 拉回 global)"))
@@ -2154,27 +2208,27 @@ def write_trajectory(path: Path, *, tokens: list[int], prompt_ids: list[int], ar
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="SUP-004 模型校准驱动（三身份：original/patched-disabled/patched-global）")
+    ap = argparse.ArgumentParser(description="Fixed-trajectory model calibration and masked diagnostics")
     ap.add_argument("--arm", choices=ARMS, required=True,
-                    help="original = 未打补丁的原版；patched-disabled = 打补丁但请求无载荷（插入层关闭）；"
-                         "patched-global = 真实带载荷且 enforce_global=True；patched-masked = 真实带载荷且 enforce_global=False(诊断)")
-    ap.add_argument("--out", type=Path, required=True, help="本次运行的**新**输出目录（已存在且非空即拒绝）")
+                    help="original: unpatched; patched-disabled: no payload; patched-global: enforce_global=True; "
+                         "patched-masked: enforce_global=False; patched-reference: no payload, independent dense decode")
+    ap.add_argument("--out", type=Path, required=True, help="New output directory; nonempty directories are rejected")
     ap.add_argument("--max-tokens", type=int, default=8)
     ap.add_argument("--doc-fixture", type=Path,
-                    help="含 document/question 的夹具(evidence/p1-cpu/demo-fixtures.json)。仅 patched-masked 臂可用。")
+                    help="Document/question fixture; only for masked/reference arms")
     ap.add_argument("--expect-fixture", type=Path,
-                    help="已验收产物(filler_units/fine_units/context_sha256/prompt_len/spans/token 哈希)。")
+                    help="Accepted fixture with filler counts, spans and input hashes")
     ap.add_argument("--timeline-config", type=Path,
-                    help="提供 filler_unit/fine_char 的配置(configs/p2-masked-prep/crossblock.json)。")
-    ap.add_argument("--emit-trajectory", type=Path, help="把本次主请求的 token 序列写成强制轨迹")
-    ap.add_argument("--force-trajectory", type=Path, help="按给定轨迹强制（同轨迹回放；original 臂禁止）")
-    ap.add_argument("--compare-to", type=Path, help="与给定轨迹**逐 token** 比对（original×2 机械断言）")
+                    help="Fixed declaration script and renderer configuration")
+    ap.add_argument("--emit-trajectory", type=Path, help="Save the main request's token trajectory")
+    ap.add_argument("--force-trajectory", type=Path, help="Force a fixed trajectory; unavailable for the original arm")
+    ap.add_argument("--compare-to", type=Path, help="Compare output tokens with this trajectory")
     ap.add_argument("--record-layers", action=argparse.BooleanOptionalAction, default=True,
-                    help="层观测（默认开）")
+                    help="Capture attention layers (enabled by default)")
     ap.add_argument("--capture-host-logits", action=argparse.BooleanOptionalAction, default=None,
-                    help="宿主级完整 logits 捕获；默认：original 开（唯一来源）、patched 关（用 worker 钩子）")
+                    help="Capture host logits; default on for original, off for patched worker hooks")
     ap.add_argument("--cleanup-check", action="store_true",
-                    help="额外做生命周期验收（真实提交 → 取消 → 清理轮 → 新带载荷请求）")
+                    help="Check submission, cancellation, cleanup and a fresh payload request")
     return ap.parse_args(argv)
 
 
@@ -2189,6 +2243,12 @@ def prepare_output_dir(out: Path) -> None:
 
 def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, payload: dict,
          prompt_ids: list[int], extra_args: dict | None, arm_path: Path) -> int:
+    with ExitStack() as resources:
+        return _run_impl(args, manifest, manifest_path, prompt, payload, prompt_ids, extra_args, arm_path,
+                         resources=resources)
+
+
+def _run_impl(args, manifest, manifest_path, prompt, payload, prompt_ids, extra_args, arm_path, *, resources):
     out = args.out
     patched = args.arm != "original"
     log = CheckLog()
@@ -2198,6 +2258,11 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     if trajectory is not None and not patched:
         raise RuntimeError("校准: original 臂没有强制钩子（补丁未部署）—— 轨迹由它产生，不由它回放")
     trajectory_tokens = trajectory_token_sequence(trajectory) if trajectory is not None else []
+    reference = None
+    if args.arm == "patched-reference":
+        if extra_args is not None or not args.record_layers or not args.cleanup_check:
+            raise RuntimeError("reference requires no candidate payload, layer capture and cleanup")
+        reference = build_reference_run(args, payload, trajectory_tokens)
 
     from vllm import LLM
 
@@ -2243,7 +2308,16 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         else {"skipped": "original 臂没有该 RPC（补丁未部署）"}
     )
 
-    capture = install_capture(llm) if args.record_layers else None
+    capture = (install_capture(llm, reference=reference) if reference is not None else
+               install_capture(llm) if args.record_layers else None)
+    if capture is not None:
+        def restore_capture():
+            capture.restore()
+            if reference is not None:
+                manifest.setdefault("reference", {}).update(reference.report())
+                save_manifest(out / "reference.json", manifest["reference"])
+                save_manifest(manifest_path, manifest)
+        resources.callback(restore_capture)
     if capture is not None:
         configure_bounded_capture(capture, args.arm)
         if args.arm == "patched-masked":
@@ -2260,6 +2334,10 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     run_stamp = datetime.now(timezone(timedelta(hours=8))).strftime("%Y%m%d-%H%M%S")
     external_main_id = f"calib-main-{args.arm}-{run_stamp}"
     params = sampling_params(args.max_tokens, extra_args=extra_args)
+    if reference is not None:
+        active_worker_requests = getattr(getattr(capture.runner, "req_states", None), "req_id_to_index", None)
+        if _unfinished_count(engine) != 0 or scheduler_requests(engine) != {} or active_worker_requests != {}:
+            raise RuntimeError("reference requires a fresh idle engine with no previous active request")
 
     # ④ 直接提交阶段 03 的最终 token_ids（不重新 tokenize）；用返回的**内部 id** 做绑定与查询。
     #    控制文件必须在**首次 step() 之前**写入（首个消费步就要绑定到正确 id）。
@@ -2302,9 +2380,11 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
 
     host_logits: list = []
     restore_host = wrap_host_logits(llm, host_logits, req_id=internal_main_id) if capture_host else None
-    if capture is not None:
-        capture.arm(internal_main_id, out / "capture", prompt_len=len(prompt_ids))
+    if restore_host is not None:
+        resources.callback(restore_host)
     try:
+        if capture is not None:
+            capture.arm(internal_main_id, out / "capture", prompt_len=len(prompt_ids))
         with Watchdog(REQUEST_BUDGET_S, "request", out, manifest_path) as req_watch:
             # ⑤ engine.step() 驱动到完成（看门狗 + 步数上界）；宿主侧输出按**外部 id** 归属
             drove = drive_main_request(engine, external_main_id, max_tokens=args.max_tokens,
@@ -2313,11 +2393,11 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         if request_s > REQUEST_BUDGET_S:  # 双保险
             raise BudgetExceeded(f"主请求耗时 {request_s:.1f}s 超过预算 {REQUEST_BUDGET_S}s")
     except Exception as exc:
-        if args.arm == "patched-masked":
+        if args.arm in FIXTURE_ARMS:
             if capture is not None:
                 capture.disarm()
                 manifest["capture"] = capture.summary()
-            manifest["masked_structure"] = {
+            manifest["reference" if reference is not None else "masked_structure"] = {
                 "ok": False, "incomplete_request": True,
                 "error": f"{type(exc).__name__}: {exc}",
             }
@@ -2337,11 +2417,22 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     finally:
         if capture is not None:
             capture.disarm()
+            if reference is not None:
+                capture.restore()
         if restore_host is not None:
             restore_host()
 
     tokens = drove["tokens"]
     steps = drove["steps"]
+    if reference is not None:
+        try:
+            reference.validate()
+            reference_ok, reference_error = True, None
+        except Exception as exc:
+            reference_ok, reference_error = False, f"{type(exc).__name__}: {exc}"
+        manifest["reference"] = {"ok": reference_ok, "error": reference_error, **reference.report()}
+        log.check("reference_coverage", reference_ok, reference_error or "all target forwards/layers covered")
+        log.check("reference_fixed_tokens", tokens == trajectory_tokens, "host tokens equal declared fixed trajectory")
     log.check(
         "engine_prompt_ids_match_render",
         probe.get("engine_prompt_ids") == prompt_ids,
@@ -2516,11 +2607,12 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
         )
         manifest["trajectory_emitted"] = {"path": str(args.emit_trajectory), **emitted}
 
-    if args.arm == "patched-masked":
+    if args.arm in FIXTURE_ARMS:
         dump_engine_traces(llm, out / "engine-traces-main.json")
         engine_traces = json.loads((out / "engine-traces-main.json").read_text())
-        check_masked_run(capture=capture, args=args, payload=payload, req_id=internal_main_id,
-                         engine_traces=engine_traces, manifest=manifest, log=log)
+        if args.arm == "patched-masked":
+            check_masked_run(capture=capture, args=args, payload=payload, req_id=internal_main_id,
+                             engine_traces=engine_traces, manifest=manifest, log=log)
         nonfinite = {
             "attention": sum(sum(r["nonfinite"].values()) for layers in capture.structure.values() for r in layers.values()),
             "logits": sum(int((~torch.isfinite(r["logits"])).sum().item()) for r in records),
@@ -2612,6 +2704,9 @@ def freeze_run_source(out: Path) -> dict:
         target.parent.mkdir(exist_ok=True)
         shutil.copyfile(path, target)
         modules[str(path.relative_to(REPO))] = sha256_file(path)
+    helper = REPO / "tools/_lib.py"
+    shutil.copyfile(helper, snapshot_dir / helper.name)
+    modules[str(helper.relative_to(REPO))] = sha256_file(helper)
     return {
         "script_path": str(script),
         "script_sha256": digest,
@@ -2630,16 +2725,19 @@ def assert_run_source_unchanged(snapshot: dict) -> str | None:
     digest = sha256_file(script)
     if digest != snapshot.get("script_sha256"):
         return f"运行期脚本被修改：{digest} != {snapshot.get('script_sha256')}（本 run 结论不可信）"
+    for relative, expected in snapshot.get("module_sha256", {}).items():
+        if _sha_or_none(REPO / relative) != expected:
+            return f"Source module changed during the run: {relative}"
     return None
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.arm == "patched-masked":
+    if args.arm in FIXTURE_ARMS:
         if not (args.doc_fixture and args.expect_fixture and args.timeline_config
                 and args.force_trajectory and args.record_layers and args.cleanup_check
                 and args.max_tokens == 29):
-            raise RuntimeError("masked diagnostic requires the fixed fixture, trajectory, 29 samples, layers and cleanup")
+            raise RuntimeError("masked/reference diagnostics require the fixed fixture, trajectory, 29 samples, layers and cleanup")
     out = args.out
     prepare_output_dir(out)
     manifest_path = out / "manifest.json"
@@ -2652,8 +2750,8 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError(f"校准: {arm_path} 已存在 —— 本次运行必须从「文件不存在」开始")
 
     if args.doc_fixture is not None or args.expect_fixture is not None or args.timeline_config is not None:
-        if args.arm != "patched-masked":
-            raise RuntimeError(f"校准: fixture 参数仅 patched-masked 臂使用(当前 {args.arm})——不改变旧三臂输入")
+        if args.arm not in FIXTURE_ARMS:
+            raise RuntimeError(f"Fixture arguments require a masked/reference arm, got {args.arm}")
         if not (args.doc_fixture and args.expect_fixture and args.timeline_config):
             raise RuntimeError("校准: 需同时给出 --doc-fixture / --expect-fixture / --timeline-config")
         prompt, payload, fixture_evidence = build_prompt_from_fixture(
@@ -2665,7 +2763,7 @@ def main(argv: list[str] | None = None) -> int:
     # 新增 patched-masked = 真实载荷 + enforce_global=False(诊断,不经 enforce_global 走 global)。
     payload["enforce_global"] = args.arm == "patched-global"
     prompt_ids = [int(t) for t in prompt.token_ids]
-    if args.arm == "patched-masked" and len(prompt_ids) != 7834:
+    if args.arm in FIXTURE_ARMS and len(prompt_ids) != 7834:
         raise RuntimeError("masked diagnostic requires the accepted 7834-token prompt")
     payload_arms = ("patched-global", "patched-masked")
     extra_args = {"attnview": payload} if args.arm in payload_arms else None
