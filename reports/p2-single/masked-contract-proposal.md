@@ -43,8 +43,17 @@
   - **模型层（logits）没有逐元素容差**：`tests/models/utils.py` 的 `check_logprobs_close` 只做 **top-N 成员性**（L241-244），PPL 只有单向 `PPL_TOL=0.01`。
   - 与 masked 直接相关的上游事实：`mask_mod` **仅 FA4 支持**（`vllm_flash_attn/flash_attn_interface.py:313-314`，FA2 报 `NotImplementedError`）⇒ 本项目的 masked 只能经**块表/`seqused_k`** 表达，不能依赖 FA2 的 `mask_mod`（与我们的落位方式一致）。
   - 缺口：上游没有"BF16 模型层 logits vs 独立 FP32 dense"的逐元素先例；因此**我们的 logits 容差必须由自带有界校准形成**，不得直接搬用 2e-2/1e-2。
+- **代表点实测（已完成，80 点：每层最坏 prefill ×16 + 每层最坏 decode/step1-3 ×64；`evidence/p3-calib/masked-prep/scale-metrics.json`）**：
+  | scope | n | max_abs_err (max / median) | rms_err (max) | **rel_l2_out (max)** | rel_l2_ref (max) | 近零占比 (max) |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | prefill | 16 | 0.260048 / 0.072150 | 0.010253 | **0.00213574** | 0.00213571 | 0.0055 |
+  | decode | 64 | 0.117996 / 0.014357 | 0.008497 | **0.00174387** | 0.00174393 | 0.0062 |
+  全部 finite（`non_finite = 0`）；报告含 `definitions` 公式与 `rel_err_is_allclose_rtol=false`；**无任何阈值判定**。
+  **可提的候选（仅建议、未冻结、供用户决定）**：以实测最大值为参照，`rel_l2_out` 的候选量级约 **2e-3**（来自 **global** 对照）；
+  上游同类先例（`test_mm_prefix.py`，bf16 vs 独立 FP32 dense）用 **atol=rtol=2e-2**，属**逐元素 allclose**口径、与本表的 `rel_l2` **不同量纲**，不可直接换算。
+  **但**该 2e-3 是"global vs 原版/FP32 参考"的观测，**不能**直接充当 masked 的容差；masked 需自己的有界校准（见下）。
 - **本轮不给数值候选区间**（更正前一版）：此前的 `out_l2 ≈ 5` 无来源，且 `1e-3~3e-3` 无依据 —— 撤回。
-  已有事实（来自 `oracle-original-3a.json` 的 decode 逐比较 `out_norm`）：**中位 46.6、最大 401.7**，说明输出幅度分位跨度很大，
+  已有事实（来自 `oracle-original-3a.json` 的 decode 逐比较 `out_norm`）：**中位 46.6、最大 401.7**（对应上表 `ref_l2` 量级），说明输出幅度分位跨度很大，
   不能用一个量级去反推容差。**候选区间必须等"代表点结果 + 上游断言方式核对"完成后再提**，且届时仍只作**建议**交用户决定；
   **不得**把 0.118/0.260 乘安全系数当数学保证，**不得**在看到 masked 结果后回调，**也不得**用 global 输出相等去推 masked 容差。
 - 需要的**有界校准**（另行批准，本草案不自行执行）：在固定的、**真正排除已写块**的短轨迹上，对 B 类比较补
