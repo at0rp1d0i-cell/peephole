@@ -39,16 +39,12 @@
 ## 3. dense FP32 全局参考（独立 oracle）
 
 - 输入：`run-original-3a/capture/layers.npz`（7.9 MB 报告 / 1323 MiB 捕获 = 1,387,436,946 B）。
-  **只完成一份 oracle**；串联命令里的重复子进程**曾启动后被取消**（只保留首份计算），另两个臂因捕获字节相同而按**同输入哈希复用**，
-  **不写成"从未重复运行"**，也不写成"三次独立 oracle"。
 - 覆盖：**24,192 comparisons = 24,080 prefill + 112 decode**；16 个全注意力层；**prefill 步 1 的全部 1505 个位置**
   （源码逐位置遍历，非仅末 token）+ **decode 步 1–7 全部**；`non_finite = 0`。
 - 误差（FP32 dense 参考 vs 真实 FA2 输出）：**prefill 最大 `max_abs_err` 0.2600479126**（层 14；层 13 0.2295、层 10 0.1456）；
   **decode 最大 0.1179962158**；首个 decode 步 min 0.00414 / median 0.01490 / max 0.09901。
 - **跨实现两样本核对**（主代理，NumPy float64，逐 head 重算两个最坏点）：0.2600652519 / 0.1179977043，
   与 FP32 报告差 1.73e-5 / 1.49e-6（证据 `oracle-worstcase-independent.json`）。**仅为两样本核对，不是全量独立 oracle。**
-- **只完成一份 oracle**：重复子进程曾随串联命令**启动后被取消**，只保留首份计算；两候选按**完整捕获哈希**复用同一输入，
-  **不写成"从未重复运行"**、也不写成"三次独立 oracle"。
 - **口径**（不越界）：报告字段 `rel_err` = `max_abs_err / L2(out)`，**不是**逐元素 `allclose` 的 rtol；
   `dtype_name=None` 不得读作"模型 dtype 未知"——模型 dtype 由 manifest 的 BF16 与逐层 `capture_dtype_L{n}` 给出来源。
   误差含 BF16 舍入与 FA2 与 dense FP32 的实现差异；**本轮不设容差、不套用阶段 04 阈值**。
@@ -69,7 +65,7 @@
   bash tools/p1cpu-run-tests.sh        # 未部署源码树 → 308 项 OK（29.494 s / 复审后 29.903 s 两次记录）
   ```
   现存工具输出仅**末尾摘要**，未保存完整日志 —— 不伪造完整日志。
-- **四臂复跑（实际执行过的完整命令；复跑请改新输出目录名）**：
+- **四臂复跑命令（按**已执行入口**整理；目录已换新，`run-original-4a`/`run-disabled-6`/`run-global-6` 尚未执行）**：
   ```bash
   cd /root/attnview && source env.sh && export CUDA_VISIBLE_DEVICES=0
   # 1) 未部署原版：第一轮自然 greedy 产生轨迹基线（不带 compare-to），第二轮比对
@@ -95,7 +91,7 @@
     --out evidence/p3-calib/oracle-original-3a-rerun.json
   ```
   首份实测报告为 `evidence/p3-calib/oracle-original-3a.json`（SHA256 `3615eaa6…110225`）。
-- **当前环境（本报告 HEAD `85cfacf`）**：源码树**未部署**（checkout 与安装副本逐字节一致、无已部署 `attnview_engine.py`、
+- **当前环境**（**原交付 HEAD `85cfacf`**；当前报告版本见 `outbox/SUP-004-calibration-result.md`）：源码树**未部署**（checkout 与安装副本逐字节一致、无已部署 `attnview_engine.py`、
   无 `orig/`、无事务记录）；工作区干净；GPU 0 MiB。
 - **诊断时间口径**：四臂的 startup/请求耗时**包含**捕获与校准专用同步（强制钩子含 D2H/H2D、logits 捕获含显式 D2H），
   **不得**作为性能结论。
