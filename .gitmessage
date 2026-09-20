@@ -1,0 +1,13 @@
+# <scope>: <≤50 字中文摘要>            ← subject 整行 ≤72 字符；工作单编号放 Work-order trailer
+# scope 例：stage-05 / fix(smoke) / docs(publication) / evidence(p3-calib) / chore(gitignore)
+#
+# 做了什么：<一两句；微小改动可省略>
+# 证据：<可复跑的命令，或产物路径>
+# 未验证：<明确写出，不留空>
+#
+# Work-order: SUP-004, NATIVE-053
+# Evidence: evidence/p3-calib/run-disabled-5, reports/p1-gpu/session-closeout.md
+# Verified: python -m pytest tests/ -q (exit 0)
+# Unverified: 实机 GPU 路径未运行；数值口径未复核
+#
+# 提交前跑 CONTRIBUTING.md §3 的四道机械门禁；规则全文见 CONTRIBUTING.md。
