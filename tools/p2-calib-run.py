@@ -81,7 +81,7 @@ REQUEST_BUDGET_S = 180
 CLEANUP_BUDGET_S = 120
 SEED = 20260918
 #: 三身份（唯一入口；`vanilla` / `da-global` 等旧名已删除）
-ARMS = ("original", "patched-disabled", "patched-global")
+ARMS = ("original", "patched-disabled", "patched-global", "patched-masked")
 SCHEMA = "attnview.p2-calib-run/v2"
 
 INSTALLED_VLLM = REPO / "venvs/attnview/lib/python3.12/site-packages/vllm"
@@ -1446,7 +1446,8 @@ def drive_cleanup_rounds(llm, req_id: str, *, max_rounds: int = 16) -> dict:
     }
 
 
-def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: bool, out_dir: Path) -> dict:
+def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: bool, out_dir: Path,
+                      enforce_global: bool = True) -> dict:
     """校准 #5 的清理验收：**真实提交 → 驱动到产出 token → 执行中取消 → 清理轮 → 新带载荷请求**。
 
     判据只看**可观察效果**：是否真的产出 token、取消后是否真的不再 active、协议状态是否释放、
@@ -1470,7 +1471,7 @@ def run_cleanup_check(llm, prompt_ids: list[int], *, payload: dict, patched: boo
             result["failed_checks"] = log.failed
             return result
 
-    extra_args = {"attnview": dict(payload, enforce_global=True)} if patched else None
+    extra_args = ({"attnview": dict(payload, enforce_global=enforce_global)} if patched else None)
     result["extra_args"] = extra_args
 
     def params(max_tokens: int):
@@ -2009,7 +2010,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="SUP-004 模型校准驱动（三身份：original/patched-disabled/patched-global）")
     ap.add_argument("--arm", choices=ARMS, required=True,
                     help="original = 未打补丁的原版；patched-disabled = 打补丁但请求无载荷（插入层关闭）；"
-                         "patched-global = 打补丁 + 真实带载荷且 enforce_global=True")
+                         "patched-global = 真实带载荷且 enforce_global=True；patched-masked = 真实带载荷且 enforce_global=False(诊断)")
     ap.add_argument("--out", type=Path, required=True, help="本次运行的**新**输出目录（已存在且非空即拒绝）")
     ap.add_argument("--max-tokens", type=int, default=8)
     ap.add_argument("--emit-trajectory", type=Path, help="把本次主请求的 token 序列写成强制轨迹")
@@ -2331,7 +2332,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     # cleanup / 生命周期验收（主请求产物已先落盘）
     if args.cleanup_check:
         cleanup = run_cleanup_check(
-            llm, prompt_ids, payload=dict(payload), patched=patched, out_dir=out
+            llm, prompt_ids, payload=dict(payload), patched=patched, out_dir=out,
+            enforce_global=(args.arm != "patched-masked")
         )
         manifest["cleanup"] = cleanup
         log.check("cleanup_check_ok", bool(cleanup["ok"]),
@@ -2437,9 +2439,12 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError(f"校准: {arm_path} 已存在 —— 本次运行必须从「文件不存在」开始")
 
     prompt, payload = build_prompt()
+    # 载荷语义(原契约不变):original 无补丁;patched-disabled 无载荷;patched-global 载荷+True;
+    # 新增 patched-masked = 真实载荷 + enforce_global=False(诊断,不经 enforce_global 走 global)。
     payload["enforce_global"] = args.arm == "patched-global"
     prompt_ids = [int(t) for t in prompt.token_ids]
-    extra_args = {"attnview": payload} if args.arm == "patched-global" else None
+    payload_arms = ("patched-global", "patched-masked")
+    extra_args = {"attnview": payload} if args.arm in payload_arms else None
 
     frozen = freeze_run_source(out)
     manifest: dict = {
