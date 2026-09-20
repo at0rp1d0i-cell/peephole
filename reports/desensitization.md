@@ -101,9 +101,11 @@ python3 tools/pub-desensitize.py --check --paths 'evidence/**/*.md'  # 自定义
 | 28 | `reports/p0-model/model-report.md` | 30,353 | `2b949b3f7d40644900b38d99c14f903a66308d0404ca00cd8a277977b176b377` | 30,331 | `6a044950a315d5283315a74abe6d622a8b6f069cd308aeb901659783945cd3b8` |
 | 29 | `reports/p0-model/serve-command.sh` | 2,836 | `adb3d2415a676aec132a8fd23ff9496c1e2144841b0e5e0ea4f91336f662d979` | 2,814 | `b6aeec54ad346f88801c6e47c6adf9e56437f2aec1867659ec30ccc111c6ad52` |
 | 30 | `reports/p1-cpu/session-closeout.md` | 10,722 | `2672d08c9ca4d6d7af3b81ddf7de0314dcf6dbe9bdee4577441dbc9669d1ded4` | 10,688 | `5d4c21d96aa57dc5bdf08b2a23b0f537c89a063ae64fb692fc5902629124ef49` |
-| 31 | `reports/publication-checklist.md` | 8,471 | `8945a251d53ff8da75df69512affb737cf169c33fbbdc7312864202acdc18701` | 8,454 | `764e6c22964d1f054206c9260666ef055f7fbe67ecb3c4ff3814736a9727b5a3` |
+| 31 | `reports/publication-checklist.md` | 8,471 | `8945a251d53ff8da75df69512affb737cf169c33fbbdc7312864202acdc18701` | 8,454 | `764e6c22964d1f054206c9260666ef055f7fbe67ecb3c4ff3814736a9727b5a3` † |
 
-校验（实测）：30/31 行的 `sha256_after` 与**当前 HEAD 字节**一致。第 31 行 `reports/publication-checklist.md` 在脱敏后又被其所有者继续编辑（mtime 2026-09-21 00:56），所以它的当前哈希与表里的 `sha256_after` 不同——这是后续编辑，不是脱敏口径差异。
+校验（实测）：30/31 行的 `sha256_after` 与**当前 HEAD 字节**一致。
+
+† 第 31 行 `reports/publication-checklist.md` 在脱敏后又被其属主继续编辑（mtime 2026-09-21 00:56 之后），所以它的当前工作区值与表中的 `sha256_after` 不同：**表中值对应重写后即刻状态，当前值以工作区为准**。这是后续编辑，不是脱敏口径差异；其余 30 行不受影响。
 
 ## 4. 哈希钉住审计
 
@@ -273,16 +275,25 @@ $ git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4
 
 ## 7. 范围外清点（未列入规则表）
 
-在入库文本文件上清点（正则形态匹配，非人工阅读；实测时点同 §6），结论如下——除最后一项外都无需动作：
+在入库文本文件上清点（正则形态匹配，非人工阅读；实测时点同 §6）。结论：**本轮全部不处理**；唯一曾待决策的项（平台内部地址）已按下表决策为已知保留项。
 
 | 类别 | 实测 | 说明 |
 | --- | ---: | --- |
 | 私人邮箱 | 0 | 唯一邮箱样命中是 `git@github.com`（SSH 地址，非个人邮箱） |
 | `ghp_` / `github_pat_` / `hf_` / `sk-` / `AKIA` / 私钥块 / Slack token | 0 | 全部 0 |
 | MAC 地址 | 0 | — |
-| IPv4 形态命中 | 216 | 74 处是 `127.0.0.1`（回环）；124 处是**版本号**（如 `nvidia-*==<x.y.z.w>`、`cuda-toolkit==…`）；18 处落在私网段，其中 13 处仍是版本号（`nvidia-curand==10.4.0.35`），5 处是平台内部地址 |
+| IPv4 形态命中 | 216 | 74 处是 `127.0.0.1`（回环）；124 处是**版本号**（如 `nvidia-*==<x.y.z.w>`、`cuda-toolkit==…`）；18 处落在私网段，其中 13 处仍是版本号（`nvidia-curand==10.4.0.35`），5 处是平台内部地址（下方单列；把本报告自身的 2 处提及算上共 7 处） |
 | IPv4 中的真实公开地址 | 3 | `evidence/after/network-tools.txt` 里 DNS 解析结果：`github.com`、`hf-mirror.com`、`objects.githubusercontent.com`（公开服务地址，不构成泄露） |
-| **平台内部地址 `172.30.54.6`** | 5 处／5 个文件 | 出现在 `df` 输出里（`172.30.54.6:/data … /autodl-pub`）：`evidence/{before,after}*/env-report-*.md` 各一处。**不可路由，但属于平台内部标识**——是否脱敏需人工决策；本文与工具默认都不处理它 |
+
+### 平台内部地址 `172.30.54.6`：已知保留项（本轮不脱敏）
+
+| 项 | 内容 |
+| --- | --- |
+| 实测 | **7 处**：5 个 `evidence/{before,after}/env-report-*.md` 各 1 处（`df`/mount 输出里的 `172.30.54.6:/data … /autodl-pub`），加本报告 2 处（记录该决策本身） |
+| 为什么保留 | RFC1918 私网地址、不可路由；不是身份标识（不是主机名/UUID/账号），与已保留的功能性 `/root/...` 工作路径同类。另外：本轮重跑 `git filter-branch` 会打断正在飞的实现工作（重写要求干净工作区，暂存/还原有覆盖风险），收益与风险不成比例 |
+| 不处理的方式 | 现有三条规则不覆盖它，工具与报告默认都不改；本节即登记 |
+| 将来启用时的确切规则 | 在 `sanitize-tree.sh` 的 sed 里**按字面地址**加一条：`s\|172\.30\.54\.6\|<internal-host>\|g`（转义点号）。**不要**用通用私网段正则：`pip_freeze` 等文件里的版本号（如 `nvidia-curand==10.4.0.35`）会被误伤 |
+| 启用后怎么验 | 重跑 tree-filter 后，用 §6 的全历史命令加一个 `172\.30\.54\.6` 分支复查为 0；随后重跑 `tools/pub-desensitize.py --check` 确认工作树仍为 0 命中 |
 
 ## 8. 已知保留项（不再处理）
 
@@ -291,6 +302,7 @@ $ git grep -lIE 'autodl-container-[a-z0-9]+-[a-z0-9]+|GPU-[0-9a-f]{8}-[0-9a-f]{4
 | `SUP-nnn` 工作单编号 | 编号只有在协调目录（已改写为 `/path/to/supervision`）的上下文里才构成可达引用；无协调目录时它不指向任何可访问资源 |
 | `/root/autodl-tmp/attnview`、`/root/autodl-tmp`、`/root` 等工作路径 | 功能性活值（`env.sh` / `install-runtime.sh` / `tools`）：改写会打断本地可复现链条与部署指纹。需要面向公开产物归一化时用 `--include-paths`（§2） |
 | `material/attnview` 素材仓、vLLM checkout 的仓外引用 | 不在本仓历史内；两次重写只作用于本仓 |
+| 平台内部地址 `172.30.54.6`（7 处，见 §7） | RFC1918、不可路由、非身份标识；与功能性 `/root/...` 路径同类。将来要处理时的确切规则与验证方式见 §7（本轮不重跑历史：需干净工作区，会打断在飞的实现工作） |
 | 本文与检查命令里的 `attnview[-]supervision` 写法 | 是刻意的自指规避（§2），语义与裸字面量等价 |
 
 ## 9. 附：本次审计用到的命令
