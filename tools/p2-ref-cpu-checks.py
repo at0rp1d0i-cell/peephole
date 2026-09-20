@@ -274,9 +274,11 @@ def main() -> int:
     finally:
         at_x.restore()
     chk("门禁:量化/特殊特性(额外 output_scale/output_block_scale)不被静默丢弃", extra_ok)
+    md6 = make_real_metadata(torch.tensor([block_row_a, block_row_b], dtype=torch.int32),
+                             [bridge.kv_len_at(6), bridge.kv_len_at(6)], 1, len(block_row_a))
     for label, kw, want in (("非 BF16 输出", {"output": torch.zeros(1, heads, d, dtype=torch.float16)}, "BF16"),
                             ("KV 块长与 kernel_block_size 不一致", {"kv_cache": torch.randn(16, kv_heads, 512, 2 * d, dtype=torch.bfloat16)}, "块长")):
-        arg = dict(query=q, kv_cache=native_kv, attn_metadata=meta_for(6),
+        arg = dict(query=q, kv_cache=native_kv, attn_metadata=md6,
                    output=torch.zeros(1, heads, d, dtype=torch.bfloat16))
         arg.update(kw)
         try:
