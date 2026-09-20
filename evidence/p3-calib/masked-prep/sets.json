@@ -49,6 +49,8 @@
       "modes": {
         "global": {
           "positions_count": 7280,
+          "effective_read_tokens": 7280,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             1,
@@ -108,6 +110,8 @@
         },
         "local": {
           "positions_count": 1085,
+          "effective_read_tokens": 2576,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             7,
@@ -168,6 +172,8 @@
         },
         "focus1": {
           "positions_count": 3039,
+          "effective_read_tokens": 4144,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             1,
@@ -228,6 +234,8 @@
         },
         "focus2": {
           "positions_count": 2975,
+          "effective_read_tokens": 4928,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             3,
@@ -288,6 +296,8 @@
         },
         "focus3": {
           "positions_count": 2983,
+          "effective_read_tokens": 4144,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             5,
@@ -365,6 +375,8 @@
       "modes": {
         "global": {
           "positions_count": 7281,
+          "effective_read_tokens": 7281,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             1,
@@ -424,6 +436,8 @@
         },
         "local": {
           "positions_count": 1086,
+          "effective_read_tokens": 2577,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             7,
@@ -484,6 +498,8 @@
         },
         "focus1": {
           "positions_count": 3040,
+          "effective_read_tokens": 4145,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             1,
@@ -544,6 +560,8 @@
         },
         "focus2": {
           "positions_count": 2976,
+          "effective_read_tokens": 4929,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             3,
@@ -604,6 +622,8 @@
         },
         "focus3": {
           "positions_count": 2984,
+          "effective_read_tokens": 4145,
+          "effective_read_tokens_note": "按可见块覆盖的 token 数（块粒度，截到 kv_len）；不同于 positions_count",
           "visible_blocks": [
             0,
             5,
