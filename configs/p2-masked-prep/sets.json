@@ -1,0 +1,18 @@
+{
+  "note": "masked-prep 可见集合独立计算配置（CPU，仅分析）",
+  "fixture": "evidence/p1-cpu/demo-fixtures.json",
+  "arm": "da",
+  "block_size": 784,
+  "modes": ["global", "local", "focus1", "focus2", "focus3"],
+  "decode_steps": [0, 1],
+  "expected_from_order": {
+    "prompt_len": 7280,
+    "segment_spans": [[362, 2316], [2365, 4255], [4304, 6202]],
+    "local_window_span": [6211, 7280],
+    "sink_span": [0, 16],
+    "first_decode_kv_len": 7281,
+    "local_blocks": [0, 7, 8, 9],
+    "focus1_blocks": [0, 1, 2, 7, 8, 9],
+    "excluded_complete_context_blocks_by_local_and_focus1": [3, 4, 5, 6]
+  }
+}
