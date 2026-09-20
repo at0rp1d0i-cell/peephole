@@ -264,8 +264,9 @@ def main() -> int:
                        output_scale=None, output_block_scale=None)
     finally:
         at_d.restore()
-    chk("未启用:显式 None 参数下按原实现直通,且不触发参考恢复",
-        impl_d.calls == before + 1 and not at_d.restored and at_d.passthrough() == {(0, 6)})
+    chk("未启用:显式 None 参数下按原实现直通,且未发生错误恢复",
+        impl_d.calls == before + 1 and not at_d.errors() and at_d.passthrough() == {(0, 6)},
+        ledger=at_d.ledger[:2])
 
     md_zero = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
     out_zero = torch.zeros(1, heads, d, dtype=torch.bfloat16)
@@ -318,6 +319,8 @@ def main() -> int:
         except ReferenceError as exc:
             chk(f"门禁:{label} 被拒绝(fail closed)", "seq_lens" in str(exc), error=str(exc)[:80])
 
+    # hook 驱动路径的 0 基下标 = current_step - 1(=5);直调路径用 6:两者 metadata 分别构造
+    md_hook5 = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(5)], 1, len(block_row_a))
     md_cnt = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32), [bridge.kv_len_at(6)], 1, len(block_row_a))
     md_cnt.num_decode_reqs, md_cnt.num_decode_tokens = 2, 2
     try:
@@ -340,7 +343,7 @@ def main() -> int:
         at_np.wrap_all([impl_np])
         sw_np.current_request_id, sw_np.current_step = "req-NP", 6
         try:
-            impl_np.forward(0, q, None, None, native_kv, md_zero, torch.zeros(1, heads, d, dtype=torch.bfloat16),
+            impl_np.forward(0, q, None, None, native_kv, md_hook5, torch.zeros(1, heads, d, dtype=torch.bfloat16),
                             output_scale=None, output_block_scale=None)
         except ReferenceError as exc:
             np_err = str(exc)
