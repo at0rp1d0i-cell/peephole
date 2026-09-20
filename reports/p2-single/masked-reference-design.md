@@ -31,7 +31,15 @@
 - **生命周期**：参考臂与候选臂各自独立请求/KV/GDN 状态对象；同一时刻仅一个活跃请求；prefill 复用以"两次独立请求自然得到相同初态"为前提，不复用上一请求残留。
 - **真实指标（非恒真）**：`output_dtype=torch.bfloat16`、`fp32_to_output_max_abs=0.0004484206438064575`、`rms=5.590420914813876e-05`、`rel_l2=0.0016386855859309435`、`ref_abs_max=0.1426146924495697`、`non_finite_count=0`（由挂接路径落盘，未设通过阈值）。
 
-## 4. CPU 覆盖（20 项，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）
+## 3c. 固定 pin 真实接口桥接（58121cb，已落地并 CPU 验证）
+| 文件 | 作用 |
+| --- | --- |
+| `src/attnview/reference_bridge.py` | `unpack_native_kv`：按 pin 的 `kv_cache.transpose(1, 2).split(head_size, -1)` 解包原生 4 维 KV；`TimelineBridge`：独立时间线（config 声明 + 真实 tokenizer 累计，段末 token 触发、t+1 消费）；`resolve_geometry`：`block_table` **取自真实二维张量**、模式/几何取自时间线，并与 `metadata.seq_lens` **交叉核对不一致即拒绝**；`perform_reference_attention_native`：真实签名下的参考执行 |
+| `src/attnview/reference_hook.py` | 同签名 wrapper（`layer, query, key, value, kv_cache, attn_metadata, output, ...`）：默认关闭、目标 request/层/步命中才接管、覆盖账本、异常即恢复关闭、`restore()` 恢复**原方法**并校验身份 |
+- **真实 metadata 字段仅用其真实拥有的**（`block_table` 二维张量、`seq_lens`、`query_start_loc` 等）；**不做**把 mode/refs/几何塞进 metadata 的自造接口。
+- 指纹：`reference_bridge.py 7b2dfea3c38b5bc0…`、`reference_hook.py ea24618b0ddc427e…`、`reference_dense.py 32845d8f543ea485…`、`p2-ref-cpu-checks.py fd5269c9fba676d4…`；运行 HEAD `58121cb`。
+
+## 4. CPU 覆盖（20 项，真实对象驱动，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）（20 项，见 `evidence/p3-calib/masked-prep/ref-cpu-checks.json`）
 - 非顺序物理映射:gather 行 == 物理块表映射出的行
 - 逻辑块号 ≠ 物理块号(映射确实非顺序)
 - 可见位置含当前 token 且以 kv_len-1 结尾
@@ -56,7 +64,7 @@
 - GQA 头数不整除时拒绝(不静默近似)
 
 ## 5. 尚缺的实机证据
-- 真实模型的 attention/logits 数值、GDN 传播、图模式/FA2 实际后端、KV 排布与 RoPE 观测点、GQA 头映射在真实张量上的正确性、覆盖期间的写回与恢复在真实引擎中的行为。
+- 真实引擎内的接线：`Attention.forward → unified_kv_cache_update → unified_attention_with_output` 的实际调用顺序、覆盖期间的写回与恢复、真实 `slot_mapping` 写 KV、真实 GQA/RoPE 观测点、图模式/FA2 后端、模型数值与 GDN 传播。**所有这些仍未验证**；本单完成的是"按真实签名/真实 metadata/原生 KV 形状可挂接"的 CPU 实现与检查，不是实机接线正确性。
 - 本检查用**桩件 impl + 挂接驱动**模拟 harness 接线（`unified_attention_with_output` 忽略返回值、消费原 output 缓冲）；**未在真实引擎/GPU 上验证**，不以桩件通过宣称实机接线正确。表宽/后端/捕获状态/真实 slot_mapping 写 KV 等仍属实机范围。
 - 数值合同（容差）**未冻结、未内置通过阈值**；输出仅给 max_abs/RMS/相对 L2/参考幅度/非有限计数与 FP32-vs-cast 差异。
 
