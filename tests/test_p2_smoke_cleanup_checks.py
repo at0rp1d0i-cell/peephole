@@ -30,7 +30,7 @@ BAD_MARK = {"req_id": "new", "applied_view": "local", "protocol_mode": "local"}
 class CleanupEnforceChecksTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.f = load_runner().cleanup_enforce_checks
+        cls.f = staticmethod(load_runner().cleanup_enforce_checks)
 
     def results(self, **kw):
         return {name: ok for name, ok, _msg in self.f(**kw)}
