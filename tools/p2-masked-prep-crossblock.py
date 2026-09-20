@@ -120,30 +120,34 @@ def main() -> int:
         script += [(i, tok.decode([i])) for i in ids]
         schedule.append({"text": piece["text"], "first_index": len(script) - len(ids), "last_index": len(script) - 1,
                          "expected_mode_after": piece["expected_mode_after"], "refs": list(piece.get("refs", []))})
+    tag_at = {e["last_index"]: e for i, e in enumerate(schedule)
+              if e["last_index"] != (schedule[i - 1]["last_index"] if i else -1)
+              and e["expected_mode_after"] != (schedule[i - 1]["expected_mode_after"] if i else "global")}
     def expected_mode_at(t: int):
         cur = {"mode": "global", "refs": []}
         for e in schedule:
-            # 实测规则(由 tokenizer 字节流独立确定):段末 token(含闭合 `>`)所在步即生效,
-            # 即"decode #(t+1) 消费的模式"等于"末 token 下标 == t"的段所声明模式。
+            # 合同语义:标签在**解析步 t**(段末 token,含闭合 `>`)触发,**自 t+1 步起被消费**。
             if e["last_index"] <= t:
                 cur = {"mode": e["expected_mode_after"], "refs": list(e["refs"])}
         return cur["mode"], tuple(cur["refs"])
     for t, (tid, text) in enumerate(script):
-        rec = state.feed_generated_token(t, tid, text)
-        mode, refs = state.view_for_next_step()
+        # ---- 独立真值先行:只用 config 时间线 + arm 原始 span,不接触候选 state ----
+        exp_mode, exp_refs = expected_mode_at(t)
         written = prompt_len + t + 1                      # 1 基 decode 次数 = t+1
         kv = written                                      # 本步 attention 的 KV 上界(含本 token)
-        spans = [tuple(layout.sink_span), tuple(layout.local_window_span), (prompt_len, kv)]
-        if mode == "global":
+        spans = [(0, int(arm.scaffold.sink_span[0])), tuple(arm.scaffold.sink_span)[1:] and tuple(arm.scaffold.sink_span),
+                 tuple(arm.scaffold.local_window_span), (prompt_len, kv)]
+        spans = [tuple(arm.scaffold.sink_span), tuple(arm.scaffold.local_window_span), (prompt_len, kv)]
+        if exp_mode == "global":
             spans.append((0, kv))
-        elif mode == "focus":
-            # 独立口径:声明编号是 1 基,直接读渲染结果的 segment_spans[ref-1]
-            # (合同 readview.build_read_view 用的是 layout.segment_span(ref),两者若不同即为待判定发现)
-            spans += [tuple(arm.segment_spans[int(r) - 1]) for r in refs]
+        elif exp_mode == "focus":
+            # 独立口径:声明编号 1 基,直接取渲染结果的 segment_spans[ref-1](不经布局 helper)
+            spans += [tuple(arm.segment_spans[int(r) - 1]) for r in exp_refs]
         positions = sorted({p for s, e in spans for p in range(max(0, s), min(e, kv))})
-        exp_mode, exp_refs = expected_mode_at(t)
         ind_blocks = blocks_of(positions, bs)                          # 独立可见块
         ind_counts = [max(0, min(kv, (b + 1) * bs) - b * bs) for b in ind_blocks]  # 独立每块有效数
+        # ---- 候选路径(在独立真值之后调用,不参与独立真值) ----
+        mode, refs = state.view_for_next_step()
         view = build_read_view(ViewInputs(mode=mode, refs=tuple(refs), layout=layout, attention_kv_len=kv,
                                           canonical_blocks=canonical, kernel_block_size=bs,
                                           max_width=max_width, effect_step=rec.effect_step))
@@ -167,6 +171,8 @@ def main() -> int:
             "mode_independent": exp_mode, "refs_independent": list(exp_refs),
             "mode_match": (plan.mode == exp_mode and tuple(plan.refs) == tuple(exp_refs)),
             "parse_effect_step": rec.effect_step,
+            "tag_parsed_this_step": tag_at.get(t), "expected_effect_decode_1based": (t + 1) if tag_at.get(t) else None,
+            "effect_step_match": (rec.effect_step == t + 1) if tag_at.get(t) else True,
             "visible_blocks_candidate": list(plan.visible_logical_blocks),
             "visible_blocks_independent": ind_blocks,
             "counts_candidate": list(plan.effective_per_block), "counts_independent": ind_counts,
@@ -255,9 +261,9 @@ def main() -> int:
         swap_vis = sorted([impostor if b == victim else b for b in honest_vis])
         swap_counts = list(honest_counts)  # 形状/计数序列不变,仅逻辑块号被替换
         swap_audit = audit(swap_vis, swap_counts, kv_r, alloc_n)
-        validate_ok, internal_err = True, None
+        validate_ok, internal_err, neg_plan = True, None, None
         try:
-            run_plan("local", swap_vis, swap_counts, sum(swap_counts), swap_counts[-1], kv_r)
+            neg_plan = run_plan("local", swap_vis, swap_counts, sum(swap_counts), swap_counts[-1], kv_r)
         except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
             validate_ok, internal_err = False, f"{type(exc).__name__}: {str(exc)[:120]}"
         negs.append({
@@ -265,8 +271,17 @@ def main() -> int:
             "kind": "派生样本(读取另一个已写且已分配块)", "candidate_visible": swap_vis,
             "independent_expected_visible": honest_vis,
             "validate_ok": validate_ok, "validate_error": internal_err,
-            "internally_consistent": bool(validate_ok and swap_counts == honest_counts and sorted(swap_vis) == swap_vis
-                                          and len(set(swap_vis)) == len(swap_vis) and len(swap_vis) == len(swap_counts)),
+            "plan_fields": None if neg_plan is None else {
+                "tail_len": int(neg_plan.tail_len), "seqused_k": int(neg_plan.seqused_k),
+                "effective_per_block": [int(c) for c in neg_plan.effective_per_block],
+                "from_independent_truth": {"tail_len": honest_counts[-1], "seqused_k": sum(honest_counts),
+                                           "effective_per_block": list(honest_counts)}},
+            "internally_consistent": bool(
+                neg_plan is not None and neg_plan.tail_len == neg_plan.effective_per_block[-1]
+                and neg_plan.seqused_k == sum(neg_plan.effective_per_block)
+                and sorted(swap_vis) == swap_vis and len(set(swap_vis)) == len(swap_vis)
+                and len(swap_vis) == len(swap_counts)
+                and neg_plan.seqused_k == sum(honest_counts)),
             "slot_audit": swap_audit,
             "rejected_by_independent_set": swap_vis != honest_vis,
             "rejected": swap_vis != honest_vis,
@@ -276,16 +291,28 @@ def main() -> int:
     tail_vis, tail_counts = list(restricted["visible_blocks_independent"]), list(restricted["counts_independent"])
     tail_counts[-1] -= 1
     tail_total = sum(tail_counts)
-    tail_ok, tail_err = True, None
+    tail_ok, tail_err, tail_plan = True, None, None
     try:
-        run_plan("local", tail_vis, tail_counts, tail_total, tail_counts[-1], kv_r)
+        tail_plan = run_plan("local", tail_vis, tail_counts, tail_total, tail_counts[-1], kv_r)
     except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
         tail_ok, tail_err = False, f"{type(exc).__name__}: {str(exc)[:120]}"
+    truth_counts = list(restricted["counts_independent"])
     negs.append({"label": "尾长 −1(末块计数与总读取长度同步减 1,内部自洽)", "kind": "派生样本(自洽但错)",
                  "candidate_visible": tail_vis, "counts": tail_counts,
                  "validate_ok": tail_ok, "validate_error": tail_err,
-                 "internally_consistent": bool(tail_ok and tail_total == sum(tail_counts)
-                                               and tail_counts[-1] == tail_counts[-1] and tail_total == sum(tail_counts)),
+                 "plan_fields": None if tail_plan is None else {
+                     "tail_len": int(tail_plan.tail_len), "seqused_k": int(tail_plan.seqused_k),
+                     "effective_per_block": [int(c) for c in tail_plan.effective_per_block],
+                     "from_independent_truth": {"tail_len": truth_counts[-1], "seqused_k": sum(truth_counts),
+                                                "effective_per_block": truth_counts},
+                     "each_one_less_than_truth": (
+                         int(tail_plan.tail_len) == truth_counts[-1] - 1
+                         and int(tail_plan.seqused_k) == sum(truth_counts) - 1
+                         and [int(c) for c in tail_plan.effective_per_block]
+                             == truth_counts[:-1] + [truth_counts[-1] - 1])},
+                 "internally_consistent": bool(
+                     tail_plan is not None and tail_plan.tail_len == tail_plan.effective_per_block[-1]
+                     and tail_plan.seqused_k == sum(tail_plan.effective_per_block)),
                  "slot_audit": audit(tail_vis, tail_counts, kv_r, alloc_n),
                  "rejected_by_independent_truth": tail_counts != restricted["counts_independent"],
                  "rejected": tail_counts != restricted["counts_independent"],
@@ -330,12 +357,20 @@ def main() -> int:
         all(n["rejected"] and n["slot_audit"]["all_slots_written"] and n["slot_audit"]["sorted_unique"]
             and n["slot_audit"]["length_consistent"] for n in negs if n["kind"].startswith("派生样本(读取另一个")),
         audit=[(n["label"][:30], n["slot_audit"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
-    chk("独立审计", "尾长 −1:validate 真成功且内部一致性由计算得出(非写死字符串),再被外部真值拒绝",
+    chk("独立审计", "尾长 −1:计划字段自洽(tail_len==末块计数、seqused_k==Σ计数)且三者相对独立真值各减 1",
         len([n for n in negs if n["label"].startswith("尾长 −1")]) == 1
         and all(n["validate_ok"] and n["internally_consistent"] and n["rejected"]
+                and (n["plan_fields"] or {}).get("each_one_less_than_truth")
                 for n in negs if n["label"].startswith("尾长 −1")),
-        detail=[(n["label"][:22], n["validate_ok"], n["internally_consistent"], n["rejected"])
-                for n in negs if n["label"].startswith("尾长 −1")])
+        plan_fields=[(n["label"][:22], n["plan_fields"]) for n in negs if n["label"].startswith("尾长 −1")])
+    chk("独立审计", "安全错块:计划字段自洽(≥真值同形)且可见集合与独立真值不同",
+        all(n["internally_consistent"] and n["rejected"] and (n["plan_fields"] or {}).get("tail_len") is not None
+            for n in negs if n["kind"].startswith("派生样本(读取另一个")),
+        plan_fields=[(n["label"][:22], n["plan_fields"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
+    chk("独立审计", "逐步:候选解析事件与独立期望一致(解析于 t、消费于 t+1)",
+        all(s["effect_step_match"] for s in steps),
+        bad=[(s["decode_count_1based"], s["parse_effect_step"], s["expected_effect_decode_1based"])
+             for s in steps if not s["effect_step_match"]])
     chk("独立审计", "每步 mode/refs 与独立时间线(config 声明)一致",
         all(s["mode_match"] for s in steps),
         bad=[(s["decode_count_1based"], s["mode"], s["mode_independent"]) for s in steps if not s["mode_match"]])
