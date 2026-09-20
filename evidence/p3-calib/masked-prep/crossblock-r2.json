@@ -1,6 +1,6 @@
 {
-  "script_sha256": "e0f667f892beb1eae22e0206f313480926d08845a99069fd01e6c2a673793c7b",
-  "config_sha256": "96c77daf8dd07a7a9b40955286615ceac6d6532cea4836e9e0c42e444e706f4a",
+  "script_sha256": "5919645d1d9b77ea5e9a6921f1e239bab5f06857f2e132648f6d6467f39d1e33",
+  "config_sha256": "ba9450fd544068cd8841ede9f41fca595aef69e1fc6773fde01494402588519a",
   "config": "configs/p2-masked-prep/crossblock.json",
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
@@ -7894,6 +7894,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 1,
       "visible_blocks_candidate": [
         0,
@@ -7949,7 +7952,7 @@
       "write_position_independent": 7835,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -7959,8 +7962,25 @@
         112,
         114,
         116,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7835,
+      "current_write_position_this_forward": 7834,
       "match": {
         "visible": true,
         "counts": true,
@@ -7989,6 +8009,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 2,
       "visible_blocks_candidate": [
         0,
@@ -8044,7 +8067,7 @@
       "write_position_independent": 7836,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8054,8 +8077,25 @@
         112,
         114,
         116,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7836,
+      "current_write_position_this_forward": 7835,
       "match": {
         "visible": true,
         "counts": true,
@@ -8084,6 +8124,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 3,
       "visible_blocks_candidate": [
         0,
@@ -8139,7 +8182,7 @@
       "write_position_independent": 7837,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8149,8 +8192,25 @@
         112,
         114,
         116,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7837,
+      "current_write_position_this_forward": 7836,
       "match": {
         "visible": true,
         "counts": true,
@@ -8179,6 +8239,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 4,
       "visible_blocks_candidate": [
         0,
@@ -8234,7 +8297,7 @@
       "write_position_independent": 7838,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8244,8 +8307,25 @@
         112,
         114,
         116,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7838,
+      "current_write_position_this_forward": 7837,
       "match": {
         "visible": true,
         "counts": true,
@@ -8274,6 +8354,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 5,
       "visible_blocks_candidate": [
         0,
@@ -8329,7 +8412,7 @@
       "write_position_independent": 7839,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8339,8 +8422,25 @@
         112,
         114,
         116,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7839,
+      "current_write_position_this_forward": 7838,
       "match": {
         "visible": true,
         "counts": true,
@@ -8369,6 +8469,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 6,
       "visible_blocks_candidate": [
         0,
@@ -8396,11 +8499,35 @@
       "write_position_independent": 7840,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
         118
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118,
+        118
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7840,
+      "current_write_position_this_forward": 7839,
       "match": {
         "visible": true,
         "counts": true,
@@ -8430,6 +8557,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 7,
       "visible_blocks_candidate": [
         0,
@@ -8461,12 +8591,35 @@
       "write_position_independent": 7841,
       "first_write_into_next_block": true,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7841,
+      "current_write_position_this_forward": 7840,
       "match": {
         "visible": true,
         "counts": true,
@@ -8496,6 +8649,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 8,
       "visible_blocks_candidate": [
         0,
@@ -8527,12 +8683,35 @@
       "write_position_independent": 7842,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7842,
+      "current_write_position_this_forward": 7841,
       "match": {
         "visible": true,
         "counts": true,
@@ -8562,6 +8741,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 9,
       "visible_blocks_candidate": [
         0,
@@ -8593,12 +8775,35 @@
       "write_position_independent": 7843,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7843,
+      "current_write_position_this_forward": 7842,
       "match": {
         "visible": true,
         "counts": true,
@@ -8628,6 +8833,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 10,
       "visible_blocks_candidate": [
         0,
@@ -8659,12 +8867,35 @@
       "write_position_independent": 7844,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7844,
+      "current_write_position_this_forward": 7843,
       "match": {
         "visible": true,
         "counts": true,
@@ -8694,6 +8925,9 @@
       ],
       "mode": "local",
       "refs": [],
+      "mode_independent": "local",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 11,
       "visible_blocks_candidate": [
         0,
@@ -8725,12 +8959,35 @@
       "write_position_independent": 7845,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7845,
+      "current_write_position_this_forward": 7844,
       "match": {
         "visible": true,
         "counts": true,
@@ -8760,6 +9017,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 12,
       "visible_blocks_candidate": [
         0,
@@ -8819,7 +9079,7 @@
       "write_position_independent": 7846,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8832,6 +9092,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7846,
+      "current_write_position_this_forward": 7845,
       "match": {
         "visible": true,
         "counts": true,
@@ -8861,6 +9137,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 13,
       "visible_blocks_candidate": [
         0,
@@ -8920,7 +9199,7 @@
       "write_position_independent": 7847,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -8933,6 +9212,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7847,
+      "current_write_position_this_forward": 7846,
       "match": {
         "visible": true,
         "counts": true,
@@ -8962,6 +9257,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 14,
       "visible_blocks_candidate": [
         0,
@@ -9021,7 +9319,7 @@
       "write_position_independent": 7848,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9034,6 +9332,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7848,
+      "current_write_position_this_forward": 7847,
       "match": {
         "visible": true,
         "counts": true,
@@ -9063,6 +9377,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 15,
       "visible_blocks_candidate": [
         0,
@@ -9122,7 +9439,7 @@
       "write_position_independent": 7849,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9135,6 +9452,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7849,
+      "current_write_position_this_forward": 7848,
       "match": {
         "visible": true,
         "counts": true,
@@ -9164,6 +9497,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 16,
       "visible_blocks_candidate": [
         0,
@@ -9223,7 +9559,7 @@
       "write_position_independent": 7850,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9236,6 +9572,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7850,
+      "current_write_position_this_forward": 7849,
       "match": {
         "visible": true,
         "counts": true,
@@ -9265,6 +9617,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 17,
       "visible_blocks_candidate": [
         0,
@@ -9324,7 +9679,7 @@
       "write_position_independent": 7851,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9337,6 +9692,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7851,
+      "current_write_position_this_forward": 7850,
       "match": {
         "visible": true,
         "counts": true,
@@ -9366,6 +9737,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 18,
       "visible_blocks_candidate": [
         0,
@@ -9425,7 +9799,7 @@
       "write_position_independent": 7852,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9438,6 +9812,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7852,
+      "current_write_position_this_forward": 7851,
       "match": {
         "visible": true,
         "counts": true,
@@ -9467,6 +9857,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 19,
       "visible_blocks_candidate": [
         0,
@@ -9526,7 +9919,7 @@
       "write_position_independent": 7853,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -9539,6 +9932,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7853,
+      "current_write_position_this_forward": 7852,
       "match": {
         "visible": true,
         "counts": true,
@@ -9570,6 +9979,11 @@
       "refs": [
         2
       ],
+      "mode_independent": "focus",
+      "refs_independent": [
+        2
+      ],
+      "mode_match": true,
       "parse_effect_step": 20,
       "visible_blocks_candidate": [
         0,
@@ -9613,15 +10027,35 @@
       "write_position_independent": 7854,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         106,
         108,
         110,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        106,
+        108,
+        110,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7854,
+      "current_write_position_this_forward": 7853,
       "match": {
         "visible": true,
         "counts": true,
@@ -9653,6 +10087,11 @@
       "refs": [
         2
       ],
+      "mode_independent": "focus",
+      "refs_independent": [
+        2
+      ],
+      "mode_match": true,
       "parse_effect_step": 21,
       "visible_blocks_candidate": [
         0,
@@ -9696,15 +10135,35 @@
       "write_position_independent": 7855,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         106,
         108,
         110,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        106,
+        108,
+        110,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7855,
+      "current_write_position_this_forward": 7854,
       "match": {
         "visible": true,
         "counts": true,
@@ -9736,6 +10195,11 @@
       "refs": [
         2
       ],
+      "mode_independent": "focus",
+      "refs_independent": [
+        2
+      ],
+      "mode_match": true,
       "parse_effect_step": 22,
       "visible_blocks_candidate": [
         0,
@@ -9779,15 +10243,35 @@
       "write_position_independent": 7856,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         106,
         108,
         110,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        106,
+        108,
+        110,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7856,
+      "current_write_position_this_forward": 7855,
       "match": {
         "visible": true,
         "counts": true,
@@ -9819,6 +10303,11 @@
       "refs": [
         2
       ],
+      "mode_independent": "focus",
+      "refs_independent": [
+        2
+      ],
+      "mode_match": true,
       "parse_effect_step": 23,
       "visible_blocks_candidate": [
         0,
@@ -9862,15 +10351,35 @@
       "write_position_independent": 7857,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         106,
         108,
         110,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        106,
+        108,
+        110,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7857,
+      "current_write_position_this_forward": 7856,
       "match": {
         "visible": true,
         "counts": true,
@@ -9902,6 +10411,11 @@
       "refs": [
         2
       ],
+      "mode_independent": "focus",
+      "refs_independent": [
+        2
+      ],
+      "mode_match": true,
       "parse_effect_step": 24,
       "visible_blocks_candidate": [
         0,
@@ -9945,15 +10459,35 @@
       "write_position_independent": 7858,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         106,
         108,
         110,
         116,
         118,
+        120,
+        120,
+        120,
+        120,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        106,
+        108,
+        110,
+        116,
+        118,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7858,
+      "current_write_position_this_forward": 7857,
       "match": {
         "visible": true,
         "counts": true,
@@ -9983,6 +10517,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 25,
       "visible_blocks_candidate": [
         0,
@@ -10042,7 +10579,7 @@
       "write_position_independent": 7859,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -10055,6 +10592,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7859,
+      "current_write_position_this_forward": 7858,
       "match": {
         "visible": true,
         "counts": true,
@@ -10084,6 +10637,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 26,
       "visible_blocks_candidate": [
         0,
@@ -10143,7 +10699,7 @@
       "write_position_independent": 7860,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -10156,6 +10712,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7860,
+      "current_write_position_this_forward": 7859,
       "match": {
         "visible": true,
         "counts": true,
@@ -10185,6 +10757,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 27,
       "visible_blocks_candidate": [
         0,
@@ -10244,7 +10819,7 @@
       "write_position_independent": 7861,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -10257,6 +10832,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7861,
+      "current_write_position_this_forward": 7860,
       "match": {
         "visible": true,
         "counts": true,
@@ -10286,6 +10877,9 @@
       ],
       "mode": "global",
       "refs": [],
+      "mode_independent": "global",
+      "refs_independent": [],
+      "mode_match": true,
       "parse_effect_step": 28,
       "visible_blocks_candidate": [
         0,
@@ -10345,7 +10939,7 @@
       "write_position_independent": 7862,
       "first_write_into_next_block": false,
       "width_plan": 11,
-      "physical_row_expected": [
+      "physical_row_actual": [
         100,
         102,
         104,
@@ -10358,6 +10952,22 @@
         118,
         120
       ],
+      "physical_row_expected_independent": [
+        100,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        120
+      ],
+      "physical_row_match": true,
+      "next_write_position": 7862,
+      "current_write_position_this_forward": 7861,
       "match": {
         "visible": true,
         "counts": true,
@@ -10394,7 +11004,9 @@
         8,
         9
       ],
-      "internal_consistency": "通过(形状/排序/计数/总长自洽)",
+      "validate_ok": true,
+      "validate_error": null,
+      "internally_consistent": true,
       "slot_audit": {
         "rows": [
           {
@@ -10440,7 +11052,9 @@
         784,
         783
       ],
-      "internal_consistency": "通过(总长 = Σ计数)",
+      "validate_ok": true,
+      "validate_error": null,
+      "internally_consistent": true,
       "slot_audit": {
         "rows": [
           {
@@ -10528,148 +11142,53 @@
     },
     {
       "group": "独立审计",
-      "name": "存在 global 恢复后的 forward(闭标签生效到实际 forward)",
+      "name": "指定闭标签 </local> 之后至少有 1 个真正消费 global 的计划步(CPU 计划步,不称实机 forward)",
       "ok": true,
-      "modes_by_step": [
-        [
-          1,
-          "global",
-          1
-        ],
-        [
-          2,
-          "global",
-          2
-        ],
-        [
-          3,
-          "global",
-          3
-        ],
-        [
-          4,
-          "global",
-          4
-        ],
-        [
-          5,
-          "global",
-          5
-        ],
-        [
-          6,
-          "local",
-          6
-        ],
-        [
-          7,
-          "local",
-          7
-        ],
-        [
-          8,
-          "local",
-          8
-        ],
-        [
-          9,
-          "local",
-          9
-        ],
-        [
-          10,
-          "local",
-          10
-        ],
-        [
-          11,
-          "local",
-          11
-        ],
-        [
-          12,
-          "global",
-          12
-        ],
+      "after_tag_index": 11,
+      "consumed": [
         [
           13,
-          "global",
-          13
+          "global"
         ],
         [
           14,
-          "global",
-          14
+          "global"
         ],
         [
           15,
-          "global",
-          15
+          "global"
         ],
         [
           16,
-          "global",
-          16
+          "global"
         ],
         [
           17,
-          "global",
-          17
+          "global"
         ],
         [
           18,
-          "global",
-          18
+          "global"
         ],
         [
           19,
-          "global",
-          19
-        ],
-        [
-          20,
-          "focus",
-          20
-        ],
-        [
-          21,
-          "focus",
-          21
-        ],
-        [
-          22,
-          "focus",
-          22
-        ],
-        [
-          23,
-          "focus",
-          23
-        ],
-        [
-          24,
-          "focus",
-          24
+          "global"
         ],
         [
           25,
-          "global",
-          25
+          "global"
         ],
         [
           26,
-          "global",
-          26
+          "global"
         ],
         [
           27,
-          "global",
-          27
+          "global"
         ],
         [
           28,
-          "global",
-          28
+          "global"
         ]
       ]
     },
@@ -10719,6 +11238,28 @@
     },
     {
       "group": "独立审计",
+      "name": "安全错块样本存在且标签唯一(不以空集合假通过)",
+      "ok": true,
+      "labels": [
+        "A 声明已分配但未写入的块可见(计数 0)",
+        "B 可见块超出已分配前缀(数据面拒绝)",
+        "安全错块:把已写可见完整块 9 换成已写但不可见的完整块 4(受限视图派生)",
+        "尾长 −1(末块计数与总读取长度同步减 1,内部自洽)"
+      ]
+    },
+    {
+      "group": "独立审计",
+      "name": "安全错块自身通过 StepPlan.validate(错误只被独立集合发现)",
+      "ok": true,
+      "detail": [
+        [
+          "安全错块:把已写可见完整块 9 换成已写但不可见的完",
+          true
+        ]
+      ]
+    },
+    {
+      "group": "独立审计",
       "name": "安全错块被独立预期集合拒绝,且槽位审计显示其块已写且已分配",
       "ok": true,
       "audit": [
@@ -10757,15 +11298,28 @@
     },
     {
       "group": "独立审计",
-      "name": "尾长 −1 内部自洽但被外部真值拒绝",
+      "name": "尾长 −1:validate 真成功且内部一致性由计算得出(非写死字符串),再被外部真值拒绝",
       "ok": true,
       "detail": [
         [
-          "尾长 −1(末块计数与总读取长度同步减 1,内部自洽)",
-          "通过(总长 = Σ计数)",
+          "尾长 −1(末块计数与总读取长度同步减 1,",
+          true,
+          true,
           true
         ]
       ]
+    },
+    {
+      "group": "独立审计",
+      "name": "每步 mode/refs 与独立时间线(config 声明)一致",
+      "ok": true,
+      "bad": []
+    },
+    {
+      "group": "候选自校验",
+      "name": "物理行逐列(含 padding)与独立期望一致",
+      "ok": true,
+      "bad": []
     }
   ],
   "limits": [
