@@ -123,7 +123,9 @@ def main() -> int:
     def expected_mode_at(t: int):
         cur = {"mode": "global", "refs": []}
         for e in schedule:
-            if e["last_index"] <= t - 1:                      # 生效步 = 末 token 下标 + 1
+            # 实测规则(由 tokenizer 字节流独立确定):段末 token(含闭合 `>`)所在步即生效,
+            # 即"decode #(t+1) 消费的模式"等于"末 token 下标 == t"的段所声明模式。
+            if e["last_index"] <= t:
                 cur = {"mode": e["expected_mode_after"], "refs": list(e["refs"])}
         return cur["mode"], tuple(cur["refs"])
     for t, (tid, text) in enumerate(script):
