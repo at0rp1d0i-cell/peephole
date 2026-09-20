@@ -7,7 +7,7 @@
 - **输入**：阶段 03 `render_arm` 渲染的最终 prompt（协议 prompt），token 长度 1505；**直接提交该 token_ids**（不重新 tokenize）；
   每 run 的 prompt/token 哈希与 arm.json 记在该 run 的 `manifest.json`（含 `script_sha256` 与 `source/` 源码快照）。
 
-## 1. 四臂主对照（同 prompt、同强制轨迹）
+## 1. 四臂主对照（同一最终 prompt、同一 token 轨迹；原版自然 greedy，候选 teacher forcing 回放）
 
 | 臂 | 目录 | exit | startup / 请求 | cleanup | token 轨迹 |
 | --- | --- | --- | --- | --- | --- |
@@ -38,8 +38,9 @@
 
 ## 3. dense FP32 全局参考（独立 oracle）
 
-- 输入：`run-original-3a/capture/layers.npz`（7.9 MB 报告 / 1323 MiB 捕获）；**同输入 hash 复用**：另两臂捕获字节相同，
-  故**未**重复运行 oracle（不声称三次独立运行）。
+- 输入：`run-original-3a/capture/layers.npz`（7.9 MB 报告 / 1323 MiB 捕获 = 1,387,436,946 B）。
+  **只完成一份 oracle**；串联命令里的重复子进程**曾启动后被取消**（只保留首份计算），另两个臂因捕获字节相同而按**同输入哈希复用**，
+  **不写成"从未重复运行"**，也不写成"三次独立 oracle"。
 - 覆盖：**24,192 comparisons = 24,080 prefill + 112 decode**；16 个全注意力层；**prefill 步 1 的全部 1505 个位置**
   （源码逐位置遍历，非仅末 token）+ **decode 步 1–7 全部**；`non_finite = 0`。
 - 误差（FP32 dense 参考 vs 真实 FA2 输出）：**prefill 最大 `max_abs_err` 0.2600479126**（层 14；层 13 0.2295、层 10 0.1456）；
@@ -61,17 +62,39 @@
 
 ## 5. 复跑入口与当前环境
 
-- **CPU 测试**（复用已通过记录，不为报告重跑）：`source ./env.sh && CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" -m unittest tests.test_p2_calib_hooks tests.test_p2_calib_oracle`。
-  全量：`bash tools/p1cpu-run-tests.sh`（未部署源码树）→ 308 项 OK（报告提交前 29.494 s、提交后 29.903 s 两次记录）。
-  现存工具输出仅**末尾摘要**，未保存完整日志 —— 本报告不伪造完整日志。
-- **oracle 参考**：`CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py --capture evidence/p3-calib/run-original-3a/capture/layers.npz --out evidence/p3-calib/oracle-original-3a.json`
-- **四臂复跑（新目录）**：未部署态先跑
-  `--arm original --out evidence/p3-calib/run-original-N1 --max-tokens 8 --emit-trajectory <traj>`（首轮不 compare-to）
-  → 第二轮 `--arm original --out …run-original-N2 --compare-to <traj>`
-  → `"$ATTNVIEW_PYTHON" tools/p2-apply-patch.py apply && … verify`
-  → `--arm patched-disabled --out …run-disabled-N --force-trajectory <traj> --compare-to <traj> --cleanup-check`
-  → `--arm patched-global --out …run-global-N --force-trajectory <traj> --compare-to <traj> --cleanup-check`
-  → 结束后 `revert`。
+- **CPU 测试**（复用已通过记录，不为报告重跑）：
+  ```bash
+  cd /root/attnview && source ./env.sh
+  CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" -m unittest tests.test_p2_calib_hooks tests.test_p2_calib_oracle
+  bash tools/p1cpu-run-tests.sh        # 未部署源码树 → 308 项 OK（29.494 s / 复审后 29.903 s 两次记录）
+  ```
+  现存工具输出仅**末尾摘要**，未保存完整日志 —— 不伪造完整日志。
+- **四臂复跑（实际执行过的完整命令；复跑请改新输出目录名）**：
+  ```bash
+  cd /root/attnview && source env.sh && export CUDA_VISIBLE_DEVICES=0
+  # 1) 未部署原版：第一轮自然 greedy 产生轨迹基线（不带 compare-to），第二轮比对
+  "$ATTNVIEW_PYTHON" tools/p2-calib-run.py --arm original --out evidence/p3-calib/run-original-4a \
+    --max-tokens 8 --emit-trajectory evidence/p3-calib/traj-original-2.json --capture-host-logits --record-layers --cleanup-check
+  "$ATTNVIEW_PYTHON" tools/p2-calib-run.py --arm original --out evidence/p3-calib/run-original-4b \
+    --max-tokens 8 --compare-to evidence/p3-calib/traj-original-2.json --cleanup-check
+  # 2) 部署补丁（两副本一并改写）并核验
+  "$ATTNVIEW_PYTHON" tools/p2-apply-patch.py apply
+  "$ATTNVIEW_PYTHON" tools/p2-apply-patch.py verify
+  # 3) 候选两臂：teacher forcing 回放同一轨迹
+  "$ATTNVIEW_PYTHON" tools/p2-calib-run.py --arm patched-disabled --out evidence/p3-calib/run-disabled-6 \
+    --max-tokens 8 --force-trajectory evidence/p3-calib/traj-original-2.json --compare-to evidence/p3-calib/traj-original-2.json --cleanup-check
+  "$ATTNVIEW_PYTHON" tools/p2-calib-run.py --arm patched-global --out evidence/p3-calib/run-global-6 \
+    --max-tokens 8 --force-trajectory evidence/p3-calib/traj-original-2.json --compare-to evidence/p3-calib/traj-original-2.json --cleanup-check
+  # 4) 撤销回未部署态
+  "$ATTNVIEW_PYTHON" tools/p2-apply-patch.py revert
+  ```
+- **oracle 参考（写新文件，不复写既有报告）**：
+  ```bash
+  CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-calib-oracle.py \
+    --capture evidence/p3-calib/run-original-3a/capture/layers.npz \
+    --out evidence/p3-calib/oracle-original-3a-rerun.json
+  ```
+  首份实测报告为 `evidence/p3-calib/oracle-original-3a.json`（SHA256 `3615eaa6…110225`）。
 - **当前环境（本报告 HEAD `85cfacf`）**：源码树**未部署**（checkout 与安装副本逐字节一致、无已部署 `attnview_engine.py`、
   无 `orig/`、无事务记录）；工作区干净；GPU 0 MiB。
 - **诊断时间口径**：四臂的 startup/请求耗时**包含**捕获与校准专用同步（强制钩子含 D2H/H2D、logits 捕获含显式 D2H），
