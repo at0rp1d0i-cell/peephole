@@ -112,8 +112,20 @@ def main() -> int:
     }
 
     state = RequestProtocolState("cross", arm="da", num_segments=len(segs), prompt_len=prompt_len)
-    script = [(int(t), tok.decode([int(t)])) for piece in cfg["generation_script"]
-              for t in tok.encode(piece, add_special_tokens=False)]
+    # 独立时间线:逐段按真实 tokenizer 展开,段的**最后一个 token** 处的闭合 `>` 触发转移;
+    # 因 C3.2 生效在 t+1,故"第 t 步消费的模式"= 最近一个末 token 下标 <= t-1 的段所声明的模式。
+    script, schedule = [], []
+    for piece in cfg["generation_script"]:
+        ids = [int(t) for t in tok.encode(piece["text"], add_special_tokens=False)]
+        script += [(i, tok.decode([i])) for i in ids]
+        schedule.append({"text": piece["text"], "first_index": len(script) - len(ids), "last_index": len(script) - 1,
+                         "expected_mode_after": piece["expected_mode_after"], "refs": list(piece.get("refs", []))})
+    def expected_mode_at(t: int):
+        cur = {"mode": "global", "refs": []}
+        for e in schedule:
+            if e["last_index"] <= t - 1:                      # 生效步 = 末 token 下标 + 1
+                cur = {"mode": e["expected_mode_after"], "refs": list(e["refs"])}
+        return cur["mode"], tuple(cur["refs"])
     for t, (tid, text) in enumerate(script):
         rec = state.feed_generated_token(t, tid, text)
         mode, refs = state.view_for_next_step()
@@ -123,9 +135,11 @@ def main() -> int:
         if mode == "global":
             spans.append((0, kv))
         elif mode == "focus":
-            # 镜像合同 readview.build_read_view:`declared_spans.append(layout.segment_span(ref))`(不做 -1)
-            spans += [tuple(layout.segment_span(int(r))) for r in refs]
+            # 独立口径:声明编号是 1 基,直接读渲染结果的 segment_spans[ref-1]
+            # (合同 readview.build_read_view 用的是 layout.segment_span(ref),两者若不同即为待判定发现)
+            spans += [tuple(arm.segment_spans[int(r) - 1]) for r in refs]
         positions = sorted({p for s, e in spans for p in range(max(0, s), min(e, kv))})
+        exp_mode, exp_refs = expected_mode_at(t)
         ind_blocks = blocks_of(positions, bs)                          # 独立可见块
         ind_counts = [max(0, min(kv, (b + 1) * bs) - b * bs) for b in ind_blocks]  # 独立每块有效数
         view = build_read_view(ViewInputs(mode=mode, refs=tuple(refs), layout=layout, attention_kv_len=kv,
@@ -140,11 +154,16 @@ def main() -> int:
                         next_write_position=int(table.next_write_position),
                         written_before_step=int(view.written_before_step)).validate()
         phys_row = [phys_of[int(b)] for b in plan.visible_logical_blocks]
+        actual_row = list(table.padded_row(max_width))
+        expected_row = [canonical[int(b)] for b in ind_blocks] or [0]
+        expected_row = expected_row + [expected_row[-1]] * (max_width - len(expected_row))
         report["steps"].append({
             "gen_index_0based": t, "decode_count_1based": t + 1, "token_id": tid, "token_text": text,
             "kv_len": kv, "written_len_independent": written,
             "written_blocks": sorted({p // bs for p in range(kv)}),
             "mode": plan.mode, "refs": list(plan.refs),
+            "mode_independent": exp_mode, "refs_independent": list(exp_refs),
+            "mode_match": (plan.mode == exp_mode and tuple(plan.refs) == tuple(exp_refs)),
             "parse_effect_step": rec.effect_step,
             "visible_blocks_candidate": list(plan.visible_logical_blocks),
             "visible_blocks_independent": ind_blocks,
@@ -152,7 +171,10 @@ def main() -> int:
             "total_candidate": int(plan.seqused_k), "total_independent": sum(ind_counts),
             "write_position_candidate": int(plan.next_write_position), "write_position_independent": written,
             "first_write_into_next_block": (kv - 1) == report["next_block_start"],
-            "width_plan": int(plan.width), "physical_row_expected": phys_row,
+            "width_plan": int(plan.width),
+            "physical_row_actual": actual_row, "physical_row_expected_independent": expected_row,
+            "physical_row_match": actual_row == expected_row,
+            "next_write_position": int(plan.next_write_position), "current_write_position_this_forward": kv - 1,
             "match": {"visible": list(plan.visible_logical_blocks) == ind_blocks,
                       "counts": list(plan.effective_per_block) == ind_counts,
                       "total": int(plan.seqused_k) == sum(ind_counts),
@@ -231,17 +253,19 @@ def main() -> int:
         swap_vis = sorted([impostor if b == victim else b for b in honest_vis])
         swap_counts = list(honest_counts)  # 形状/计数序列不变,仅逻辑块号被替换
         swap_audit = audit(swap_vis, swap_counts, kv_r, alloc_n)
-        internal = None
+        validate_ok, internal_err = True, None
         try:
             run_plan("local", swap_vis, swap_counts, sum(swap_counts), swap_counts[-1], kv_r)
-            internal = "通过(形状/排序/计数/总长自洽)"
         except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
-            internal = f"合同异常 {type(exc).__name__}"
+            validate_ok, internal_err = False, f"{type(exc).__name__}: {str(exc)[:120]}"
         negs.append({
             "label": f"安全错块:把已写可见完整块 {victim} 换成已写但不可见的完整块 {impostor}(受限视图派生)",
             "kind": "派生样本(读取另一个已写且已分配块)", "candidate_visible": swap_vis,
             "independent_expected_visible": honest_vis,
-            "internal_consistency": internal, "slot_audit": swap_audit,
+            "validate_ok": validate_ok, "validate_error": internal_err,
+            "internally_consistent": bool(validate_ok and swap_counts == honest_counts and sorted(swap_vis) == swap_vis
+                                          and len(set(swap_vis)) == len(swap_vis) and len(swap_vis) == len(swap_counts)),
+            "slot_audit": swap_audit,
             "rejected_by_independent_set": swap_vis != honest_vis,
             "rejected": swap_vis != honest_vis,
             "reason": "可见集合是结构合同:候选集合必须等于由协议 span 独立推导的集合;块已写且完整不构成可读理由。",
@@ -249,9 +273,17 @@ def main() -> int:
     # 尾长 −1(同步改末块计数与总长,内部自洽)
     tail_vis, tail_counts = list(restricted["visible_blocks_independent"]), list(restricted["counts_independent"])
     tail_counts[-1] -= 1
+    tail_total = sum(tail_counts)
+    tail_ok, tail_err = True, None
+    try:
+        run_plan("local", tail_vis, tail_counts, tail_total, tail_counts[-1], kv_r)
+    except (AttnViewConfigError, ReadViewError, GpuKvError) as exc:
+        tail_ok, tail_err = False, f"{type(exc).__name__}: {str(exc)[:120]}"
     negs.append({"label": "尾长 −1(末块计数与总读取长度同步减 1,内部自洽)", "kind": "派生样本(自洽但错)",
                  "candidate_visible": tail_vis, "counts": tail_counts,
-                 "internal_consistency": "通过(总长 = Σ计数)",
+                 "validate_ok": tail_ok, "validate_error": tail_err,
+                 "internally_consistent": bool(tail_ok and tail_total == sum(tail_counts)
+                                               and tail_counts[-1] == tail_counts[-1] and tail_total == sum(tail_counts)),
                  "slot_audit": audit(tail_vis, tail_counts, kv_r, alloc_n),
                  "rejected_by_independent_truth": tail_counts != restricted["counts_independent"],
                  "rejected": tail_counts != restricted["counts_independent"],
@@ -272,9 +304,12 @@ def main() -> int:
         all(a != b for a, b in zip(sorted(phys_of), sorted(canonical))) and len(set(canonical)) == len(canonical),
         sample=[(0, canonical[0]), (1, canonical[1])])
     chk("独立审计", "三种模式均实际出现", modes_seen == ["focus", "global", "local"], modes=modes_seen)
-    chk("独立审计", "存在 global 恢复后的 forward(闭标签生效到实际 forward)",
-        any(s["mode"] == "global" for s in steps[1:]) and len([s for s in steps if s["mode"] == "global"]) >= 2,
-        modes_by_step=[(s["decode_count_1based"], s["mode"], s["parse_effect_step"]) for s in steps])
+    rec_tag = str(cfg["global_recovery_after_tag"])
+    rec_last = next((e["last_index"] for e in schedule if e["text"] == rec_tag), None)
+    consumed_after = [s for s in steps if rec_last is not None and s["gen_index_0based"] > rec_last and s["mode"] == "global"]
+    chk("独立审计", f"指定闭标签 {rec_tag} 之后至少有 1 个真正消费 global 的计划步(CPU 计划步,不称实机 forward)",
+        rec_last is not None and len(consumed_after) >= 1, after_tag_index=rec_last,
+        consumed=[(s["decode_count_1based"], s["mode"]) for s in consumed_after])
     chk("独立审计", "跨界发生在受限模式期间", report["crossing"]["mode_at_crossing"] in ("local", "focus"),
         crossing=report["crossing"])
     chk("独立审计", "跨界 decode 计数与公式一致(1 基)", report["crossing"]["observed_decode_index"] == d_cross,
@@ -283,13 +318,27 @@ def main() -> int:
     chk("独立审计", "构造失败类样本均抛合同异常(非合同异常即失败)",
         all(n["rejected"] and n.get("error_type") in CONTRACT_ERRORS for n in negs if n["kind"] == "构造失败测试"),
         kinds=[(n["label"][:24], n.get("error_type"), n.get("unexpected_error")) for n in negs if n["kind"] == "构造失败测试"])
+    chk("独立审计", "安全错块样本存在且标签唯一(不以空集合假通过)",
+        len([n for n in negs if n["kind"].startswith("派生样本(读取另一个")]) == 1,
+        labels=[n["label"] for n in negs])
+    chk("独立审计", "安全错块自身通过 StepPlan.validate(错误只被独立集合发现)",
+        all(n["validate_ok"] for n in negs if n["kind"].startswith("派生样本(读取另一个")),
+        detail=[(n["label"][:26], n["validate_ok"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
     chk("独立审计", "安全错块被独立预期集合拒绝,且槽位审计显示其块已写且已分配",
         all(n["rejected"] and n["slot_audit"]["all_slots_written"] and n["slot_audit"]["sorted_unique"]
             and n["slot_audit"]["length_consistent"] for n in negs if n["kind"].startswith("派生样本(读取另一个")),
         audit=[(n["label"][:30], n["slot_audit"]) for n in negs if n["kind"].startswith("派生样本(读取另一个")])
-    chk("独立审计", "尾长 −1 内部自洽但被外部真值拒绝",
-        all(n["rejected"] for n in negs if n["label"].startswith("尾长 −1")),
-        detail=[(n["label"], n["internal_consistency"], n["rejected"]) for n in negs if n["label"].startswith("尾长 −1")])
+    chk("独立审计", "尾长 −1:validate 真成功且内部一致性由计算得出(非写死字符串),再被外部真值拒绝",
+        len([n for n in negs if n["label"].startswith("尾长 −1")]) == 1
+        and all(n["validate_ok"] and n["internally_consistent"] and n["rejected"]
+                for n in negs if n["label"].startswith("尾长 −1")),
+        detail=[(n["label"][:22], n["validate_ok"], n["internally_consistent"], n["rejected"])
+                for n in negs if n["label"].startswith("尾长 −1")])
+    chk("独立审计", "每步 mode/refs 与独立时间线(config 声明)一致",
+        all(s["mode_match"] for s in steps),
+        bad=[(s["decode_count_1based"], s["mode"], s["mode_independent"]) for s in steps if not s["mode_match"]])
+    chk("候选自校验", "物理行逐列(含 padding)与独立期望一致", all(s["physical_row_match"] for s in steps),
+        bad=[s["decode_count_1based"] for s in steps if not s["physical_row_match"]])
     report["test_scope"] = ("CPU 不运行 kernel、不执行任何读取:'拒绝先于读取'本轮**未实测**,不得据此宣称 kernel 未越读;"
                             "此处只断言构造失败类抛合同异常、派生样本的独立集合/形状/计数/总长比较与槽位审计。"
                             "候选自校验(StepPlan.validate)与独立审计门禁**分列**,后者是**本脚本新增的 CPU 判据**,不是既有生产门禁。")

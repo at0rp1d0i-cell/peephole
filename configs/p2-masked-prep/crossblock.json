@@ -1,5 +1,5 @@
 {
-  "note": "SUP-004-masked-prep-R2:真实 renderer 跨块夹具(合法声明+C3.2 生效步)+安全负对照,纯 CPU;I5:max_width 固定 ceil(8192/784)=11;canonical 用非顺序物理映射(phys=100+2*logical)",
+  "note": "SUP-004-masked-prep-R2/R2-补(NATIVE-035):真实 renderer 跨块夹具,独立期望来自本配置(非候选 state)",
   "fixture": "evidence/p1-cpu/demo-fixtures.json",
   "block_size": 784,
   "target_prompt_len": 7834,
@@ -7,21 +7,87 @@
   "filler_unit": "这是用于把公开合成上下文长度调整到块边界的附加说明段落。",
   "max_filler_units": 400,
   "generation_script": [
-    "平面",
-    "几何",
-    "推理",
-    "<local>",
-    "继续",
-    "推导",
-    "结束",
-    "</local>",
-    "回顾",
-    "<focus magic_chunks=\"2\">",
-    "细节",
-    "补充",
-    "</focus>",
-    "收束",
-    "完毕"
+    {
+      "text": "平面",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "几何",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "推理",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "<local>",
+      "expected_mode_after": "local",
+      "refs": []
+    },
+    {
+      "text": "继续",
+      "expected_mode_after": "local",
+      "refs": []
+    },
+    {
+      "text": "推导",
+      "expected_mode_after": "local",
+      "refs": []
+    },
+    {
+      "text": "结束",
+      "expected_mode_after": "local",
+      "refs": []
+    },
+    {
+      "text": "</local>",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "回顾",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "<focus magic_chunks=\"2\">",
+      "expected_mode_after": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "text": "细节",
+      "expected_mode_after": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "text": "补充",
+      "expected_mode_after": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "text": "</focus>",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "收束",
+      "expected_mode_after": "global",
+      "refs": []
+    },
+    {
+      "text": "完毕",
+      "expected_mode_after": "global",
+      "refs": []
+    }
   ],
   "modes_to_expand": [
     "global",
@@ -43,5 +109,6 @@
   "out_default": "evidence/p3-calib/masked-prep/crossblock-r2.json",
   "max_total_len": 8192,
   "physical_block_base": 100,
-  "physical_block_stride": 2
+  "physical_block_stride": 2,
+  "global_recovery_after_tag": "</local>"
 }
