@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | A | **global 退化路径** vs 原版 | 同 prompt、同消费 prefix、同配置下逐 token 与逐张量比较 | 已由四臂完成：原版两轮 136 对、候选 vs 原版 272 对张量**逐元素相同**（max_abs=0）|
 | B | **masked attention**（候选本步真实 Q + canonical K/V + **独立可见集合**）vs **dense masked 参考** | 逐元素绝对误差 / RMS / 相对 L2 | 这是 masked 的**主判据**：参考必须自己按原始 span 与位置算出可见集合，**不得**调用候选的筛选 helper 或压缩块表 |
-| C | masked **端到端 logits** vs global 原版 logits | **不可**判为实现错 | 可见集合不同 ⇒ 数值本就不同；只有当需要验证"全模型等价"时才另立独立参考执行 |
+| C | **masked 端到端 logits vs 独立 masked 参考** | 在同一固定 token 轨迹上,用独立 mask 构造的 dense 参考传播各层隐含状态与 GDN 后比较 logits | **属既有 P2 范围(contract §5.2 已含必要 logits 验证),不另立项**;与 global 原版 logits 的差异**仅作排除项/方向性观察**,**不用于判实现错**(可见集合不同,数值本就不同) |
 
 **若**要校验 C（masked 端到端 logits），最小可行方案必须说明**独立参考执行**如何在同一固定 token 轨迹上传播：
 逐层隐藏状态由 mask 后的 attention 输出驱动、**GDN/Mamba 状态**按 canonical 写路径推进（不因 mask 改变写槽与原位置）。
@@ -52,9 +52,9 @@
   全部 finite（`non_finite = 0`）；报告含 `definitions` 公式与 `rel_err_is_allclose_rtol=false`；**无任何阈值判定**。
   **去重后（74 唯一）**：prefill `rel_l2_out` max **2.13574e-3**；decode `rel_l2_out` max **1.74387e-3**（中位见 dedup 文件）。
   本表数值是 **global 量级诊断**，**不是** masked 阈值依据。
-  **可提的候选（仅建议、未冻结、供用户决定）**：以实测最大值为参照，`rel_l2_out` 的候选量级约 **2e-3**（来自 **global** 对照）；
-  上游同类先例（`test_mm_prefix.py`，bf16 vs 独立 FP32 dense）用 **atol=rtol=2e-2**，属**逐元素 allclose**口径、与本表的 `rel_l2` **不同量纲**，不可直接换算。
-  **但**该 2e-3 是"global vs 原版/FP32 参考"的观测，**不能**直接充当 masked 的容差；masked 需自己的有界校准（见下）。
+- **本轮不给数值候选区间、也不给候选量级**（统一口径）：上表最大值只是 **global 量级观测**,**不是候选、不是参考阈值**,不得被引用为 masked 容差。
+  上游同类先例（`test_mm_prefix.py`,bf16-FA vs 独立 FP32 dense）用 **atol=rtol=2e-2**,属**逐元素 allclose** 口径,与本表 `rel_l2` **口径不同**,
+  只能作为"存在有界先例"的证据,**不能**由此推出本项目的任何候选值。
 - **本轮不给数值候选区间**（更正前一版）：此前的 `out_l2 ≈ 5` 无来源，且 `1e-3~3e-3` 无依据 —— 撤回。
   已有事实（来自 `oracle-original-3a.json` 的 decode 逐比较 `out_norm`）：**中位 46.6、最大 401.7**（对应上表 `ref_l2` 量级），说明输出幅度分位跨度很大，
   不能用一个量级去反推容差。**候选区间必须等"代表点结果 + 上游断言方式核对"完成后再提**，且届时仍只作**建议**交用户决定；
