@@ -30,6 +30,9 @@ def load_runner():
 
 
 class BoundedCaptureTest(unittest.TestCase):
+    PROMPT = 6
+    DECODES = 28
+
     @classmethod
     def setUpClass(cls):
         cls.r = load_runner()
@@ -38,7 +41,8 @@ class BoundedCaptureTest(unittest.TestCase):
     def make_capture(self, *, bounded: bool, representative=(8,)):
         c = self.LC.__new__(self.LC)
         c._active, c._step_open, c.armed_req_id = True, True, "req"
-        c.records, c.marks, c._step_metadata = {1: {}, 7: {}, 8: {}}, {}, None
+        c.records = {s: {} for s in range(1, 30)}
+        c.marks, c._step_metadata = {}, None
         c.scales, c.layer_names = {0: 0.0625}, {0: "L0"}
         c.positions = {1: {"positions": list(range(4)), "q_len": 4}, 7: {"positions": [8000], "q_len": 1}, 8: {"positions": [8001], "q_len": 1}}
         c.bounded_capture = bounded
@@ -51,21 +55,51 @@ class BoundedCaptureTest(unittest.TestCase):
         q = torch.zeros(q_len, 2, 8, dtype=torch.float32)
         c._record(0, q, q.clone(), q.clone(), q.clone(), None)
 
-    def test_bounded_keeps_kv_and_positions_but_drops_q_out(self):
-        c = self.make_capture(bounded=True, representative=(8,))
-        for step, q_len in ((1, 4), (7, 1), (8, 1)):
-            self.feed(c, step=step, q_len=q_len)
-        a1, a7, a8 = c.step_arrays(1), c.step_arrays(7), c.step_arrays(8)
+    def test_default_config_exports_exactly_representative_decodes(self):
+        """**默认配置**(REPRESENTATIVE_DECODES=6/7/20/25)+ 连续 prefill=1..decode=28:导出恰好这 4 个 decode 的 Q/out。"""
+        c = self.make_capture(bounded=True, representative=self.r.REPRESENTATIVE_DECODES)
+        c.positions = {s: {"positions": [self.PROMPT + s - 2] if s > 1 else list(range(self.PROMPT)),
+                           "q_len": 1 if s > 1 else self.PROMPT} for s in range(1, self.DECODES + 2)}
+        for step in range(1, self.DECODES + 2):
+            self.feed(c, step=step, q_len=1 if step > 1 else self.PROMPT)
+        q_steps, out_steps = set(), set()
+        for step in range(2, self.DECODES + 2):
+            arr = c.step_arrays(step)
+            if f"decode_q_step{step - 1}_L0" in arr:
+                q_steps.add(step - 1)
+            if f"decode_out_step{step - 1}_L0" in arr:
+                out_steps.add(step - 1)
+            self.assertIn(f"k_current_step{step - 1}_L0", arr)      # 每次 decode 都保留 KV
+            self.assertIn(f"decode_pos_step{step - 1}", arr)        # 所有步都留位置
+        self.assertEqual(q_steps, {6, 7, 20, 25})                   # 与默认代表 decode 序号一致
+        self.assertEqual(out_steps, {6, 7, 20, 25})
+        a1 = c.step_arrays(1)
         self.assertIn("k_prefill_L0", a1)
-        self.assertIn("v_prefill_L0", a1)
-        self.assertNotIn("q_step1_L0", a1)              # bounded:不保存 prefill Q/out
+        self.assertNotIn("q_step1_L0", a1)                          # bounded:prefill Q/out 不保存
         self.assertNotIn("out_step1_L0", a1)
-        self.assertIn("k_current_step6_L0", a7)          # 每次 decode 追加 KV
-        self.assertNotIn("decode_q_step6_L0", a7)        # 非代表点:不保存 Q/out
-        self.assertIn("decode_q_step7_L0", a8)           # 代表点:保存 Q/out
-        self.assertIn("decode_out_step7_L0", a8)
-        for arr, key in ((a1, "positions_step1"), (a7, "decode_pos_step6"), (a8, "decode_pos_step7")):
-            self.assertIn(key, arr)                      # 所有步都留位置证据
+
+    def test_byte_budget_is_exact(self):
+        """精确核对导出字节 = prefill KV**一次** + 各 decode 追加 KV + 仅代表点 Q/out(不再只看非零)。"""
+        import numpy as np
+        c = self.make_capture(bounded=True, representative=self.r.REPRESENTATIVE_DECODES)
+        c.positions = {s: {"positions": [self.PROMPT + s - 2] if s > 1 else list(range(self.PROMPT)),
+                           "q_len": 1 if s > 1 else self.PROMPT} for s in range(1, self.DECODES + 2)}
+        for step in range(1, self.DECODES + 2):
+            self.feed(c, step=step, q_len=1 if step > 1 else self.PROMPT)
+        total = {}
+        for step in range(1, self.DECODES + 2):
+            for k, v in c.step_arrays(step).items():
+                total[k] = int(np.asarray(v).nbytes)
+        kv_bytes = total["k_prefill_L0"] + total["v_prefill_L0"] + sum(
+            total[f"k_current_step{i}_L0"] + total[f"v_current_step{i}_L0"] for i in range(1, self.DECODES + 1))
+        qout_bytes = sum(total.get(f"decode_q_step{i}_L0", 0) + total.get(f"decode_out_step{i}_L0", 0)
+                         for i in range(1, self.DECODES + 1))
+        pos_bytes = total["positions_step1"] + sum(total[f"decode_pos_step{i}"] for i in range(1, self.DECODES + 1))
+        self.assertEqual(qout_bytes, sum(total[f"decode_q_step{i}_L0"] + total[f"decode_out_step{i}_L0"]
+                                        for i in (6, 7, 20, 25)))
+        self.assertGreater(kv_bytes, 0)
+        self.assertGreater(pos_bytes, 0)
+        self.assertGreater(qout_bytes, 0)
 
     def test_bounded_scalars_recorded_even_without_tensors(self):
         c = self.make_capture(bounded=True, representative=())
@@ -84,10 +118,13 @@ class BoundedCaptureTest(unittest.TestCase):
         self.assertIn("q_step1_L0", a1)
         self.assertIn("out_step1_L0", a1)
 
-    def test_dump_capture_reports_bytes_without_q_out(self):
-        c = self.make_capture(bounded=True, representative=(8,))
-        for step, q_len in ((1, 4), (7, 1), (8, 1)):
-            self.feed(c, step=step, q_len=q_len)
+    def test_dump_capture_reports_bytes_without_prefill_q_out(self):
+        """默认代表点下 dump 成功:无 prefill Q/out,但代表 decode 的 Q/out 与全部位置键齐备。"""
+        c = self.make_capture(bounded=True, representative=self.r.REPRESENTATIVE_DECODES)
+        c.positions = {s: {"positions": [self.PROMPT + s - 2] if s > 1 else list(range(self.PROMPT)),
+                           "q_len": 1 if s > 1 else self.PROMPT} for s in range(1, self.DECODES + 2)}
+        for step in range(1, self.DECODES + 2):
+            self.feed(c, step=step, q_len=1 if step > 1 else self.PROMPT)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cap.npz"
             self.r.dump_capture(c, path)
@@ -96,6 +133,7 @@ class BoundedCaptureTest(unittest.TestCase):
                 keys = set(z.files)
                 self.assertIn("positions_step1", keys)
                 self.assertIn("decode_pos_step6", keys)
+                self.assertIn("decode_q_step6_L0", keys)
                 self.assertNotIn("q_step1_L0", keys)
                 total = sum(int(z[k].nbytes) for k in z.files)
             self.assertGreater(total, 0)

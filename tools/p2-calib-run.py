@@ -711,8 +711,11 @@ class LayerCapture:
         }
         bounded = bool(getattr(self, "bounded_capture", False))
         step = int(self.request_step)
-        keep_q_out = (not bounded) or (step in set(getattr(self, "representative_decodes", ()) or ()))
-        keep_kv = (not bounded) or (step == 1) or True   # prefill KV 一次 + 每 decode 追加 KV
+        # 代表点是 **decode 序号**(= step - 1,与 step_arrays 的 decode_index 一致),且只对 decode(step>1) 生效;
+        # 用 step 直接匹配会错位一位(保存 decode 5/6/19/24 而漏掉 6/7/20/25)。
+        representative = set(getattr(self, "representative_decodes", ()) or ())
+        keep_q_out = (not bounded) or (step > 1 and (step - 1) in representative)
+        keep_kv = True   # 本步 KV 始终保留:prefill 一次 + 每 decode 追加
         rec: dict = {
             "device_dtype": str(query.dtype),
             "scale": self.scales[index],
@@ -1050,7 +1053,11 @@ def dump_capture(capture: LayerCapture, path: Path) -> None:
                    if "k" in rec), None)
     if kv_rec is None:
         raise RuntimeError("校准: 捕获里没有任何 K/V(至少需要 prefill 的 canonical KV)")
-    num_heads = int(q_rec["q"].shape[1]) if q_rec is not None else None
+    if q_rec is None:
+        raise RuntimeError(
+            "校准: 捕获里没有任何 Q(代表点未保存 Q/out)⇒ 无法给出 head 几何与参考;"
+            "bounded 模式必须至少保留代表 decode 的 Q/out")
+    num_heads = int(q_rec["q"].shape[1])
     head_dim = int((q_rec or kv_rec)["q" if q_rec is not None else "k"].shape[2])
     num_kv_heads = int(kv_rec["k"].shape[1])
     scales = {round(float(rec["scale"]), 12) for step in capture.records for rec in capture.records[step].values()}
