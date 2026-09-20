@@ -43,8 +43,9 @@ BLOCK = 784
 
 
 def unified_attention_with_output_stub(impl, *, output, **kwargs):
-    """生产接线的等价模拟:调用 impl.forward 后**忽略其返回值**,继续用原 output 缓冲。"""
-    impl.forward(**kwargs)
+    """生产接线的等价模拟:`output` 缓冲作为参数传入 impl.forward;其**返回值被忽略**,
+    调用方继续消费原 `output` 缓冲(pin 98dff2a8 的 `unified_attention_with_output` 行为)。"""
+    impl.forward(output=output, **kwargs)
     return output
 
 
