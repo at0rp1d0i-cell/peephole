@@ -1,0 +1,33 @@
+{
+  "time": "2026-09-18T15:41:38.823518+08:00",
+  "rows": [
+    {
+      "run": "run-disabled-5",
+      "manifest_sha256": "5cf9576262d835221b9fae726b0d6921811af0910c71980f999bce3e0ff5b400",
+      "head": "757edddb3d26ab130634dc487b3ac494e8fa9d68",
+      "exit_code": 0,
+      "failures": [],
+      "all_checks": true,
+      "cleanup_ok": true,
+      "source_unchanged": true,
+      "capture_sha256": "e60ec7d1be13895e2e157d281db98fce3e1cb822dccb27b3fea9f1f2e1437008",
+      "capture_equal_to_v4": true,
+      "logit_count": 8,
+      "logits_equal_to_original": true
+    },
+    {
+      "run": "run-global-5",
+      "manifest_sha256": "ba12082e1051376fd076fa0fc7bfafa361f3e87a8d1cb9be35ca01b900cb1a06",
+      "head": "757edddb3d26ab130634dc487b3ac494e8fa9d68",
+      "exit_code": 0,
+      "failures": [],
+      "all_checks": true,
+      "cleanup_ok": true,
+      "source_unchanged": true,
+      "capture_sha256": "e60ec7d1be13895e2e157d281db98fce3e1cb822dccb27b3fea9f1f2e1437008",
+      "capture_equal_to_v4": true,
+      "logit_count": 8,
+      "logits_equal_to_original": true
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "no_op_engine_cleanup_ok": true,
+  "no_op_events_count": 30,
+  "warmup_binding": {
+    "bound": "warmup-request",
+    "warmup_sample": [
+      [
+        42
+      ]
+    ],
+    "real_sample": [
+      [
+        6
+      ]
+    ],
+    "real_was_forced": false
+  }
+}

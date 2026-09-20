@@ -1,0 +1,10 @@
+{
+  "head": "a208ed0b84f8d41d23716d703fea75b0d91c7f2c",
+  "time_utc": "2026-09-18T05:36:59.751416+00:00",
+  "observations": {
+    "revert_exit": 0,
+    "unknown_target_preserved": true,
+    "stdout": "撤销完成：26 个目标已恢复/删除，指纹已校验（1 个外部对象被保留）\n",
+    "stderr": "事务未完成（state=applying）：只处理本事务实际写过的对象\npreserved: venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu_worker.py（写入后被外部改动）\n"
+  }
+}

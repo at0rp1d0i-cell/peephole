@@ -1,0 +1,44 @@
+{
+  "time": "2026-09-18T15:22:21.295063+08:00",
+  "head": "cb57a5d710636e38189f66bb1f5cff0491eadbf5",
+  "source_sha256": "ff3de651aa318f75fcd75007c7ca417609c6d0b6d97cf3f5c3ed551731f78abf",
+  "source_state": "in-progress worktree, not frozen run",
+  "function_source": "def _merge_step_tokens(seen: list[int], row_token_ids) -> tuple[list[int], str]:\n    \"\"\"把一轮输出行并入 `seen`，返回 (新增 token, 本轮形态)。\n\n    兼容 DELTA 与 CUMULATIVE：若本轮行比已见的更长**且**前缀与 `seen` 完全一致，则视为累计，\n    只取新增后缀；否则按增量整段采纳。判据用 `len(incoming) > len(seen)`，避免\"新 token 恰好等于\n    已见序列\"时把增量误判成累计。\n    \"\"\"\n    incoming = [int(t) for t in row_token_ids]\n    if len(incoming) > len(seen) and incoming[: len(seen)] == seen:\n        return incoming[len(seen):], \"cumulative_prefix_matched\"\n    return incoming, \"delta\"",
+  "checks": [
+    {
+      "name": "delta_repeated_prefix",
+      "seen": [
+        11
+      ],
+      "incoming": [
+        11,
+        12
+      ],
+      "expected_fresh": [
+        11,
+        12
+      ],
+      "actual_fresh": [
+        12
+      ],
+      "meets_contract": false
+    },
+    {
+      "name": "cumulative_terminal_duplicate",
+      "seen": [
+        11,
+        12
+      ],
+      "incoming": [
+        11,
+        12
+      ],
+      "expected_fresh": [],
+      "actual_fresh": [
+        11,
+        12
+      ],
+      "meets_contract": false
+    }
+  ]
+}

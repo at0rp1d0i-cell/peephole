@@ -1,0 +1,41 @@
+{
+  "reviewed_head": "fc593203c9f03fad435cc28aa8cae7a02ee68599",
+  "time_utc": "2026-09-18T05:21:09.937942+00:00",
+  "observations": {
+    "config_cache_allows_second_unsupported": true,
+    "enforce_global_still_masked": "local",
+    "preempted_still_alive": {
+      "result": {
+        "parsed": {
+          "r1": 0
+        },
+        "cancelled": [],
+        "preempted": []
+      },
+      "active": [
+        "r1"
+      ]
+    },
+    "first_step_finished_is_unparsed": {
+      "result": {
+        "parsed": {},
+        "cancelled": [],
+        "preempted": []
+      },
+      "traces": []
+    },
+    "derive_geometry_only_manager": {
+      "kernel_block_size": 784,
+      "num_kv_groups": 4,
+      "fa_group_index": 3,
+      "blocks_per_kv_block": 1,
+      "max_model_len": 8192
+    },
+    "deployment_copy_exception": {
+      "exception": "OSError('injected second deployment copy failure')",
+      "changed_targets": 1,
+      "journal_state": "applying",
+      "normal_revert_exit": 7
+    }
+  }
+}

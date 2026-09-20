@@ -1,0 +1,72 @@
+{
+  "time": "2026-09-18T15:24:14.974975+08:00",
+  "head": "cb57a5d710636e38189f66bb1f5cff0491eadbf5",
+  "source_sha256": "8758db24e91e6ce6ff89af372ae9b6fbb5fa391bab86633b0bc3e9eb763cf2e3",
+  "source_state": "in-progress worktree, isolated functions only",
+  "checks": [
+    {
+      "name": "delta_prefix",
+      "actual": [
+        11,
+        12
+      ],
+      "expected": [
+        11,
+        12
+      ],
+      "pass_": true
+    },
+    {
+      "name": "cumulative_equal",
+      "actual": [],
+      "expected": [],
+      "pass_": true
+    },
+    {
+      "name": "cumulative_suffix",
+      "actual": [
+        12
+      ],
+      "expected": [
+        12
+      ],
+      "pass_": true
+    },
+    {
+      "name": "shrink",
+      "pass_": true
+    },
+    {
+      "name": "mismatch",
+      "pass_": true
+    },
+    {
+      "name": "valid_larger_capacity",
+      "actual": [
+        9,
+        10
+      ],
+      "pass_": true
+    },
+    {
+      "name": "missing",
+      "actual": "校准: 本步 InputBatch.num_tokens 缺失或非正（num_tokens=None buffer_len=5 q_len=2）—— 不得用 q_len 回退",
+      "pass_": true
+    },
+    {
+      "name": "zero",
+      "actual": "校准: 本步 InputBatch.num_tokens 缺失或非正（num_tokens=0 buffer_len=5 q_len=2）—— 不得用 q_len 回退",
+      "pass_": true
+    },
+    {
+      "name": "mismatch",
+      "actual": "校准: 本步 token 数不一致（num_tokens=1 buffer_len=5 q_len=2）—— 拒绝取 max 或回退，请核查位置来源",
+      "pass_": true
+    },
+    {
+      "name": "short_buffer",
+      "actual": "校准: 逻辑位置缓冲不足以覆盖本步 token（num_tokens=2 buffer_len=1 q_len=2）",
+      "pass_": true
+    }
+  ]
+}
