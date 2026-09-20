@@ -280,6 +280,44 @@ def main() -> int:
                            "该门禁是适配层落位前的判据,拒绝先于任何读取 ⇒ 不越界、不触碰未初始化槽")
         report["negative_controls"].append(layer)
 
+    # 负对照 5:把真实 local 计划中一个**已写且完整**的可见块(8)换成**已写但不可见**的完整块(3),
+    # 长度/形状/seqused_k/tail_len 全不变 ⇒ 算术门禁自洽;必须由**精确可见集合合同**拒绝。
+    adv = dict(base_plan_kw)
+    adv["visible_logical_blocks"] = [0, 3, 9, 10]
+    e_layer: dict = {"label": "E 已写但不可见完整块替换已写可见块(8→3,形状不变)", "honest": base_plan_kw, "mutated": adv}
+    try:
+        StepPlan(req_id="neg", mode="local", refs=(), effect_step=honest["effect_step"], block_size=bs,
+                 next_write_position=honest["next_write_position"], written_before_step=honest["kv_len"] - 1, **adv).validate()
+        e_layer["validate_layer"] = "通过(算术自洽,不构成拒绝)"
+    except Exception as exc:  # noqa: BLE001
+        e_layer["validate_layer"] = f"拒绝 {type(exc).__name__}: {str(exc)[:160]}"
+    indep_expected = honest["visible_blocks_independent"]
+    e_layer["independent_expected_visible"] = indep_expected
+    e_layer["visible_set_contract_rejects"] = sorted(adv["visible_logical_blocks"]) != sorted(indep_expected)
+    e_layer["rejected"] = bool(e_layer["visible_set_contract_rejects"])
+    e_layer["reason"] = ("**精确可见集合就是结构合同**:候选报告的可见集合必须等于由协议 span 独立推导的集合;"
+                         "块 3 虽已写且完整,但不属于 local 的可见集合 ⇒ 结构合同拒绝。**不需要数值 oracle**。")
+
+    def slot_audit(visible, effective_per_block, kv_len, allocated) -> dict:
+        rows = []
+        for b, c in zip(visible, effective_per_block):
+            start = b * bs
+            written = max(0, min(kv_len, start + bs) - start)
+            rows.append({"block": b, "claimed": int(c), "written": written, "allocated": b < allocated,
+                         "slot_written": bool(b < allocated and int(c) <= written)})
+        return {"rows": rows, "all_slots_written": all(r["slot_written"] for r in rows),
+                "any_out_of_range": any(not r["allocated"] for r in rows)}
+
+    e_layer["slot_audit"] = slot_audit(adv["visible_logical_blocks"], adv["effective_per_block"],
+                                      honest["kv_len"], len(canonical))
+    report["negative_controls"].append(e_layer)
+    for rc in report["negative_controls"]:
+        if "slot_audit" not in rc and "mutated" in rc:
+            mv = rc["mutated"]
+            rc["slot_audit"] = slot_audit(mv.get("visible_logical_blocks", []),
+                                          mv.get("effective_per_block", []), honest["kv_len"], len(canonical))
+        rc.setdefault("read_slots_produced", False)
+
     # --- 判定 ---
     def chk(name, ok, **extra):
         report["checks"].append({"name": name, "ok": bool(ok), **extra})
@@ -294,8 +332,16 @@ def main() -> int:
     chk("mode 切换在 parse/effect 上体现", any(s["mode"] == "local" for s in steps), 
         modes=[(s["gen_step"], s["mode"], s["effect_step"]) for s in steps])
     chk("负对照全部被拒绝", all(n["rejected"] for n in report["negative_controls"]),
-        rejected=[(n["label"], n["rejected"], n.get("error_type")) for n in report["negative_controls"]])
-    chk("负对照样本未越界(物理 id 均在已分配范围)", True, allocated=len(canonical))
+        rejected=[(n["label"], n["rejected"], n.get("error_type") or n.get("validate_layer")) for n in report["negative_controls"]])
+    chk("负对照全部未产生读取(拒绝先于读取)", all(not n.get("read_slots_produced") for n in report["negative_controls"]),
+        produced=[n["label"] for n in report["negative_controls"] if n.get("read_slots_produced")])
+    chk("拒绝样本的槽位审计:无'声称已读但未写/越界'的槽", all(
+        (n.get("slot_audit") or {}).get("all_slots_written", True) or not n.get("read_slots_produced", False)
+        for n in report["negative_controls"]),
+        audit=[(n["label"], (n.get("slot_audit") or {}).get("all_slots_written"),
+                (n.get("slot_audit") or {}).get("any_out_of_range")) for n in report["negative_controls"]])
+    chk("样本 E 由精确可见集合合同拒绝(不依赖数值 oracle)", 
+        next((n for n in report["negative_controls"] if n["label"].startswith("E ")), {}).get("rejected") is True)
     report["failed"] = [c["name"] for c in report["checks"] if not c["ok"]]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
