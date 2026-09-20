@@ -142,3 +142,58 @@ class BoundedCaptureTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BoundedCaptureLifecycleTest(unittest.TestCase):
+    """**完整生命周期**用例:复用既有 `LayerCaptureTest._armed`/`FakeModel`/`FakeRunner`,
+    真实执行 `_begin_step`/`_end_step`(由 `wrap_model` 自动触发),不再用 `__new__` + 手填 positions。"""
+
+    PROMPT = 8
+    DECODES = 28
+
+    def setUp(self):
+        from tests.test_p2_calib_hooks import FakeFlashAttentionImpl, FakeModel, LayerCaptureTest
+        self._h = LayerCaptureTest("test_steps_layers_positions_and_metadata_are_real")
+        self._h.setUp()
+        self.addCleanup(self._h.tearDown)
+        self.r = load_runner()
+        self.helpers = (FakeFlashAttentionImpl, FakeModel)
+
+    def _run_lifecycle(self):
+        FakeFlashAttentionImpl, FakeModel = self.helpers
+        impls = [FakeFlashAttentionImpl()]
+        model = FakeModel(impls, prompt_len=self.PROMPT)
+        capture, runner = self._h._armed(model, impls, prompt_len=self.PROMPT)
+        self.r.configure_bounded_capture(capture, "patched-masked")
+        runner.next_step(list(range(self.PROMPT)))
+        model.forward(positions=torch.arange(self.PROMPT, dtype=torch.int64))
+        for i in range(1, self.DECODES + 1):
+            runner.next_step([self.PROMPT + i - 1])
+            model.forward(positions=torch.tensor([self.PROMPT + i - 1], dtype=torch.int64))
+        capture.disarm()
+        return capture
+
+    def test_end_step_produces_positions_for_all_steps(self):
+        capture = self._run_lifecycle()
+        self.assertEqual(sorted(capture.positions), list(range(1, self.DECODES + 2)),
+                         "prefill + 28 个 decode 都必须由 _end_step 产出位置证据")
+        self.assertEqual(int(capture.positions[1]["q_len"]), self.PROMPT)
+        self.assertTrue(all(int(capture.positions[s]["q_len"]) == 1 for s in range(2, self.DECODES + 2)))
+        self.assertTrue(capture.logical_positions_source, "位置来源必须是真实 runner 证据(非空)")
+
+    def test_exports_exactly_default_representative_decodes(self):
+        capture = self._run_lifecycle()
+        q_steps, out_steps = set(), set()
+        for step in range(2, self.DECODES + 2):
+            arr = capture.step_arrays(step)
+            if f"decode_q_step{step - 1}_L0" in arr:
+                q_steps.add(step - 1)
+            if f"decode_out_step{step - 1}_L0" in arr:
+                out_steps.add(step - 1)
+            self.assertIn(f"k_current_step{step - 1}_L0", arr)
+            self.assertIn(f"decode_pos_step{step - 1}", arr)
+        self.assertEqual(q_steps, {6, 7, 20, 25})
+        self.assertEqual(out_steps, {6, 7, 20, 25})
+        a1 = capture.step_arrays(1)
+        self.assertIn("k_prefill_L0", a1)
+        self.assertNotIn("q_step1_L0", a1)
