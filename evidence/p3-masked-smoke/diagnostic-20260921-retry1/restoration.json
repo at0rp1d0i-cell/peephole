@@ -1,0 +1,108 @@
+{
+  "deployment_fingerprint_original": {
+    "arm": "original",
+    "installed_root": "/root/autodl-tmp/attnview/venvs/attnview/lib/python3.12/site-packages/vllm",
+    "pin_root": "/root/autodl-tmp/attnview/vllm/vllm",
+    "patch_root": "/root/autodl-tmp/attnview/vllm-patch",
+    "patch_manifest_generated_cst": "2026-09-21 01:14:12 +0800",
+    "patch_manifest_pin_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+    "pin_checkout_commit": "98dff2a81d747d1dba01a47f939f48c3526d4206",
+    "expectation": "original\uff1ainstalled == checkout == manifest.pre\uff08\u672a\u90e8\u7f72\uff09",
+    "edited": {
+      "v1/core/sched/output.py": {
+        "installed_sha256": "41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525",
+        "checkout_sha256": "41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525",
+        "patch_tree_sha256": "75451f403e99734d81e03cb36185b60a00ef4d9264bdc4b8e730713c055676a3",
+        "manifest_pre_sha256": "41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525",
+        "manifest_post_sha256": "75451f403e99734d81e03cb36185b60a00ef4d9264bdc4b8e730713c055676a3",
+        "expected_for_arm": "41cf5780a013a0c731a0409836ad635d1c84a6aad706ad4e68e189d4a6eaf525",
+        "checkout_checked": true
+      },
+      "v1/engine/core.py": {
+        "installed_sha256": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
+        "checkout_sha256": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
+        "patch_tree_sha256": "ec88921f7f5831ad9874af70a6816e90bc6de05de766831dc993fd9d19328846",
+        "manifest_pre_sha256": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
+        "manifest_post_sha256": "ec88921f7f5831ad9874af70a6816e90bc6de05de766831dc993fd9d19328846",
+        "expected_for_arm": "f990e260cebf0826d08cfd30955c0c7a85b9af00504841b91759ca5bc7b036f6",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/attn_utils.py": {
+        "installed_sha256": "55bb9f034bd91f09358ba405974a622b9fe5bfcc4834a6483f985a49a674915f",
+        "checkout_sha256": "55bb9f034bd91f09358ba405974a622b9fe5bfcc4834a6483f985a49a674915f",
+        "patch_tree_sha256": "7f9207e29af4372816a792a232d5dd04fb71c158e03d290218a1f0d51db0c279",
+        "manifest_pre_sha256": "55bb9f034bd91f09358ba405974a622b9fe5bfcc4834a6483f985a49a674915f",
+        "manifest_post_sha256": "7f9207e29af4372816a792a232d5dd04fb71c158e03d290218a1f0d51db0c279",
+        "expected_for_arm": "55bb9f034bd91f09358ba405974a622b9fe5bfcc4834a6483f985a49a674915f",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/model_runner.py": {
+        "installed_sha256": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
+        "checkout_sha256": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
+        "patch_tree_sha256": "c1ea4abb071b6f04274d87ee3a3667a9e44709a01ce7ba4e69a2038bde138590",
+        "manifest_pre_sha256": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
+        "manifest_post_sha256": "c1ea4abb071b6f04274d87ee3a3667a9e44709a01ce7ba4e69a2038bde138590",
+        "expected_for_arm": "d7bae5b05a2a9f02c1ba29f0b4b32434cee43c3b369d3985505d3f8ed89b461b",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/model_states/default.py": {
+        "installed_sha256": "12a3fb5601f596b93e6d0a6350b3e231005519ccdf3393a42dfd088bb6c379bb",
+        "checkout_sha256": "12a3fb5601f596b93e6d0a6350b3e231005519ccdf3393a42dfd088bb6c379bb",
+        "patch_tree_sha256": "c51b987ed4cc30f88746647770c44cd6a969b89327c041c0550913109ae41e87",
+        "manifest_pre_sha256": "12a3fb5601f596b93e6d0a6350b3e231005519ccdf3393a42dfd088bb6c379bb",
+        "manifest_post_sha256": "c51b987ed4cc30f88746647770c44cd6a969b89327c041c0550913109ae41e87",
+        "expected_for_arm": "12a3fb5601f596b93e6d0a6350b3e231005519ccdf3393a42dfd088bb6c379bb",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/model_states/interface.py": {
+        "installed_sha256": "7476b6b287e5e6dae432f250e9212611459d57e4dbf582f732877839ef7ce544",
+        "checkout_sha256": "7476b6b287e5e6dae432f250e9212611459d57e4dbf582f732877839ef7ce544",
+        "patch_tree_sha256": "3b95c4f36455a7afcb20366b7503482fb5d60a03062d712cb8e65356073b9b05",
+        "manifest_pre_sha256": "7476b6b287e5e6dae432f250e9212611459d57e4dbf582f732877839ef7ce544",
+        "manifest_post_sha256": "3b95c4f36455a7afcb20366b7503482fb5d60a03062d712cb8e65356073b9b05",
+        "expected_for_arm": "7476b6b287e5e6dae432f250e9212611459d57e4dbf582f732877839ef7ce544",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/model_states/mamba_hybrid.py": {
+        "installed_sha256": "13fad849778315c9f18aff31cf67290a06320ee071ef5c24143076b4c952282d",
+        "checkout_sha256": "13fad849778315c9f18aff31cf67290a06320ee071ef5c24143076b4c952282d",
+        "patch_tree_sha256": "114f711553b3eb22b71537a6ffea513a2ff1d368514d1ec64deb1719b575aeab",
+        "manifest_pre_sha256": "13fad849778315c9f18aff31cf67290a06320ee071ef5c24143076b4c952282d",
+        "manifest_post_sha256": "114f711553b3eb22b71537a6ffea513a2ff1d368514d1ec64deb1719b575aeab",
+        "expected_for_arm": "13fad849778315c9f18aff31cf67290a06320ee071ef5c24143076b4c952282d",
+        "checkout_checked": true
+      },
+      "v1/worker/gpu_worker.py": {
+        "installed_sha256": "b0f39124f31ead3d2d20f1c6ac8696393c0ed6fed585ba8d31a4f7673e390407",
+        "checkout_sha256": "b0f39124f31ead3d2d20f1c6ac8696393c0ed6fed585ba8d31a4f7673e390407",
+        "patch_tree_sha256": "39a46650230cce702f7e15f9c410d3f0b2a7e118d269b478bcb91cafbbee5ed6",
+        "manifest_pre_sha256": "b0f39124f31ead3d2d20f1c6ac8696393c0ed6fed585ba8d31a4f7673e390407",
+        "manifest_post_sha256": "39a46650230cce702f7e15f9c410d3f0b2a7e118d269b478bcb91cafbbee5ed6",
+        "expected_for_arm": "b0f39124f31ead3d2d20f1c6ac8696393c0ed6fed585ba8d31a4f7673e390407",
+        "checkout_checked": true
+      }
+    },
+    "added": {
+      "v1/engine/attnview_engine.py": {
+        "installed_sha256": null,
+        "checkout_sha256": null,
+        "patch_tree_sha256": "9535196b0f68fbb136443451a62d6b275cc2d26b786becad852f8453ba20df2e",
+        "manifest_sha256": "9535196b0f68fbb136443451a62d6b275cc2d26b786becad852f8453ba20df2e",
+        "expected_for_arm": null,
+        "checkout_checked": true
+      },
+      "v1/worker/gpu/attnview_adapter.py": {
+        "installed_sha256": null,
+        "checkout_sha256": null,
+        "patch_tree_sha256": "b9cb95fa03c641be83fb9a346936799a430f2c94d45798c8c672b4d52a5729aa",
+        "manifest_sha256": "b9cb95fa03c641be83fb9a346936799a430f2c94d45798c8c672b4d52a5729aa",
+        "expected_for_arm": null,
+        "checkout_checked": true
+      }
+    }
+  },
+  "journal_remaining": false,
+  "orig_remaining": false,
+  "gpu_processes": "",
+  "gpu_memory": "0 MiB"
+}

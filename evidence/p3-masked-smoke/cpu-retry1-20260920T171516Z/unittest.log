@@ -1,0 +1,10 @@
+.................................................W0921 01:15:21.613000 136889 venvs/attnview/lib/python3.12/site-packages/torch/utils/cpp_extension.py:178] No CUDA runtime is found, using CUDA_HOME='/root/attnview/cuda'
+.............../root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+.....................................
+----------------------------------------------------------------------
+Ran 101 tests in 11.096s
+
+OK
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": []}
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": ["masked_structure"]}

@@ -1,0 +1,52 @@
+Traceback (most recent call last):
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 2698, in main
+    exit_code = _run(args, manifest, manifest_path, prompt, payload, prompt_ids, extra_args, arm_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 2310, in _run
+    drove = drive_main_request(engine, external_main_id, max_tokens=args.max_tokens,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/tools/p2-calib-run.py", line 1492, in drive_main_request
+    outputs = engine.step() or ()
+              ^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/llm_engine.py", line 307, in step
+    outputs = self.engine_core.get_output()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 320, in get_output
+    outputs, model_executed = self.engine_core.step_fn()
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 626, in step
+    future = self.model_executor.execute_model(scheduler_output, non_block=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 131, in execute_model
+    output.result()
+  File "/root/autodl-tmp/attnview/pythons/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/attnview/pythons/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 109, in collective_rpc
+    result = run_method(self.driver_worker, method, args, kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/worker_base.py", line 375, in execute_model
+    return self.worker.execute_model(scheduler_output)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu_worker.py", line 1170, in execute_model
+    output = self.model_runner.execute_model(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/model_runner.py", line 1666, in execute_model
+    attnview_adapter.fa_override_for_step(
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/attnview_adapter.py", line 749, in fa_override_for_step
+    calibration_note_override(
+  File "/root/attnview/venvs/attnview/lib/python3.12/site-packages/vllm/v1/worker/gpu/attnview_adapter.py", line 265, in calibration_note_override
+    "version": int(getattr(t, "_version", -1)),
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Inference tensors do not track version counter.

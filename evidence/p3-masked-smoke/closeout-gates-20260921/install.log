@@ -1,0 +1,7 @@
+Using Python 3.12.13 environment at: /root/attnview/venvs/attnview
+Resolved 5 packages in 632ms
+Prepared 3 packages in 86ms
+Installed 3 packages in 9ms
+ + iniconfig==2.3.0
+ + pluggy==1.6.0
+ + pytest==9.0.2

@@ -1,0 +1,11 @@
+仓库 /root/autodl-tmp/attnview
+扫描 456 个文本文件；规则集 3/6 条（默认三条：主机名 / GPU UUID / 协调目录）；模式 check
+
+规则命中汇总（文件 / 规则 / 次数）
+FILE                                                             RULE                    N  LINES
+
+规则小计（只打印计数与去重个数，不打印原值）
+
+合计 0 处 / 0 个文件
+
+[check] 0 命中

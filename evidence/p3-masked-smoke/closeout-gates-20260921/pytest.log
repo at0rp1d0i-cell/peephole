@@ -1,0 +1,12 @@
+.......................................... [ 12%]
+.................................................................. [ 31%]
+........................................................... [ 49%]
+................................................................................................................. [ 82%]
+............................................................             [100%]
+=============================== warnings summary ===============================
+tests/test_p2_adapter_override.py: 14 warnings
+  /root/attnview/venvs/attnview/lib/python3.12/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+340 passed, 14 warnings, 152 subtests passed in 36.67s

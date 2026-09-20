@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES= python -m unittest tests.test_p2_calib_hooks tests.test_p2_smoke_structure tests.test_p2_adapter_override tests.test_p2_patch_layout tests.test_p2_committed_state

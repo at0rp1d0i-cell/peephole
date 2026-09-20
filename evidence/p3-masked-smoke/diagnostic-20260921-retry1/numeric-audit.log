@@ -1,0 +1,14 @@
+{
+  "candidate_vs_fp32": {
+    "max_abs": 0.12401580810546875,
+    "rms": 0.008478797972202301,
+    "relative_l2": 0.0018260934157297015,
+    "nonfinite": 0
+  },
+  "candidate_vs_bf16_reference": {
+    "max_abs": 0.125,
+    "rms": 0.006123007275164127,
+    "relative_l2": 0.0014283563941717148,
+    "nonfinite": 0
+  }
+}

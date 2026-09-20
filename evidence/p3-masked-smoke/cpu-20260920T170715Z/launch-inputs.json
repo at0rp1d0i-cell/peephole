@@ -1,0 +1,20 @@
+{
+  "head": "bfa728a05c9e69223d2269524ed53c6a2c12ad1c",
+  "hashes": {
+    "src/attnview/smoke_structure.py": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+    "tools/p2-calib-run.py": "8ba523146a36d7d1ea655db5786c424afa73a9af839bf9a7b8844de0fcad4fef",
+    "tools/p2-masked-smoke-run.py": "68c134e16cde1c748e06cee0a4a26275e29533c2d56b224a1f71c661a7850ed1",
+    "tests/test_p2_smoke_structure.py": "4921a045eca6395b2a554304c00dcffbcb00c390417e2df482af4845dc0165c3",
+    "configs/p2-masked-smoke/diagnostic.json": "a5b0eb0a314be81b2bce7cc82b947a6d1568584e4f3a06ffb836297086e52631",
+    "vllm-patch/manifest.json": "ec81c1c70a9e03130a9c0b579df6518485885a0b4c1f38e5bdf61d26bcf3defb",
+    "evidence/p1-cpu/demo-fixtures.json": "97dd1a4834dac8c1b58be8e8f6746723b71d64179e595807657758b9132182a1",
+    "evidence/p3-calib/masked-prep/crossblock-note.json": "ca842c58579d63cb40e623e7cf0628b986b7c21f669afb17653c30d3c1c6e921",
+    "configs/p2-masked-prep/crossblock.json": "ba9450fd544068cd8841ede9f41fca595aef69e1fc6773fde01494402588519a",
+    "evidence/p3-masked-smoke/traj-7834-generated.json": "5b15d841fff0436a7714b52dbc36dd140270ded0eb3c9669d72f632cb6f549ea"
+  },
+  "sampled": 29,
+  "consumed": 28,
+  "fixed_tokens_match_declared_script": true,
+  "prompt_len": 7834,
+  "reference_hook_installed": false
+}

@@ -1,0 +1,8 @@
+................................................W0921 01:07:20.754000 132226 venvs/attnview/lib/python3.12/site-packages/torch/utils/cpp_extension.py:178] No CUDA runtime is found, using CUDA_HOME='/root/attnview/cuda'
+.....................................
+----------------------------------------------------------------------
+Ran 85 tests in 12.154s
+
+OK
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": []}
+{"arm": "patched-masked", "startup_s": 0.0, "request_s": 0.0, "steps": 29, "tokens": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "failures": ["masked_structure"]}

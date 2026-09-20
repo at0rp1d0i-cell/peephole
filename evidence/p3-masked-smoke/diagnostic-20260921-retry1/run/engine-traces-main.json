@@ -1,0 +1,741 @@
+[
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 0,
+    "effect_step": 1,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7834,
+    "attention_kv_len_next": 7835
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 1,
+    "effect_step": 2,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7835,
+    "attention_kv_len_next": 7836
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 2,
+    "effect_step": 3,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7836,
+    "attention_kv_len_next": 7837
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 3,
+    "effect_step": 4,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7837,
+    "attention_kv_len_next": 7838
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 4,
+    "effect_step": 5,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7838,
+    "attention_kv_len_next": 7839
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 5,
+    "effect_step": 6,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [
+      "transition"
+    ],
+    "written_after": 7839,
+    "attention_kv_len_next": 7840
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 6,
+    "effect_step": 7,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [],
+    "written_after": 7840,
+    "attention_kv_len_next": 7841
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 7,
+    "effect_step": 8,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [],
+    "written_after": 7841,
+    "attention_kv_len_next": 7842
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 8,
+    "effect_step": 9,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [],
+    "written_after": 7842,
+    "attention_kv_len_next": 7843
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 9,
+    "effect_step": 10,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [],
+    "written_after": 7843,
+    "attention_kv_len_next": 7844
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 10,
+    "effect_step": 11,
+    "applied_step": null,
+    "mode": "local",
+    "refs": [],
+    "events": [],
+    "written_after": 7844,
+    "attention_kv_len_next": 7845
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 11,
+    "effect_step": 12,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [
+      "transition"
+    ],
+    "written_after": 7845,
+    "attention_kv_len_next": 7846
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 12,
+    "effect_step": 13,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7846,
+    "attention_kv_len_next": 7847
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 13,
+    "effect_step": 14,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7847,
+    "attention_kv_len_next": 7848
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 14,
+    "effect_step": 15,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7848,
+    "attention_kv_len_next": 7849
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 15,
+    "effect_step": 16,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7849,
+    "attention_kv_len_next": 7850
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 16,
+    "effect_step": 17,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7850,
+    "attention_kv_len_next": 7851
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 17,
+    "effect_step": 18,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7851,
+    "attention_kv_len_next": 7852
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 18,
+    "effect_step": 19,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7852,
+    "attention_kv_len_next": 7853
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 19,
+    "effect_step": 20,
+    "applied_step": null,
+    "mode": "focus",
+    "refs": [
+      2
+    ],
+    "events": [
+      "transition"
+    ],
+    "written_after": 7853,
+    "attention_kv_len_next": 7854
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 20,
+    "effect_step": 21,
+    "applied_step": null,
+    "mode": "focus",
+    "refs": [
+      2
+    ],
+    "events": [],
+    "written_after": 7854,
+    "attention_kv_len_next": 7855
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 21,
+    "effect_step": 22,
+    "applied_step": null,
+    "mode": "focus",
+    "refs": [
+      2
+    ],
+    "events": [],
+    "written_after": 7855,
+    "attention_kv_len_next": 7856
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 22,
+    "effect_step": 23,
+    "applied_step": null,
+    "mode": "focus",
+    "refs": [
+      2
+    ],
+    "events": [],
+    "written_after": 7856,
+    "attention_kv_len_next": 7857
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 23,
+    "effect_step": 24,
+    "applied_step": null,
+    "mode": "focus",
+    "refs": [
+      2
+    ],
+    "events": [],
+    "written_after": 7857,
+    "attention_kv_len_next": 7858
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 24,
+    "effect_step": 25,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [
+      "transition"
+    ],
+    "written_after": 7858,
+    "attention_kv_len_next": 7859
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 25,
+    "effect_step": 26,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7859,
+    "attention_kv_len_next": 7860
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 26,
+    "effect_step": 27,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7860,
+    "attention_kv_len_next": 7861
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 27,
+    "effect_step": 28,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7861,
+    "attention_kv_len_next": 7862
+  },
+  {
+    "req_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "parse_step": 28,
+    "effect_step": 29,
+    "applied_step": null,
+    "mode": "global",
+    "refs": [],
+    "events": [],
+    "written_after": 7862,
+    "attention_kv_len_next": 7863
+  },
+  {
+    "request_id": "calib-main-patched-masked-20260921-011705-b38a77ac",
+    "arm": "da",
+    "num_segments": 3,
+    "prompt_len": 7834,
+    "generated_tokens": 29,
+    "written_kv_len": 7862,
+    "attention_kv_len_next": 7863,
+    "stop_token_index": null,
+    "final_mode": "global",
+    "focus_attempts": 1,
+    "focus_successes": 1,
+    "anomalies": [],
+    "flush_events": [],
+    "steps": [
+      {
+        "token_index": 0,
+        "token_id": 102026,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 1,
+        "written_kv_len": 7834,
+        "attention_kv_len_next": 7835,
+        "next_write_position": 7834,
+        "events": []
+      },
+      {
+        "token_index": 1,
+        "token_id": 111563,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 2,
+        "written_kv_len": 7835,
+        "attention_kv_len_next": 7836,
+        "next_write_position": 7835,
+        "events": []
+      },
+      {
+        "token_index": 2,
+        "token_id": 111892,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 3,
+        "written_kv_len": 7836,
+        "attention_kv_len_next": 7837,
+        "next_write_position": 7836,
+        "events": []
+      },
+      {
+        "token_index": 3,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 4,
+        "written_kv_len": 7837,
+        "attention_kv_len_next": 7838,
+        "next_write_position": 7837,
+        "events": []
+      },
+      {
+        "token_index": 4,
+        "token_id": 2359,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 5,
+        "written_kv_len": 7838,
+        "attention_kv_len_next": 7839,
+        "next_write_position": 7838,
+        "events": []
+      },
+      {
+        "token_index": 5,
+        "token_id": 29,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 6,
+        "written_kv_len": 7839,
+        "attention_kv_len_next": 7840,
+        "next_write_position": 7839,
+        "events": [
+          {
+            "kind": "transition",
+            "name": "local",
+            "mode_before": "global",
+            "mode_after": "local",
+            "refs": [],
+            "closed_at_token_index": 5,
+            "effect_step": 6,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": false
+          }
+        ]
+      },
+      {
+        "token_index": 6,
+        "token_id": 97625,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 7,
+        "written_kv_len": 7840,
+        "attention_kv_len_next": 7841,
+        "next_write_position": 7840,
+        "events": []
+      },
+      {
+        "token_index": 7,
+        "token_id": 141260,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 8,
+        "written_kv_len": 7841,
+        "attention_kv_len_next": 7842,
+        "next_write_position": 7841,
+        "events": []
+      },
+      {
+        "token_index": 8,
+        "token_id": 98162,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 9,
+        "written_kv_len": 7842,
+        "attention_kv_len_next": 7843,
+        "next_write_position": 7842,
+        "events": []
+      },
+      {
+        "token_index": 9,
+        "token_id": 510,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 10,
+        "written_kv_len": 7843,
+        "attention_kv_len_next": 7844,
+        "next_write_position": 7843,
+        "events": []
+      },
+      {
+        "token_index": 10,
+        "token_id": 2359,
+        "mode_after": "local",
+        "refs": [],
+        "sampled_tokens": 11,
+        "written_kv_len": 7844,
+        "attention_kv_len_next": 7845,
+        "next_write_position": 7844,
+        "events": []
+      },
+      {
+        "token_index": 11,
+        "token_id": 29,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 12,
+        "written_kv_len": 7845,
+        "attention_kv_len_next": 7846,
+        "next_write_position": 7845,
+        "events": [
+          {
+            "kind": "transition",
+            "name": "local",
+            "mode_before": "local",
+            "mode_after": "global",
+            "refs": [],
+            "closed_at_token_index": 11,
+            "effect_step": 12,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": false
+          }
+        ]
+      },
+      {
+        "token_index": 12,
+        "token_id": 102039,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 13,
+        "written_kv_len": 7846,
+        "attention_kv_len_next": 7847,
+        "next_write_position": 7846,
+        "events": []
+      },
+      {
+        "token_index": 13,
+        "token_id": 27,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 14,
+        "written_kv_len": 7847,
+        "attention_kv_len_next": 7848,
+        "next_write_position": 7847,
+        "events": []
+      },
+      {
+        "token_index": 14,
+        "token_id": 16900,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 15,
+        "written_kv_len": 7848,
+        "attention_kv_len_next": 7849,
+        "next_write_position": 7848,
+        "events": []
+      },
+      {
+        "token_index": 15,
+        "token_id": 10642,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 16,
+        "written_kv_len": 7849,
+        "attention_kv_len_next": 7850,
+        "next_write_position": 7849,
+        "events": []
+      },
+      {
+        "token_index": 16,
+        "token_id": 63261,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 17,
+        "written_kv_len": 7850,
+        "attention_kv_len_next": 7851,
+        "next_write_position": 7850,
+        "events": []
+      },
+      {
+        "token_index": 17,
+        "token_id": 420,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 18,
+        "written_kv_len": 7851,
+        "attention_kv_len_next": 7852,
+        "next_write_position": 7851,
+        "events": []
+      },
+      {
+        "token_index": 18,
+        "token_id": 17,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 19,
+        "written_kv_len": 7852,
+        "attention_kv_len_next": 7853,
+        "next_write_position": 7852,
+        "events": []
+      },
+      {
+        "token_index": 19,
+        "token_id": 731,
+        "mode_after": "focus",
+        "refs": [
+          2
+        ],
+        "sampled_tokens": 20,
+        "written_kv_len": 7853,
+        "attention_kv_len_next": 7854,
+        "next_write_position": 7853,
+        "events": [
+          {
+            "kind": "transition",
+            "name": "focus",
+            "mode_before": "global",
+            "mode_after": "focus",
+            "refs": [
+              2
+            ],
+            "closed_at_token_index": 19,
+            "effect_step": 20,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": true
+          }
+        ]
+      },
+      {
+        "token_index": 20,
+        "token_id": 101751,
+        "mode_after": "focus",
+        "refs": [
+          2
+        ],
+        "sampled_tokens": 21,
+        "written_kv_len": 7854,
+        "attention_kv_len_next": 7855,
+        "next_write_position": 7854,
+        "events": []
+      },
+      {
+        "token_index": 21,
+        "token_id": 103759,
+        "mode_after": "focus",
+        "refs": [
+          2
+        ],
+        "sampled_tokens": 22,
+        "written_kv_len": 7855,
+        "attention_kv_len_next": 7856,
+        "next_write_position": 7855,
+        "events": []
+      },
+      {
+        "token_index": 22,
+        "token_id": 510,
+        "mode_after": "focus",
+        "refs": [
+          2
+        ],
+        "sampled_tokens": 23,
+        "written_kv_len": 7856,
+        "attention_kv_len_next": 7857,
+        "next_write_position": 7856,
+        "events": []
+      },
+      {
+        "token_index": 23,
+        "token_id": 16900,
+        "mode_after": "focus",
+        "refs": [
+          2
+        ],
+        "sampled_tokens": 24,
+        "written_kv_len": 7857,
+        "attention_kv_len_next": 7858,
+        "next_write_position": 7857,
+        "events": []
+      },
+      {
+        "token_index": 24,
+        "token_id": 29,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 25,
+        "written_kv_len": 7858,
+        "attention_kv_len_next": 7859,
+        "next_write_position": 7858,
+        "events": [
+          {
+            "kind": "transition",
+            "name": "focus",
+            "mode_before": "focus",
+            "mode_after": "global",
+            "refs": [],
+            "closed_at_token_index": 24,
+            "effect_step": 25,
+            "reason": "",
+            "detail": "",
+            "is_focus_attempt": false
+          }
+        ]
+      },
+      {
+        "token_index": 25,
+        "token_id": 96150,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 26,
+        "written_kv_len": 7859,
+        "attention_kv_len_next": 7860,
+        "next_write_position": 7859,
+        "events": []
+      },
+      {
+        "token_index": 26,
+        "token_id": 97400,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 27,
+        "written_kv_len": 7860,
+        "attention_kv_len_next": 7861,
+        "next_write_position": 7860,
+        "events": []
+      },
+      {
+        "token_index": 27,
+        "token_id": 104516,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 28,
+        "written_kv_len": 7861,
+        "attention_kv_len_next": 7862,
+        "next_write_position": 7861,
+        "events": []
+      },
+      {
+        "token_index": 28,
+        "token_id": 104516,
+        "mode_after": "global",
+        "refs": [],
+        "sampled_tokens": 29,
+        "written_kv_len": 7862,
+        "attention_kv_len_next": 7863,
+        "next_write_position": 7862,
+        "events": []
+      }
+    ],
+    "note": "finished:length",
+    "applied_step": null
+  }
+]
