@@ -1,0 +1,78 @@
+{
+  "derived_from": "scale-metrics.json",
+  "total_selections": 80,
+  "unique": 74,
+  "duplicates": [
+    {
+      "key": [
+        "decode",
+        "3",
+        "2",
+        "1506"
+      ],
+      "count": 2
+    },
+    {
+      "key": [
+        "decode",
+        "5",
+        "1",
+        "1505"
+      ],
+      "count": 2
+    },
+    {
+      "key": [
+        "decode",
+        "7",
+        "1",
+        "1505"
+      ],
+      "count": 2
+    },
+    {
+      "key": [
+        "decode",
+        "8",
+        "2",
+        "1506"
+      ],
+      "count": 2
+    },
+    {
+      "key": [
+        "decode",
+        "12",
+        "1",
+        "1505"
+      ],
+      "count": 2
+    },
+    {
+      "key": [
+        "decode",
+        "13",
+        "3",
+        "1507"
+      ],
+      "count": 2
+    }
+  ],
+  "stats_unique": {
+    "prefill": {
+      "n_unique": 16,
+      "max_abs_err_max": 0.26004791259765625,
+      "rms_err_max": 0.010252672247588634,
+      "rel_l2_out_max": 0.0021357392638851635,
+      "rel_l2_out_median": 0.001804546887748136
+    },
+    "decode": {
+      "n_unique": 58,
+      "max_abs_err_max": 0.1179962158203125,
+      "rms_err_max": 0.00849683303385973,
+      "rel_l2_out_max": 0.001743871091177114,
+      "rel_l2_out_median": 0.0016757182562431852
+    }
+  },
+  "note": "原始 80 条保留；本文件为按 (scope,layer,step,position) 去重的派生统计。"
+}

@@ -43,12 +43,15 @@
   - **模型层（logits）没有逐元素容差**：`tests/models/utils.py` 的 `check_logprobs_close` 只做 **top-N 成员性**（L241-244），PPL 只有单向 `PPL_TOL=0.01`。
   - 与 masked 直接相关的上游事实：`mask_mod` **仅 FA4 支持**（`vllm_flash_attn/flash_attn_interface.py:313-314`，FA2 报 `NotImplementedError`）⇒ 本项目的 masked 只能经**块表/`seqused_k`** 表达，不能依赖 FA2 的 `mask_mod`（与我们的落位方式一致）。
   - 缺口：上游没有"BF16 模型层 logits vs 独立 FP32 dense"的逐元素先例；因此**我们的 logits 容差必须由自带有界校准形成**，不得直接搬用 2e-2/1e-2。
-- **代表点实测（已完成，80 点：每层最坏 prefill ×16 + 每层最坏 decode/step1-3 ×64；`evidence/p3-calib/masked-prep/scale-metrics.json`）**：
+- **代表点实测（已完成：**80 次选点 / 74 个唯一 (scope,layer,step,position)**；6 个 decode 点重复：L3s2、L5s1、L7s1、L8s2、L12s1、L13s3
+  —— 因"每层最坏步"与"每层 step1–3"选择集重叠；原始 80 条保留，去重派生统计见 `evidence/p3-calib/masked-prep/scale-metrics-dedup.json`）**：
   | scope | n | max_abs_err (max / median) | rms_err (max) | **rel_l2_out (max)** | rel_l2_ref (max) | 近零占比 (max) |
   | --- | --- | --- | --- | --- | --- | --- |
   | prefill | 16 | 0.260048 / 0.072150 | 0.010253 | **0.00213574** | 0.00213571 | 0.0055 |
   | decode | 64 | 0.117996 / 0.014357 | 0.008497 | **0.00174387** | 0.00174393 | 0.0062 |
   全部 finite（`non_finite = 0`）；报告含 `definitions` 公式与 `rel_err_is_allclose_rtol=false`；**无任何阈值判定**。
+  **去重后（74 唯一）**：prefill `rel_l2_out` max **2.13574e-3**；decode `rel_l2_out` max **1.74387e-3**（中位见 dedup 文件）。
+  本表数值是 **global 量级诊断**，**不是** masked 阈值依据。
   **可提的候选（仅建议、未冻结、供用户决定）**：以实测最大值为参照，`rel_l2_out` 的候选量级约 **2e-3**（来自 **global** 对照）；
   上游同类先例（`test_mm_prefix.py`，bf16 vs 独立 FP32 dense）用 **atol=rtol=2e-2**，属**逐元素 allclose**口径、与本表的 `rel_l2` **不同量纲**，不可直接换算。
   **但**该 2e-3 是"global vs 原版/FP32 参考"的观测，**不能**直接充当 masked 的容差；masked 需自己的有界校准（见下）。

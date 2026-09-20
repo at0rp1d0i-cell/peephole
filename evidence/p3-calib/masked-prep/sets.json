@@ -1,0 +1,704 @@
+{
+  "config": "configs/p2-masked-prep/sets.json",
+  "fixture": "evidence/p1-cpu/demo-fixtures.json",
+  "block_size": 784,
+  "prompt_len": 7280,
+  "segment_spans": [
+    [
+      362,
+      2316
+    ],
+    [
+      2365,
+      4255
+    ],
+    [
+      4304,
+      6202
+    ]
+  ],
+  "local_window_span": [
+    6211,
+    7280
+  ],
+  "sink_span": [
+    0,
+    16
+  ],
+  "token_ids_sha256": "2cac8c45221accfc75a86ca07ace84e979a21bfff9460a0312fc33d5ff8f1c72",
+  "facts_match_order": {
+    "prompt_len": true,
+    "segment_spans": true,
+    "local_window_span": true,
+    "sink_span": true
+  },
+  "steps": {
+    "decode_step0_kv_len7280": {
+      "written_blocks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "modes": {
+        "global": {
+          "positions_count": 7280,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "local": {
+          "positions_count": 1085,
+          "visible_blocks": [
+            0,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus1": {
+          "positions_count": 3039,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus2": {
+          "positions_count": 2975,
+          "visible_blocks": [
+            0,
+            3,
+            4,
+            5,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus3": {
+          "positions_count": 2983,
+          "visible_blocks": [
+            0,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        }
+      },
+      "note": "段边界为 token 粒度；canonical 有效尾块边界为块粒度，两者分列不混用。"
+    },
+    "decode_step1_kv_len7281": {
+      "written_blocks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "modes": {
+        "global": {
+          "positions_count": 7281,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "local": {
+          "positions_count": 1086,
+          "visible_blocks": [
+            0,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus1": {
+          "positions_count": 3040,
+          "visible_blocks": [
+            0,
+            1,
+            2,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus2": {
+          "positions_count": 2976,
+          "visible_blocks": [
+            0,
+            3,
+            4,
+            5,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            6
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        },
+        "focus3": {
+          "positions_count": 2984,
+          "visible_blocks": [
+            0,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "excluded_written_blocks": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "segment_token_spans": [
+            [
+              362,
+              2316
+            ],
+            [
+              2365,
+              4255
+            ],
+            [
+              4304,
+              6202
+            ]
+          ],
+          "segment_blocks": {
+            "seg1": [
+              0,
+              1,
+              2
+            ],
+            "seg2": [
+              3,
+              4,
+              5
+            ],
+            "seg3": [
+              5,
+              6,
+              7
+            ]
+          },
+          "tail_block_boundaries_token": [
+            784,
+            1568,
+            2352,
+            3136,
+            3920,
+            4704,
+            5488,
+            6272,
+            7056,
+            7840
+          ]
+        }
+      },
+      "note": "段边界为 token 粒度；canonical 有效尾块边界为块粒度，两者分列不混用。"
+    }
+  },
+  "checks": [
+    {
+      "name": "local 可见块 == note",
+      "ok": true,
+      "got": [
+        0,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "focus1 可见块 == note",
+      "ok": true,
+      "got": [
+        0,
+        1,
+        2,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "local/focus1 排除的完整上下文块 == note",
+      "ok": true,
+      "got": [
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  ],
+  "failed": []
+}
