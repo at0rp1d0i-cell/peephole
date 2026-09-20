@@ -16,11 +16,15 @@
   （本摘录件里唯一出现这种情况的是 `<focus` / `magic_chunks="K">` 这一处），该规则在输出中声明。
 
 用法：`python3 tools/p1cpu-check-prompt-fidelity.py [摘录件路径]`
+
+默认摘录件为仓内 `docs/references/da-paper-extract.md`（相对仓库根）；仓内不存在时回退到
+`$ATTNVIEW_MATERIAL/docs/references/da-paper-extract.md`（私有素材仓快照，不随本仓发行）。
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from collections import Counter
@@ -31,7 +35,31 @@ sys.path.insert(0, str(REPO / "src"))
 
 from attnview.prompts import DA_INSTRUCTION_PROMPT, VANILLA_INSTRUCTION_PROMPT  # noqa: E402
 
-DEFAULT_EXTRACT = REPO / "material/attnview/docs/references/da-paper-extract.md"
+EXTRACT_REL = "docs/references/da-paper-extract.md"
+DEFAULT_EXTRACT = REPO / EXTRACT_REL  # 仓内副本（相对仓库根解析）
+
+
+def resolve_extract() -> Path:
+    """默认摘录件：优先仓内副本，其次私有素材仓快照（$ATTNVIEW_MATERIAL）。"""
+    material = os.environ.get("ATTNVIEW_MATERIAL")
+    candidates = [DEFAULT_EXTRACT]
+    if material:
+        candidates.append(Path(material) / EXTRACT_REL)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    if material:
+        fallback = f"{material}/{EXTRACT_REL}"
+    else:
+        fallback = f"$ATTNVIEW_MATERIAL/{EXTRACT_REL}（未设置或为空）"
+    raise SystemExit(
+        "找不到论文摘录件 da-paper-extract.md（附录 F）。已查找：\n"
+        f"  1) 仓内副本：{DEFAULT_EXTRACT}\n"
+        f"  2) 素材仓快照：{fallback}\n"
+        "公开 checkout 不发行 material/；请显式传入摘录件路径，或设置 ATTNVIEW_MATERIAL。"
+    )
+
+
 PAGE_NOISE = re.compile(
     r"^\s*(Language Models Can Control Their Own Attention|\d{1,3}|"
     r"(DA|Vanilla) Instruction Prompt.*)\s*$"
@@ -252,10 +280,17 @@ def check_prompt(name: str, mine: str, ref: str) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("extract", nargs="?", default=str(DEFAULT_EXTRACT))
+    ap.add_argument(
+        "extract",
+        nargs="?",
+        default=None,
+        help="摘录件路径（默认：仓内 docs/references/da-paper-extract.md，"
+        "回退 $ATTNVIEW_MATERIAL/docs/references/da-paper-extract.md）",
+    )
     args = ap.parse_args()
-    body = appendix_f_block(Path(args.extract).read_text(encoding="utf-8"))
-    print(f"摘录件：{args.extract}")
+    extract = Path(args.extract) if args.extract is not None else resolve_extract()
+    body = appendix_f_block(extract.read_text(encoding="utf-8"))
+    print(f"摘录件：{extract}")
     print("剔除：页眉 / 纯页码 / `… Instruction Prompt (continued)` 整行")
     print("列归位：以表头行碎片起始偏移为列锚点；列 0 上小写字母开头的碎片判为续行\n")
     failures: list[str] = []

@@ -18,7 +18,7 @@
 #   ln -s /root/autodl-tmp/attnview /root/attnview
 
 export ATTNVIEW_HOME="/root/attnview"
-export ATTNVIEW_MATERIAL="$ATTNVIEW_HOME/material/attnview"   # 素材仓快照（只读参考）
+export ATTNVIEW_MATERIAL="$ATTNVIEW_HOME/material/attnview"   # 可选：私有素材仓快照，公开 checkout 中不存在
 export ATTNVIEW_VENV="$ATTNVIEW_HOME/venvs/attnview"
 export ATTNVIEW_PYTHON="$ATTNVIEW_VENV/bin/python"
 export ATTNVIEW_VLLM_SRC="$ATTNVIEW_HOME/vllm"               # vLLM 源码 checkout（pin）
