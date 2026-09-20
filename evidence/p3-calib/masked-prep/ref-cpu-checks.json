@@ -53,10 +53,10 @@
       784
     ],
     "output_dtype": "torch.bfloat16",
-    "fp32_to_output_max_abs": 0.0002433285117149353,
-    "fp32_to_output_rms": 5.6498043704777956e-05,
-    "fp32_to_output_rel_l2": 0.0016550561912135415,
-    "ref_abs_max": 0.14160829782485962,
+    "fp32_to_output_max_abs": 0.00024322420358657837,
+    "fp32_to_output_rms": 5.489978866535239e-05,
+    "fp32_to_output_rel_l2": 0.0016353447190454523,
+    "ref_abs_max": 0.15829388797283173,
     "non_finite_count": 0
   },
   "checks": [
@@ -169,10 +169,10 @@
           8,
           9
         ],
-        "fp32_to_output_max_abs": 0.0002433285117149353,
-        "fp32_to_output_rms": 5.6498043704777956e-05,
-        "fp32_to_output_rel_l2": 0.0016550561912135415,
-        "ref_abs_max": 0.14160829782485962,
+        "fp32_to_output_max_abs": 0.00024322420358657837,
+        "fp32_to_output_rms": 5.489978866535239e-05,
+        "fp32_to_output_rel_l2": 0.0016353447190454523,
+        "ref_abs_max": 0.15829388797283173,
         "non_finite_count": 0
       }
     },
@@ -192,6 +192,25 @@
       "name": "多 token 输入被拒绝(仅单 token decode)",
       "ok": true,
       "error": "metadata.seq_lens[0]=7840 与独立时间线 KV 上界 7841 不一致"
+    },
+    {
+      "name": "门禁:impl.scale 与开关 scale 不一致即拒绝(不从 head_dim 推导)",
+      "ok": true,
+      "error": "开关 scale=0.0625 与 impl.scale=0.5625 不一致:拒绝继续"
+    },
+    {
+      "name": "门禁:量化/特殊特性(额外 output_scale/output_block_scale)不被静默丢弃",
+      "ok": true
+    },
+    {
+      "name": "门禁:非 BF16 输出 被拒绝",
+      "ok": true,
+      "error": "仅支持 BF16:query=torch.bfloat16 output=torch.float16"
+    },
+    {
+      "name": "门禁:KV 块长与 kernel_block_size 不一致 被拒绝",
+      "ok": true,
+      "error": "native KV 块长 512 与 kernel_block_size 784 不一致"
     },
     {
       "name": "metadata.seq_lens 与独立时间线不一致时拒绝",
