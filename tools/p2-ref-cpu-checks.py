@@ -170,8 +170,10 @@ def main() -> int:
     originals = {i: impls[i].forward for i in range(2)}
     sw = TestOnlyReferenceSwitch(enabled=True, request_id="req-A", layers=(0, 1), steps=(6, 7), scale=scale)
     at = TestOnlyReferenceAttachment(sw, bridge=bridge, request_idx=0, head_size=d, layers=(0, 1), steps=(6, 7))
-    q = torch.randn(heads, d, dtype=torch.bfloat16)
-    out_a, out_b = torch.zeros(heads, d, dtype=torch.bfloat16), torch.zeros(heads, d, dtype=torch.bfloat16)
+    q = torch.randn(1, heads, d, dtype=torch.bfloat16)          # 真实三维单 token
+    out_a = torch.zeros(1, heads, d, dtype=torch.bfloat16)
+    out_b = torch.zeros(1, heads, d, dtype=torch.bfloat16)
+    ptr_a = out_a.data_ptr()
 
     def meta_for(step: int):
         kv_len = bridge.kv_len_at(step - 1)
@@ -199,7 +201,13 @@ def main() -> int:
     chk("非目标请求输出未被改写", float(out_b.abs().max()) == 0.0)
     chk("覆盖账本记录真实 metadata 来源(块表行取自二维张量)", all(
         len(e.get("block_table_row_head", [])) == 4 for e in at.ledger if e["action"] == "overrode"))
+    chk("真实三维 query/output:写回对应视图且原缓冲身份不变",
+        out_a.data_ptr() == ptr_a and float(out_a.abs().max()) > 0.0 and tuple(out_a.shape) == (1, heads, d),
+        ptr_preserved=out_a.data_ptr() == ptr_a)
     m = at.metrics()[0]
+    chk("记录真实三维 shape 与 num_tokens=1", m.get("query_shape") == [1, heads, d]
+        and m.get("output_shape") == [1, heads, d] and m.get("num_tokens") == 1,
+        query_shape=m.get("query_shape"), output_shape=m.get("output_shape"))
     chk("真实接口下记录真实指标(dtype=output.dtype、cast 差异非零、seq_lens 交叉核对一致)",
         m["output_dtype"] == "torch.bfloat16" and m["fp32_to_output_max_abs"] > 0.0
         and m["seq_lens_value"] == m["kv_len"] and m["non_finite_count"] == 0,
@@ -220,6 +228,15 @@ def main() -> int:
         impls[0].calls == n_calls[0] + 1 and torch.equal(out_a, out_a0))
 
     # ---------- 4. metadata/时间线不一致必须拒绝 ----------
+    # 多 token 必须拒绝(参考只支持单 token decode)
+    try:
+        perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
+                                           query=torch.randn(3, heads, d, dtype=torch.bfloat16), kv_cache=native_kv,
+                                           attn_metadata=meta_for(6), output=torch.zeros(3, heads, d, dtype=torch.bfloat16),
+                                           head_size=d)
+        chk("多 token 输入被拒绝(仅单 token decode)", False)
+    except ReferenceError as exc:
+        chk("多 token 输入被拒绝(仅单 token decode)", True, error=str(exc)[:80])
     bad_md = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32),
                                 [bridge.kv_len_at(6) + 3], 1, len(block_row_a))
     try:
@@ -242,7 +259,7 @@ def main() -> int:
     try:
         at2.wrap_all(impls2)
         sw2.current_request_id, sw2.current_step = "req-C", 6
-        impls2[0].forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(heads, d, dtype=torch.bfloat16))
+        impls2[0].forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16))
     finally:
         at2.restore()
     chk("缺层/缺步被账本检出(missing 非空)", at2.missing({(0, 6), (1, 6)}) == {(1, 6)},
@@ -256,7 +273,7 @@ def main() -> int:
     try:
         at3.wrap_all([impl3])
         sw3.current_request_id, sw3.current_step = "req-D", 6
-        impl3.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(heads + 1, d, dtype=torch.bfloat16))
+        impl3.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads + 1, d, dtype=torch.bfloat16))
     except ReferenceError:
         raised = True
     finally:
@@ -270,7 +287,7 @@ def main() -> int:
     try:
         at_iso.wrap_all(impls_iso)
         sw_iso.current_request_id, sw_iso.current_step = "req-B2", 7
-        impls_iso[0].forward(0, q, None, None, native_kv, meta_for(7), torch.zeros(heads, d, dtype=torch.bfloat16))
+        impls_iso[0].forward(0, q, None, None, native_kv, meta_for(7), torch.zeros(1, heads, d, dtype=torch.bfloat16))
     finally:
         at_iso.restore()
     chk("独立挂接(另一请求/另一 impl/另一块表行)与主挂接账本互不影响",
@@ -278,9 +295,9 @@ def main() -> int:
         iso=sorted(at_iso.overrode()), main=sorted(at.overrode()))
 
     # ---------- 6. 接线反例与边界 ----------
-    stale = torch.zeros(heads, d, dtype=torch.bfloat16)
+    stale = torch.zeros(1, heads, d, dtype=torch.bfloat16)
     from attnview.reference_dense import dense_attention_fp32, gather_positions
-    _ = dense_attention_fp32(q, *gather_positions(kc, vc, block_row_a, block_size, mask.read_positions),
+    _ = dense_attention_fp32(q.reshape(-1, d), *gather_positions(kc, vc, block_row_a, block_size, mask.read_positions),
                              scale=scale, dtype=torch.bfloat16)     # 只返回、不写缓冲
     chk("接线反例:只返回新张量、不写原缓冲 ⇒ 缓冲仍为初值(被检出)", float(stale.abs().max()) == 0.0)
     try:

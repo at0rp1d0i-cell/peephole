@@ -138,15 +138,30 @@ def perform_reference_attention_native(
                            step_index_0based=step_index_0based)
     mask = bridge.mask_at(step_index_0based)
     key_cache, value_cache = unpack_native_kv(kv_cache, head_size)
-    q = query if query.dim() == 2 else query.reshape(-1, query.shape[-1])
+    # 真实 pin 传入的是 `[num_tokens, num_heads, head_dim]`(attention.py:524-525);本参考只支持单 token decode。
+    if query.dim() == 3:
+        if query.shape[0] != 1:
+            raise ReferenceError(f"仅支持单 token decode,实际 num_tokens={query.shape[0]}")
+        if output.shape != query.shape:
+            raise ReferenceError(f"output 形状 {tuple(output.shape)} 与 query {tuple(query.shape)} 不一致")
+    elif query.dim() == 2:
+        if output.shape != query.shape:
+            raise ReferenceError(f"output 形状 {tuple(output.shape)} 与 query {tuple(query.shape)} 不一致")
+    else:
+        raise ReferenceError(f"query 维数非法:{query.dim()}")
+    q = query.reshape(-1, query.shape[-1])
     k, v = gather_positions(key_cache, value_cache, geo["block_table_row"], bridge.kernel_block_size,
                             mask.read_positions)
     fp32, casted = dense_attention_fp32(q, k, v, scale=float(switch.scale), dtype=output.dtype)
     if casted.dtype != output.dtype:
         raise ReferenceError(f"cast 目标 dtype 与 output 不一致:{casted.dtype} vs {output.dtype}")
-    if tuple(output.shape) != tuple(casted.shape):
-        raise ReferenceError(f"output 形状 {tuple(output.shape)} 与参考 {tuple(casted.shape)} 不一致")
-    output.copy_(casted)
+    ptr_before = output.data_ptr()
+    target = output if output.dim() == 2 else output[0]        # 写回**对应视图**(缓冲本身不变)
+    if tuple(target.shape) != tuple(casted.shape):
+        raise ReferenceError(f"写回视图形状 {tuple(target.shape)} 与参考 {tuple(casted.shape)} 不一致")
+    target.copy_(casted)
+    if output.data_ptr() != ptr_before:
+        raise ReferenceError("写回后 output 缓冲身份发生变化(不得替换缓冲)")
     diff = casted.to(torch.float32) - fp32
     ref_l2 = float(torch.linalg.vector_norm(fp32))
     non_finite = int((~torch.isfinite(fp32)).sum().item())
@@ -162,5 +177,8 @@ def perform_reference_attention_native(
         "fp32_to_output_rms": float(torch.sqrt((diff ** 2).mean())),
         "fp32_to_output_rel_l2": (float(torch.linalg.vector_norm(diff)) / ref_l2) if ref_l2 > 0 else None,
         "ref_abs_max": float(fp32.abs().max()), "non_finite_count": non_finite, "wrote_in_place": True,
+        "query_shape": list(query.shape), "output_shape": list(output.shape),
+        "num_tokens": int(query.shape[0]) if query.dim() == 3 else None,
+        "buffer_ptr_preserved": True,
         "got_key_arg": key is not None, "got_value_arg": value is not None,
     }
