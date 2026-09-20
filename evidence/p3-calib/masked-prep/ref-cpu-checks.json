@@ -53,10 +53,10 @@
       784
     ],
     "output_dtype": "torch.bfloat16",
-    "fp32_to_output_max_abs": 0.00024322420358657837,
-    "fp32_to_output_rms": 5.489978866535239e-05,
-    "fp32_to_output_rel_l2": 0.0016353447190454523,
-    "ref_abs_max": 0.15829388797283173,
+    "fp32_to_output_max_abs": 0.0003972053527832031,
+    "fp32_to_output_rms": 5.5444623285438865e-05,
+    "fp32_to_output_rel_l2": 0.0016535268360150768,
+    "ref_abs_max": 0.1371159553527832,
     "non_finite_count": 0
   },
   "checks": [
@@ -169,10 +169,10 @@
           8,
           9
         ],
-        "fp32_to_output_max_abs": 0.00024322420358657837,
-        "fp32_to_output_rms": 5.489978866535239e-05,
-        "fp32_to_output_rel_l2": 0.0016353447190454523,
-        "ref_abs_max": 0.15829388797283173,
+        "fp32_to_output_max_abs": 0.0003972053527832031,
+        "fp32_to_output_rms": 5.5444623285438865e-05,
+        "fp32_to_output_rel_l2": 0.0016535268360150768,
+        "ref_abs_max": 0.1371159553527832,
         "non_finite_count": 0
       }
     },
@@ -194,23 +194,60 @@
       "error": "metadata.seq_lens[0]=7840 与独立时间线 KV 上界 7841 不一致"
     },
     {
-      "name": "门禁:impl.scale 与开关 scale 不一致即拒绝(不从 head_dim 推导)",
+      "name": "unpack 不复制整个缓存:保留 stride 视图(共享 storage,未做 contiguous)",
       "ok": true,
-      "error": "开关 scale=0.0625 与 impl.scale=0.5625 不一致:拒绝继续"
+      "strides": [
+        1605632,
+        512,
+        401408,
+        1
+      ]
     },
     {
-      "name": "门禁:量化/特殊特性(额外 output_scale/output_block_scale)不被静默丢弃",
+      "name": "未启用:显式 None 参数下按原实现直通,且未发生错误恢复",
+      "ok": true,
+      "ledger": [
+        {
+          "layer": 0,
+          "step": 6,
+          "request_id": "req-A",
+          "action": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "有效 decode 且计数器全 0:通过(单请求由 query_start_loc;相位由 is_prefilling_np)",
       "ok": true
     },
     {
-      "name": "门禁:非 BF16 输出 被拒绝",
+      "name": "单 token 的末尾 prefill chunk 被拒绝(相位来自 is_prefilling_np)",
       "ok": true,
-      "error": "仅支持 BF16:query=torch.bfloat16 output=torch.float16"
+      "error": "本步相位为 prefill(可能是末尾单 token prefill chunk):参考不接管"
     },
     {
-      "name": "门禁:KV 块长与 kernel_block_size 不一致 被拒绝",
+      "name": "目标请求:非 None 的 output_scale 被拒绝且 forward 已恢复",
       "ok": true,
-      "error": "native KV 块长 512 与 kernel_block_size 784 不一致"
+      "error": "出现未支持的额外参数(args=0, kwargs=['output_scale']):量化/特殊 attention 特性不得被静默丢弃"
+    },
+    {
+      "name": "门禁:seq_lens 缺失 被拒绝(fail closed)",
+      "ok": true,
+      "error": "metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)"
+    },
+    {
+      "name": "门禁:seq_lens 形状错 被拒绝(fail closed)",
+      "ok": true,
+      "error": "metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)"
+    },
+    {
+      "name": "门禁:计数器已填充但与单请求冲突时拒绝",
+      "ok": true,
+      "error": "计数器已填充但与单请求 decode 冲突:num_decode_reqs=2"
+    },
+    {
+      "name": "缺少相位证据时拒绝(不得用单 token/q_len 代替)",
+      "ok": true,
+      "error": "缺少相位证据(harness 的 is_prefilling_np[目标行]):拒绝用 q_len/单 token 代替"
     },
     {
       "name": "metadata.seq_lens 与独立时间线不一致时拒绝",
@@ -220,7 +257,7 @@
     {
       "name": "request_idx 超出块表行数时拒绝",
       "ok": true,
-      "error": "request_idx=9 超出 block_table 行数 2"
+      "error": "request_idx=9 超出 block_table 行数 1"
     },
     {
       "name": "缺层/缺步被账本检出(missing 非空)",
