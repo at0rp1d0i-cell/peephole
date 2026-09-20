@@ -1,0 +1,13 @@
+{
+  "arm": "patched-masked",
+  "doc_fixture": "evidence/p1-cpu/demo-fixtures.json",
+  "expect_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json",
+  "timeline_config": "configs/p2-masked-prep/crossblock.json",
+  "force_trajectory": "evidence/p3-masked-smoke/traj-7834-generated.json",
+  "max_tokens": 29,
+  "representative_decodes": [6, 7, 20, 25],
+  "reference_hook": false,
+  "startup_budget_s": 900,
+  "request_budget_s": 180,
+  "cleanup_budget_s": 120
+}

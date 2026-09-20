@@ -686,6 +686,21 @@ class LayerCapture:
     def _record(self, index: int, query, key, value, out, attn_metadata=None) -> None:
         if not self._active or not self._step_open or self.armed_req_id is None:
             return
+        if getattr(self, "structure_enabled", False):
+            from vllm.forward_context import get_forward_context
+            from attnview.smoke_structure import snapshot_layer
+
+            name = self.layer_names[index]
+            step_records = self.structure.setdefault(self.request_step, {})
+            if name in step_records:
+                raise RuntimeError(f"duplicate FA capture: step={self.request_step} layer={name}")
+            step_records[name] = snapshot_layer(
+                runner=self.runner, batch=self.current_input_batch, context=get_forward_context(),
+                layer_name=name, binding=self.structure_bindings[name], metadata=attn_metadata,
+                req_id=self.armed_req_id, q_len=int(query.shape[0]))
+            step_records[name]["nonfinite"] = {
+                key: int((~torch.isfinite(tensor)).sum().item())
+                for key, tensor in (("q", query), ("k", key), ("v", value), ("out", out))}
         if query.dtype != key.dtype or query.dtype != value.dtype:
             raise RuntimeError(
                 f"校准: L{index} 的 q/k/v dtype 不一致（{query.dtype}/{key.dtype}/{value.dtype}）"
@@ -887,6 +902,8 @@ class LayerCapture:
         }
         if self.stream_dir is not None:
             self.flush(self.stream_dir)
+            if getattr(self, "structure_enabled", False):
+                save_manifest(self.stream_dir / "structure.json", self.structure)
 
     # --- 导出 -------------------------------------------------------------- #
 
@@ -986,6 +1003,45 @@ def configure_bounded_capture(capture: LayerCapture, arm: str, *, representative
     capture.bounded_capture = arm == "patched-masked"
     capture.representative_decodes = tuple(representative_decodes or REPRESENTATIVE_DECODES)
     capture.record_meta = {}
+
+
+def configure_structure_capture(capture: LayerCapture) -> None:
+    from attnview.smoke_structure import fa_bindings
+
+    capture.structure_bindings = fa_bindings(capture.runner)
+    if set(capture.layer_names.values()) != set(capture.structure_bindings):
+        raise RuntimeError("capture FA layer set differs from runtime FullAttentionSpec groups")
+    capture.structure = {}
+    capture.structure_enabled = True
+
+
+def check_masked_run(*, capture, args, payload, req_id, engine_traces, manifest, log):
+    """The real masked branch uses this gate; failures remain compatible with cleanup."""
+    from transformers import AutoTokenizer
+    from attnview.smoke_structure import check_capture_structure, expectations_from_config
+
+    try:
+        config = json.loads(args.timeline_config.read_text())
+        expected = expectations_from_config(
+            timeline_config=args.timeline_config, doc_fixture=args.doc_fixture,
+            tokenizer=AutoTokenizer.from_pretrained(str(SNAPSHOT), trust_remote_code=False),
+            prompt_len=payload["prompt_len"], sink_span=payload["sink_span"],
+            local_window_span=payload["local_window_span"], segment_spans=payload["segment_spans"],
+            block_size=config["block_size"], total_steps=args.max_tokens)
+        trace = {
+            "override_steps": [json.loads(line) for line in (args.out / "steps.jsonl").read_text().splitlines() if line.strip()],
+            "enforce_global_steps": [r for r in engine_traces if r.get("note") == "enforce_global"],
+            "parsed_steps": [r for r in engine_traces if "parse_step" in r],
+        }
+        checks, evidence = check_capture_structure(
+            capture=capture, expectations=expected, trace=trace, req_id=req_id,
+            prompt_len=payload["prompt_len"], block_size=config["block_size"],
+            representative_decodes=REPRESENTATIVE_DECODES)
+        manifest["masked_structure"] = {"ok": True, "checks": checks, **evidence}
+        log.check("masked_structure", True, f"{len(expected)} forwards, {len(capture.layer_names)} FA layers")
+    except Exception as exc:
+        manifest["masked_structure"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        log.check("masked_structure", False, manifest["masked_structure"]["error"])
 
 
 def install_capture(llm) -> LayerCapture:
@@ -2190,6 +2246,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     capture = install_capture(llm) if args.record_layers else None
     if capture is not None:
         configure_bounded_capture(capture, args.arm)
+        if args.arm == "patched-masked":
+            configure_structure_capture(capture)
     capture_host = args.capture_host_logits
     if capture_host is None:
         capture_host = not patched
@@ -2335,7 +2393,8 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
     elif out.joinpath("force.jsonl").exists():
         log.check("force_log_absent_without_trajectory", False, "未给轨迹却出现 force.jsonl：钩子绑定越界")
     if patched:
-        trace = verify_override_trace(out / "steps.jsonl", req_id=internal_main_id, expect_override_records=False)
+        trace = verify_override_trace(out / "steps.jsonl", req_id=internal_main_id,
+                                      expect_override_records=args.arm == "patched-masked")
         trace["ok"] = not trace["problems"]
         log.check("worker_trace_is_target_only", bool(trace["ok"]),
                   f"exists={trace['exists']} records={trace['records']} problems={trace['problems']}")
@@ -2394,6 +2453,7 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
             consumption_steps=host_consuming_steps,
             hook_steps=hook_steps,
             hook_source=hook_source,
+            require_canonical_view=args.arm != "patched-masked",
         )
         log.check(
             "capture_accounting",
@@ -2433,6 +2493,20 @@ def _run(args: argparse.Namespace, manifest: dict, manifest_path: Path, prompt, 
             logits_sha256=sha256_file(logits_path) if logits_path.exists() else None,
         )
         manifest["trajectory_emitted"] = {"path": str(args.emit_trajectory), **emitted}
+
+    if args.arm == "patched-masked":
+        dump_engine_traces(llm, out / "engine-traces-main.json")
+        engine_traces = json.loads((out / "engine-traces-main.json").read_text())
+        check_masked_run(capture=capture, args=args, payload=payload, req_id=internal_main_id,
+                         engine_traces=engine_traces, manifest=manifest, log=log)
+        nonfinite = {
+            "attention": sum(sum(r["nonfinite"].values()) for layers in capture.structure.values() for r in layers.values()),
+            "logits": sum(int((~torch.isfinite(r["logits"])).sum().item()) for r in records),
+        }
+        manifest["nonfinite"] = nonfinite
+        log.check("masked_finite", not any(nonfinite.values()), str(nonfinite))
+        manifest["checks"], manifest["failures"] = log.checks, log.failed
+        save_manifest(manifest_path, manifest)
 
     # cleanup / 生命周期验收（主请求产物已先落盘）
     if args.cleanup_check:
@@ -2510,11 +2584,18 @@ def freeze_run_source(out: Path) -> dict:
     snapshot_digest = sha256_file(snapshot)
     if snapshot_digest != digest:
         raise RuntimeError(f"校准: 源码快照与运行脚本不一致（{snapshot_digest} != {digest}）")
+    modules = {}
+    for path in sorted((REPO / "src/attnview").glob("*.py")):
+        target = snapshot_dir / "attnview" / path.name
+        target.parent.mkdir(exist_ok=True)
+        shutil.copyfile(path, target)
+        modules[str(path.relative_to(REPO))] = sha256_file(path)
     return {
         "script_path": str(script),
         "script_sha256": digest,
         "source_snapshot": str(snapshot),
         "source_snapshot_sha256": snapshot_digest,
+        "module_sha256": modules,
         "note": "运行期不得覆写本脚本；结束后如需修改，请用新输出目录起新 run",
     }
 
@@ -2532,6 +2613,11 @@ def assert_run_source_unchanged(snapshot: dict) -> str | None:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.arm == "patched-masked":
+        if not (args.doc_fixture and args.expect_fixture and args.timeline_config
+                and args.force_trajectory and args.record_layers and args.cleanup_check
+                and args.max_tokens == 29):
+            raise RuntimeError("masked diagnostic requires the fixed fixture, trajectory, 29 samples, layers and cleanup")
     out = args.out
     prepare_output_dir(out)
     manifest_path = out / "manifest.json"
@@ -2557,6 +2643,8 @@ def main(argv: list[str] | None = None) -> int:
     # 新增 patched-masked = 真实载荷 + enforce_global=False(诊断,不经 enforce_global 走 global)。
     payload["enforce_global"] = args.arm == "patched-global"
     prompt_ids = [int(t) for t in prompt.token_ids]
+    if args.arm == "patched-masked" and len(prompt_ids) != 7834:
+        raise RuntimeError("masked diagnostic requires the accepted 7834-token prompt")
     payload_arms = ("patched-global", "patched-masked")
     extra_args = {"attnview": payload} if args.arm in payload_arms else None
 
@@ -2592,6 +2680,9 @@ def main(argv: list[str] | None = None) -> int:
             "emit_trajectory": str(args.emit_trajectory) if args.emit_trajectory else None,
             "force_trajectory": str(args.force_trajectory) if args.force_trajectory else None,
             "compare_to": str(args.compare_to) if args.compare_to else None,
+            "input_hashes": {str(p): sha256_file(p) for p in
+                             (args.doc_fixture, args.expect_fixture, args.timeline_config, args.force_trajectory)
+                             if p is not None},
         },
         "ended_cst": None,
         "exit_code": None,

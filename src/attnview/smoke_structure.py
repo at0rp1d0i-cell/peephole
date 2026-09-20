@@ -1,39 +1,25 @@
-"""masked smoke 的**结构检查草稿**（纯 CPU，独立预期来自 config 声明 + 原始 spans）。
+"""Masked diagnostic: independent expectations and immutable in-forward evidence.
 
-**状态：草稿，不是门禁（NATIVE-053 认定不可验收，尚未接入 `_run`）。** 已知缺陷：
-- 逐步快照在**运行结束后**读 runner 的最后一份可变表，并非在本步 `model.forward` 内采集；
-- canonical 行用 `rows[0]`（会整行转 int，且硬选 GDN 组，pin `gpu/block_table.py:73-75` 是 `list[Tensor]`）；
-- trace 门禁未 fail-closed：空/空壳 trace 被当作"无覆写"的证明，且未区分"DA 受限覆写 trace"与"enforce_global 标记"。
-重做要求见 `outbox/SUP-004-masked-smoke-closeout.md` §2b（逐步比**值**：seq_lens/物理行/slot/位置；FA 组由 FullAttentionSpec 确定；缺字段/缺 trace/缺受限覆写即失败）。
-
-要点（NATIVE-050/052）：
-- 独立预期**不调用候选筛选 helper**：可见位置用 `reference_dense.independent_visible_positions`
-  （原始 sink/local_window/segment spans + config 声明的模式/引用），再块外扩成读取集合；
-- 实际值从 **capture / 真实 runner 字段**读取，**字段缺失一律明确失败**（不猜、不静默跳过）；
-- 步号换算显式：生成 token 序号 `decode_index`（1 基）与内部 forward 步 `forward = decode_index + 1`
-  （prefill = 1）；`override.step` 按 `decode_index`，capture 按 forward；
-- 覆盖全部步；`global` 恢复必须被检查；缺步/缺层/无 trace 失败。
+No candidate selection helpers are used. Runtime tables supply physical allocation,
+while the declared script and original renderer spans supply the expected reads.
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
 
 from .reference_dense import independent_visible_positions
 
-__all__ = ["StructureError", "StepExpectation", "expectations_from_config", "check_capture_structure"]
-
 
 class StructureError(RuntimeError):
-    """结构证据缺失或与独立预期不符（fail closed，不猜测）。"""
+    """Missing or inconsistent diagnostic evidence."""
 
 
 @dataclass(frozen=True)
 class StepExpectation:
-    forward: int                 # 内部 forward 步号（prefill = 1）
-    decode_index: int | None     # 生成 token 序号（1 基）；prefill 为 None
+    forward: int
+    decode_index: int | None
     mode: str
     refs: tuple[int, ...]
     kv_len: int
@@ -41,165 +27,173 @@ class StepExpectation:
     effective_per_block: tuple[int, ...]
 
     @property
-    def total_read(self) -> int:
+    def total_read(self):
         return sum(self.effective_per_block)
 
 
-def _transitions(script: Sequence[dict], tokenizer) -> list[tuple[int, str, tuple[int, ...]]]:
-    """config 段落 → 声明点（段末 token 下标触发、t+1 消费）。"""
-    idx, decls, prev = 0, [], None
-    for piece in script:
-        idx += len(tokenizer.encode(piece["text"], add_special_tokens=False))
-        mode = piece["expected_mode_after"]
-        if prev is None or mode != prev:
-            decls.append((idx - 1, mode, tuple(piece.get("refs", []))))
-        prev = mode
-    return decls
-
-
-def expectations_from_config(*, timeline_config: Path, doc_fixture: Path, tokenizer, prompt_len: int,
-                             sink_span, local_window_span, segment_spans, block_size: int,
-                             total_steps: int) -> dict[int, StepExpectation]:
-    """生成**逐步独立预期**（forward 1..total_steps）。"""
+def expectations_from_config(*, timeline_config, doc_fixture, tokenizer, prompt_len,
+                             sink_span, local_window_span, segment_spans, block_size,
+                             total_steps):
     cfg = json.loads(Path(timeline_config).read_text())
-    decls = _transitions(cfg["generation_script"], tokenizer)
-    out: dict[int, StepExpectation] = {}
+    declarations, token_count = [], 0
+    for piece in cfg["generation_script"]:
+        token_count += len(tokenizer.encode(piece["text"], add_special_tokens=False))
+        declarations.append((token_count - 1, piece["expected_mode_after"], tuple(piece["refs"])))
+    result = {}
     for forward in range(1, total_steps + 1):
-        decode_index = None if forward == 1 else forward - 1
-        t = 0 if forward == 1 else forward - 2          # 0 基生成 token 下标
         mode, refs = "global", ()
-        for parse_index, decl_mode, decl_refs in decls:
-            if parse_index <= t:
-                mode, refs = decl_mode, tuple(decl_refs)
-        kv_len = prompt_len if forward == 1 else prompt_len + t + 1
+        # Prefill consumes no generated token. Decode d consumes generated token d-1.
+        if forward > 1:
+            for parse_index, declared_mode, declared_refs in declarations:
+                if parse_index <= forward - 2:
+                    mode, refs = declared_mode, declared_refs
+        kv_len = prompt_len + forward - 1
         mask = independent_visible_positions(
             mode=mode, refs=refs, kv_len=kv_len, prompt_len=prompt_len,
-            sink_span=tuple(sink_span), local_window_span=tuple(local_window_span),
-            segment_spans=tuple(tuple(s) for s in segment_spans), block_size=block_size)
-        out[forward] = StepExpectation(forward=forward, decode_index=decode_index, mode=mode, refs=refs,
-                                       kv_len=kv_len, blocks=tuple(mask.blocks),
-                                       effective_per_block=tuple(mask.effective_per_block))
-    return out
+            sink_span=sink_span, local_window_span=local_window_span,
+            segment_spans=segment_spans, block_size=block_size)
+        result[forward] = StepExpectation(
+            forward, forward - 1 if forward > 1 else None, mode, refs, kv_len,
+            tuple(mask.blocks), tuple(mask.effective_per_block))
+    return result
 
 
-def _require(obj: Any, name: str, *, where: str):
-    """读取真实字段;**缺失即失败**(支持对象属性与 dict 记录两种真实形态)。"""
-    if isinstance(obj, dict):
-        if name not in obj:
-            raise StructureError(f"{where}: 缺少真实字段 {name!r}（不得猜测，字段缺失即失败）")
-        return obj[name]
-    if obj is None or not hasattr(obj, name):
-        raise StructureError(f"{where}: 缺少真实字段 {name!r}（不得猜测，字段缺失即失败）")
-    return getattr(obj, name)
+def fa_bindings(runner):
+    """Resolve cache group indices from actual FullAttentionSpec, never group zero."""
+    from vllm.v1.kv_cache_interface import FullAttentionSpec
+
+    bindings = {}
+    for group_index, group in enumerate(runner.kv_cache_config.kv_cache_groups):
+        if not isinstance(group.kv_cache_spec, FullAttentionSpec):
+            continue
+        block_size = int(group.kv_cache_spec.block_size)
+        if (runner.block_tables.block_sizes[group_index] != block_size
+                or runner.block_tables.kernel_block_sizes[group_index] != block_size):
+            raise StructureError("diagnostic requires manager/kernel block sizes to match")
+        for name in group.layer_names:
+            if name in bindings:
+                raise StructureError(f"duplicate FA layer {name}")
+            bindings[name] = {"group_index": group_index, "block_size": block_size}
+    actual = [name for groups in runner.attn_groups for group in groups
+              if isinstance(group.kv_cache_spec, FullAttentionSpec) for name in group.layer_names]
+    if not bindings or sorted(bindings) != sorted(actual):
+        raise StructureError("FA cache groups and attention groups disagree")
+    return bindings
 
 
-def _physical_row_from_runner(runner: Any, *, decode_index: int) -> list[int]:
-    """从**固定 pin runner** 读本步 canonical 完整行（FA metadata 之外、未被覆写）。"""
-    tables = _require(runner, "block_tables", where="runner")
-    rows = _require(tables, "input_block_tables", where="runner.block_tables")
-    if not isinstance(rows, (list, tuple)) or not rows:
-        raise StructureError("runner.block_tables.input_block_tables 为空:无法核对 canonical 行")
-    return [int(x) for x in rows[0]]
+def snapshot_layer(*, runner, batch, context, layer_name, binding, metadata, req_id, q_len):
+    """Called inside the actual FA forward; all tensor values become owned Python lists."""
+    req_ids = list(batch.req_ids)
+    if req_ids != [req_id]:
+        raise StructureError(f"unexpected current batch {req_ids}, target={req_id}")
+    row = req_ids.index(req_id)
+    if int(batch.num_tokens) != q_len:
+        raise StructureError("batch token count differs from actual FA query")
+    positions = runner.input_buffers.positions[:q_len].detach().cpu().tolist()
+    b = binding["block_size"]
+    nblocks = (max(positions) + b) // b
+    tables = runner.block_tables.input_block_tables
+    table = tables[binding["group_index"]]
+    if table.ndim != 2 or table.shape[1] < nblocks:
+        raise StructureError("canonical table must be [requests, blocks] with sufficient columns")
+    canonical = table[row, :nblocks].detach().cpu().tolist()
+    seq_len = int(metadata.seq_lens[row].item())
+    read_blocks = (seq_len + b - 1) // b
+    return {
+        "req_id": req_id, "req_ids": req_ids, "row": row, "layer_name": layer_name,
+        **binding, "positions": positions, "q_len": q_len,
+        "canonical": canonical, "seq_len": seq_len,
+        "physical": metadata.block_table[row, :read_blocks].detach().cpu().tolist(),
+        "slots": context.slot_mapping[layer_name][:q_len].detach().cpu().tolist(),
+        "is_prefilling": bool(batch.is_prefilling_np[row]),
+    }
 
 
-def check_capture_structure(*, capture: Any, expectations: dict[int, StepExpectation], runner: Any,
-                            trace: dict | None, prompt_len: int, block_size: int,
-                            representative_decodes: Iterable[int],
-                            expected_layers: int | None = None) -> tuple[list[dict], dict]:
-    """逐步核对 capture 与独立预期；返回 (`checks`, `evidence`)。任何缺失/不符即抛 `StructureError`。"""
-    positions = _require(capture, "positions", where="capture")
-    records = _require(capture, "records", where="capture")
-    rep = set(int(x) for x in representative_decodes)
-    checks: list[dict] = []
-    evidence: dict = {"steps": {}, "trace": None}
+def check_capture_structure(*, capture, expectations, trace, prompt_len, block_size,
+                            representative_decodes, req_id):
+    """Fail closed on exact coverage, each layer's values, and both trace categories."""
+    checks, evidence = [], {"steps": {}}
 
-    def chk(name: str, ok: bool, detail: str = "") -> None:
-        checks.append({"name": name, "ok": bool(ok), "detail": detail})
+    def equal(name, actual, expected):
+        if actual != expected:
+            raise StructureError(f"{name}: actual={str(actual)[:400]} expected={str(expected)[:400]}")
+        checks.append({"name": name, "ok": True})
 
-    # 层数要求:显式传入(真实运行 = 16 个 FA 层)或由**prefill 步**自洽推导;不得凭空假设。
-    prefill_layers = len(records.get(1) or {})
-    if prefill_layers == 0:
-        raise StructureError("capture 的 prefill 步没有任何层记录(缺层即失败)")
-    want_layers = int(expected_layers) if expected_layers is not None else prefill_layers
-
-    missing_steps = [f for f in expectations if f not in positions]
-    if missing_steps:
-        raise StructureError(f"capture 缺少步 {missing_steps[:8]}（缺步即失败）")
-    canon_row = _physical_row_from_runner(runner, decode_index=1)
-
-    def expect_block_row(exp: StepExpectation) -> list[int]:
-        if max(exp.blocks) >= len(canon_row):
-            raise StructureError(f"预期逻辑块 {max(exp.blocks)} 超出 canonical 行长度 {len(canon_row)}")
-        return [canon_row[b] for b in exp.blocks]
-
-    for forward, exp in sorted(expectations.items()):
-        layers = records.get(forward) or {}
-        if not layers:
-            raise StructureError(f"第 {forward} 步没有任何层记录（缺层即失败）")
-        if len(layers) != want_layers:
-            raise StructureError(
-                f"第 {forward} 步记录 {len(layers)} 层，与要求的 {want_layers} 层不一致（缺层/漏层即失败）")
-        meta = positions[forward]
-        rec_meta = (capture.__dict__.get("record_meta", {}) or {}).get(forward) or {}
-        got_len = int(next(iter(rec_meta.values()))["q_len"]) if rec_meta else int(meta.get("q_len", -1))
-        # 1) 相位(真实 `phase`,由 positions+is_prefilling_np 判定)
-        want_phase = "prefill" if forward == 1 else "decode"
-        got_phase = str(meta.get("phase", "<missing>"))
-        if got_phase != want_phase:
-            raise StructureError(f"第 {forward} 步 phase={got_phase!r} 与预期 {want_phase!r} 不符")
-        # 2) q_len 与真实绝对位置(逐值比较)
-        want_len = prompt_len if forward == 1 else 1
-        if got_len != want_len:
-            raise StructureError(f"第 {forward} 步 q_len={got_len} 与预期 {want_len} 不符")
-        got_pos = [int(x) for x in meta.get("positions", [])]
-        want_pos = list(range(prompt_len)) if forward == 1 else [prompt_len + (forward - 2)]
-        if got_pos != want_pos:
-            raise StructureError(f"第 {forward} 步 positions={got_pos[:6]} 与预期 {want_pos[:6]} 不符")
-        # 3) 读取长度:受限模式必须等于独立预期的总读取长度;global 等于 canonical 上界
-        view = meta.get("view") or {}
-        if not view.get("observable"):
-            raise StructureError(f"第 {forward} 步 view 不可观察({view.get('reason')}):无证据即失败")
-        want_read = exp.kv_len if exp.mode == "global" else exp.total_read
-        if int(view.get("seq_lens_first", -1)) != int(want_read):
-            raise StructureError(
-                f"第 {forward} 步 seq_lens_first={view.get('seq_lens_first')} 与预期读取长度 {want_read} 不符"
-                f"(mode={exp.mode}, canonical 上界={exp.kv_len})")
-        # 4) 物理块行逐列比较(期望 = canonical 映射后的预期逻辑块)
-        got_row = [int(x) for x in view.get("block_table_head", [])][: len(exp.blocks)]
-        want_row = expect_block_row(exp)
-        if got_row != want_row:
-            raise StructureError(f"第 {forward} 步物理行 {got_row} 与预期 {want_row} 不符(错块即失败)")
-        evidence["steps"][forward] = {"phase": got_phase, "mode_expected": exp.mode, "q_len": got_len,
-                                      "positions": got_pos, "read_len": int(view.get("seq_lens_first")),
-                                      "read_len_expected": int(want_read), "blocks_expected": list(exp.blocks),
-                                      "physical_row": got_row, "physical_row_expected": want_row,
-                                      "total_expected": exp.total_read}
-        chk(f"step{forward} 相位/位置/q_len/读取长度/物理行 与独立预期一致", True,
-            f"mode={exp.mode} read={view.get('seq_lens_first')} blocks={list(exp.blocks)}")
-    # canonical 行与 slot_mappings 的真实观测（缺失即失败，不猜）
-    canon = _physical_row_from_runner(runner, decode_index=1)
-    # 真实 slot 映射(pin `model_runner.py:771`):`execute_model_state.slot_mappings_by_layer`
-    state = _require(runner, "execute_model_state", where="runner")
-    _require(state, "slot_mappings_by_layer", where="runner.execute_model_state")
-    chk("runner canonical 行可读(长度为逻辑块数上限)", len(canon) >= 1, f"len={len(canon)}")
-    chk("runner slot_mappings 可读", True)
-    # trace 步号换算:override.step = decode_index;capture forward = decode_index + 1
-    if trace is None:
-        raise StructureError("缺少 trace(engine 侧逐步记录)⇒ 无 trace 即失败")
-    overrides = trace.get("override_steps") or []
-    if overrides:
-        for rec in overrides:
-            di = int(_require(rec, "step", where="trace.override"))
-            chk(f"override.step={di} ⇒ capture forward={di + 1} 存在", (di + 1) in positions,
-                f"forward={di + 1}")
-        evidence["trace"] = {"override_steps": overrides, "mapping": "override.step = decode_index; forward = decode_index + 1"}
-    else:
-        chk("masked 臂 trace 明确记录无强制全局覆写", True, "override_steps 为空(masked 不得经 enforce_global)")
-    # global 恢复必须被检查
-    globals_after = [f for f, e in expectations.items()
-                     if e.mode == "global" and e.decode_index is not None and e.decode_index >= 12]
-    if not globals_after:
-        raise StructureError("独立预期里没有 global 恢复步:轨迹不满足要求")
-    chk("global 恢复步存在且被核对", all(f in positions for f in globals_after),
-        f"recovery forwards={globals_after[:6]}")
+    try:
+        bindings = capture.structure_bindings
+        equal("FA layer names", sorted(capture.layer_names.values()), sorted(bindings))
+        for field in (capture.structure, capture.positions, capture.records):
+            equal("forward coverage", sorted(field), sorted(expectations))
+        if not bindings or not expectations:
+            raise StructureError("empty layer/step expectations")
+        previous = {}
+        for forward, exp in sorted(expectations.items()):
+            equal("expectation forward", exp.forward, forward)
+            equal(f"f{forward} layers", sorted(capture.structure[forward]), sorted(bindings))
+            equal(f"f{forward} captured layers", sorted(capture.records[forward]), sorted(capture.layer_names))
+            positions = list(range(prompt_len)) if forward == 1 else [prompt_len + forward - 2]
+            equal(f"f{forward} logical positions", capture.positions[forward]["positions"], positions)
+            equal(f"f{forward} phase", capture.positions[forward]["phase"], "prefill" if forward == 1 else "decode")
+            for name, binding in bindings.items():
+                rec = capture.structure[forward][name]
+                prefix = f"f{forward}/{name}"
+                for key, expected in {"req_id": req_id, "req_ids": [req_id], "row": 0,
+                                      "layer_name": name, "positions": positions,
+                                      "q_len": len(positions), "is_prefilling": forward == 1,
+                                      "block_size": block_size, "group_index": binding["group_index"]}.items():
+                    equal(f"{prefix} {key}", rec[key], expected)
+                canonical = rec["canonical"]
+                equal(f"{prefix} canonical length", len(canonical), (exp.kv_len + block_size - 1) // block_size)
+                if name in previous:
+                    equal(f"{prefix} canonical prefix stable", canonical[:len(previous[name])], previous[name])
+                previous[name] = canonical
+                equal(f"{prefix} read length", rec["seq_len"], exp.total_read)
+                equal(f"{prefix} physical blocks", rec["physical"], [canonical[b] for b in exp.blocks])
+                equal(f"{prefix} canonical write slots", rec["slots"],
+                      [canonical[p // block_size] * block_size + p % block_size for p in positions])
+            for index, rec in capture.records[forward].items():
+                expected_keys = {"k", "v"}
+                if forward - 1 in representative_decodes:
+                    expected_keys |= {"q", "out"}
+                equal(f"f{forward}/L{index} bounded tensors", set(rec) & {"k", "v", "q", "out"}, expected_keys)
+            evidence["steps"][str(forward)] = {
+                "decode": exp.decode_index, "mode": exp.mode, "refs": exp.refs,
+                "blocks": exp.blocks, "effective_per_block": exp.effective_per_block,
+                "read_length": exp.total_read,
+            }
+        equal("representative coverage", sorted(set(representative_decodes) & {f - 1 for f in expectations}),
+              sorted(representative_decodes))
+        equal("enforce_global marks", trace["enforce_global_steps"], [])
+        overrides = trace["override_steps"]
+        restricted = {f - 1: e for f, e in expectations.items() if e.mode != "global"}
+        equal("restricted trace coverage", [r["step"] for r in overrides], sorted(restricted))
+        for record in overrides:
+            exp = restricted[record["step"]]
+            equal("override request", record["req_ids"], [req_id])
+            equal("override kind", record["kind"], "override_step")
+            equal("override scheduled tokens", record["num_scheduled_tokens"], {req_id: 1})
+            view = record["override"]
+            groups = {b["group_index"] for b in bindings.values()}
+            equal("single FA group", len(groups), 1)
+            equal("override group", view["group_index"], next(iter(groups)))
+            equal("override rows", view["rows_with_override"], [0])
+            equal("override length", view["seqused_k"], [exp.total_read])
+            equal("override max length", view["max_seq_len"], exp.total_read)
+            equal("override blocks", view["visible_logical_blocks"], {"0": list(exp.blocks)})
+        parsed = trace["parsed_steps"]
+        equal("parser step coverage", [r["parse_step"] for r in parsed], list(range(len(expectations))))
+        for forward, exp in expectations.items():
+            if forward == 1:
+                continue
+            record = parsed[forward - 2]
+            equal("parser request", record["req_id"], req_id)
+            equal("parser effect step", record["effect_step"], forward - 1)
+            equal("parser mode", record["mode"], exp.mode)
+            equal("parser refs", record["refs"], list(exp.refs))
+        if not any(e.mode != "global" for e in expectations.values()):
+            raise StructureError("diagnostic contains no restricted step")
+        equal("final global recovery", expectations[max(expectations)].mode, "global")
+    except (KeyError, AttributeError, TypeError, IndexError) as exc:
+        raise StructureError(f"missing/malformed evidence: {exc}") from exc
+    evidence["trace_mapping"] = "override.step = decode; forward = decode + 1"
     return checks, evidence
