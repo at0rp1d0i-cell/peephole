@@ -1,5 +1,7 @@
-# <scope>: <≤50 字中文摘要>            ← subject 整行 ≤72 字符；工作单编号放 Work-order trailer
-# scope 例：stage-05 / fix(smoke) / docs(publication) / evidence(p3-calib) / chore(gitignore)
+# <type>(<scope>): <≤50 字中文摘要>   ← subject 整行 ≤72 字符；不含阶段、不含工作单编号
+# type: feat / fix / docs / evidence / test / refactor / chore
+# scope: protocol / readview / smoke / calib / adapter / patch / deploy / publication / readme
+# 阶段由 tag 标识（git describe --tags --abbrev=0），不在 subject 里重复
 #
 # 做了什么：<一两句；微小改动可省略>
 # 证据：<可复跑的命令，或产物路径>

@@ -9,7 +9,7 @@
 ### 1.1 骨架
 
 ```
-<scope>: <≤50 字中文摘要>            ← subject 整行 ≤72 字符
+<type>(<scope>): <≤50 字中文摘要>     ← subject 整行 ≤72 字符；不含阶段、不含工作单编号
 
 做了什么：<一两句；微小改动可省略>
 证据：<可复跑的命令，或产物路径>
@@ -23,21 +23,24 @@ Unverified: 实机 GPU 路径未运行；数值口径未复核
 
 非平凡改动（改了行为、改了门禁、入了证据）**必带正文**。正文写不出来，通常说明这个提交该拆。
 
-### 1.2 scope 取值
+### 1.2 type 与 scope
 
-| 类别 | scope | 例 |
+| type | 用于 | 例 |
 | --- | --- | --- |
-| 阶段内开发/实验 | `stage-NN` | `stage-05: 结构检查改按每步 forward 取值` |
-| 修复 | `fix(模块)` | `fix(smoke): 逐层快照改在本步 forward 内采集` |
-| 文档/报告 | `docs(区域)` | `docs(publication): 首推入库清单` |
-| 证据入库 | `evidence(区域)` | `evidence(p3-calib): 校准 run 文本层入库` |
-| 维护/脚手架 | `chore(区域)` | `chore(gitignore): 排除证据张量大件` |
+| `feat` | 新增行为/接口 | `feat(protocol): 增量声明解析器` |
+| `fix` | 修复缺陷 | `fix(smoke): 逐层快照改在本步 forward 内采集` |
+| `docs` | 报告、设计、清单 | `docs(publication): 首推入库清单` |
+| `evidence` | 产物入库、索引登记 | `evidence(calib): 校准 run 文本层入库` |
+| `test` | 测试与门禁 | `test(smoke): 补 fail-closed 反例` |
+| `refactor` | 不改行为的重构 | `refactor(step-plan): 抽出纯函数` |
+| `chore` | 脚手架、忽略规则、配置 | `chore(gitignore): 排除证据张量大件` |
 
-工作单编号（`SUP-nnn` / `NATIVE-nnn`）**不进 subject**，只进 `Work-order:` trailer——subject 要留给"读得懂的一句话"。
+`scope` = 子系统/区域，取短名词：`protocol` / `readview` / `smoke` / `calib` / `adapter` / `patch` / `deploy` / `publication` / `readme`。
+**阶段与工作单编号都不进 subject**：阶段由 tag 标识（§1.4），编号进 `Work-order:` trailer——subject 留给"读得懂的一句话"。
 
 ### 1.3 trailer 词表
 
-固定 4 个键，放消息末尾，供机器过滤（`git log --grep='^Work-order: SUP-004'`）：
+固定 4 个键，放消息末尾，供机器过滤（`git log --grep='^Work-order: SUP-004'`、`git log --format='%(trailers:key=Verified,valueonly)'`）：
 
 | 键 | 内容 | 必填 |
 | --- | --- | --- |
@@ -46,7 +49,17 @@ Unverified: 实机 GPU 路径未运行；数值口径未复核
 | `Verified` | 实际跑过的命令与退出码 | 有可跑验证时必填 |
 | `Unverified` | 明确没做的部分 | **必填**；确实全验时写 `无` |
 
-### 1.4 反例（都来自本仓历史，供对照）
+### 1.4 阶段由 tag 标识
+
+`stage-NN` tag 打在阶段边界上，是阶段的权威标识；最近祖先 tag 就是"当前阶段"，因此提交信息里不重复阶段：
+
+```bash
+git describe --tags --abbrev=0            # 当前阶段，例：stage-05
+git log --oneline stage-04..stage-05      # 某阶段的提交范围
+git log --oneline --decorate              # 边界处直接看到 tag
+```
+
+### 1.5 反例（都来自本仓历史，供对照）
 
 - **单行超长**：`stage-05 NATIVE-052:结构检查——q_len 取自搬运前标量…` 320 字符挤在 subject 里 → `git log --oneline` 不可读，证据与未验证项没有位置。仓库里 62 条提交 subject >100 字符，都是这个形态。
 - **第二套风格**：`fix(scope): describe the change in english`——英文 Conventional 风格、无正文、无证据、无未验证项。同一仓库里并存两套提交风格本身就是"乱"的来源；要换风格就整仓换，别一条一条换。
@@ -55,6 +68,8 @@ Unverified: 实机 GPU 路径未运行；数值口径未复核
 ## 2 一条提交一件事
 
 格式改动（改名、格式化、重排）与行为改动分开提交。一次提交能独立回滚、独立复核。
+
+**共享工作区（多 agent 并行）额外约束**：`git commit --amend`、`rebase`、`reset --hard` 只允许作用在**自己的、未推送的**提交上，且执行前先确认 `HEAD` 就是你那条提交（`git log --oneline -1`）——HEAD 可能已被别人推进。要改别人的提交一律先问；需要撤销自己的改动时优先用 `reset --soft`（只动 HEAD，不动工作区与暂存区），避免覆盖他人未提交的工作。
 
 ## 3 机械门禁（提交前自跑）
 
