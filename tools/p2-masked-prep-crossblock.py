@@ -131,12 +131,11 @@ def main() -> int:
                 cur = {"mode": e["expected_mode_after"], "refs": list(e["refs"])}
         return cur["mode"], tuple(cur["refs"])
     for t, (tid, text) in enumerate(script):
+        rec = state.feed_generated_token(t, tid, text)     # 仅推进候选状态;其读取在独立真值之后
         # ---- 独立真值先行:只用 config 时间线 + arm 原始 span,不接触候选 state ----
         exp_mode, exp_refs = expected_mode_at(t)
         written = prompt_len + t + 1                      # 1 基 decode 次数 = t+1
         kv = written                                      # 本步 attention 的 KV 上界(含本 token)
-        spans = [(0, int(arm.scaffold.sink_span[0])), tuple(arm.scaffold.sink_span)[1:] and tuple(arm.scaffold.sink_span),
-                 tuple(arm.scaffold.local_window_span), (prompt_len, kv)]
         spans = [tuple(arm.scaffold.sink_span), tuple(arm.scaffold.local_window_span), (prompt_len, kv)]
         if exp_mode == "global":
             spans.append((0, kv))
