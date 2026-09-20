@@ -74,6 +74,10 @@ def make_real_metadata(block_table_2d: torch.Tensor, seq_lens_values, num_tokens
         "block_table": block_table_2d,
         "slot_mapping": torch.zeros(num_tokens, dtype=torch.int64),
         "use_cascade": False,
+        "num_decode_reqs": 1,
+        "num_prefill_reqs": 0,
+        "num_decode_tokens": int(num_tokens),
+        "num_prefill_tokens": 0,
     }
     kw = {}
     for f in dataclasses.fields(FlashAttentionMetadata):
@@ -90,10 +94,11 @@ def make_real_metadata(block_table_2d: torch.Tensor, seq_lens_values, num_tokens
 
 
 class StandInImpl:
-    """原实现替身:计数并不改写缓冲(用于区分是否走了原实现)。"""
+    """原实现替身:计数并不改写缓冲(用于区分是否走了原实现);带真实 `scale`(门禁要求)。"""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, scale: float = 0.0) -> None:
         self.name = name
+        self.scale = scale
         self.calls = 0
 
     def forward(self, layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs):
@@ -166,7 +171,7 @@ def main() -> int:
     # ---------- 3. 真实 metadata + 真实签名驱动 ----------
     block_row_a = [5, 12, 1, 9, 14, 3, 7, 10, 0, 13, 2]
     block_row_b = [4, 6, 8, 2, 11, 15, 1, 9, 3, 7, 12]
-    impls = [StandInImpl(f"L{i}") for i in range(2)]
+    impls = [StandInImpl(f"L{i}", scale) for i in range(2)]
     originals = {i: impls[i].forward for i in range(2)}
     sw = TestOnlyReferenceSwitch(enabled=True, request_id="req-A", layers=(0, 1), steps=(6, 7), scale=scale)
     at = TestOnlyReferenceAttachment(sw, bridge=bridge, request_idx=0, head_size=d, layers=(0, 1), steps=(6, 7))
@@ -237,6 +242,49 @@ def main() -> int:
         chk("多 token 输入被拒绝(仅单 token decode)", False)
     except ReferenceError as exc:
         chk("多 token 输入被拒绝(仅单 token decode)", True, error=str(exc)[:80])
+    # 门禁:scale 不一致 / 额外参数 / 非 BF16 / 几何不一致
+    impl_bad = StandInImpl("bad", scale + 0.5)
+    sw_bad = TestOnlyReferenceSwitch(enabled=True, request_id="req-S", layers=(0,), steps=(6,), scale=scale)
+    at_bad = TestOnlyReferenceAttachment(sw_bad, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
+    errs = {}
+    try:
+        at_bad.wrap_all([impl_bad])
+        sw_bad.current_request_id, sw_bad.current_step = "req-S", 6
+        try:
+            impl_bad.forward(0, q, None, None, native_kv, meta_for(6), torch.zeros(1, heads, d, dtype=torch.bfloat16))
+        except ReferenceError as exc:
+            errs["scale_mismatch"] = str(exc)
+        sw_bad.enabled, sw_bad.restore = True, None
+    finally:
+        at_bad.restore()
+    chk("门禁:impl.scale 与开关 scale 不一致即拒绝(不从 head_dim 推导)", "不一致" in errs.get("scale_mismatch", ""),
+        error=errs.get("scale_mismatch", "")[:90])
+    impl_x = StandInImpl("x", scale)
+    at_x = TestOnlyReferenceAttachment(TestOnlyReferenceSwitch(enabled=True, request_id="req-X", layers=(0,), steps=(6,), scale=scale),
+                                       bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
+    extra_ok = False
+    try:
+        at_x.wrap_all([impl_x])
+        at_x.switch.current_request_id, at_x.switch.current_step = "req-X", 6
+        try:
+            impl_x.forward(0, q, None, None, native_kv, meta_for(6),
+                           torch.zeros(1, heads, d, dtype=torch.bfloat16), None, None)   # output_scale/output_block_scale
+        except ReferenceError as exc:
+            extra_ok = "额外参数" in str(exc)
+    finally:
+        at_x.restore()
+    chk("门禁:量化/特殊特性(额外 output_scale/output_block_scale)不被静默丢弃", extra_ok)
+    for label, kw, want in (("非 BF16 输出", {"output": torch.zeros(1, heads, d, dtype=torch.float16)}, "BF16"),
+                            ("KV 块长与 kernel_block_size 不一致", {"kv_cache": torch.randn(16, kv_heads, 512, 2 * d, dtype=torch.bfloat16)}, "块长")):
+        arg = dict(query=q, kv_cache=native_kv, attn_metadata=meta_for(6),
+                   output=torch.zeros(1, heads, d, dtype=torch.bfloat16))
+        arg.update(kw)
+        try:
+            perform_reference_attention_native(sw, layer_idx=0, step_index_0based=6, bridge=bridge, request_idx=0,
+                                               head_size=d, impl_scale=scale, **arg)
+            chk(f"门禁:{label} 被拒绝", False)
+        except ReferenceError as exc:
+            chk(f"门禁:{label} 被拒绝", want in str(exc), error=str(exc)[:90])
     bad_md = make_real_metadata(torch.tensor([block_row_a], dtype=torch.int32),
                                 [bridge.kv_len_at(6) + 3], 1, len(block_row_a))
     try:
@@ -253,7 +301,7 @@ def main() -> int:
         chk("request_idx 超出块表行数时拒绝", True, error=str(exc)[:90])
 
     # ---------- 5. 缺层/缺步、异常恢复、隔离 ----------
-    impls2 = [StandInImpl("m0"), StandInImpl("m1")]
+    impls2 = [StandInImpl("m0", scale), StandInImpl("m1", scale)]
     sw2 = TestOnlyReferenceSwitch(enabled=True, request_id="req-C", layers=(0, 1), steps=(6,), scale=scale)
     at2 = TestOnlyReferenceAttachment(sw2, bridge=bridge, request_idx=0, head_size=d, layers=(0, 1), steps=(6,))
     try:
@@ -265,7 +313,7 @@ def main() -> int:
     chk("缺层/缺步被账本检出(missing 非空)", at2.missing({(0, 6), (1, 6)}) == {(1, 6)},
         missing=sorted(at2.missing({(0, 6), (1, 6)})))
 
-    impl3 = StandInImpl("e0")
+    impl3 = StandInImpl("e0", scale)
     orig3 = impl3.forward
     sw3 = TestOnlyReferenceSwitch(enabled=True, request_id="req-D", layers=(0,), steps=(6,), scale=scale)
     at3 = TestOnlyReferenceAttachment(sw3, bridge=bridge, request_idx=0, head_size=d, layers=(0,), steps=(6,))
@@ -281,7 +329,7 @@ def main() -> int:
     chk("参考异常:抛错、开关关闭、forward 恢复为原方法", raised and sw3.enabled is False
         and impl3.forward == orig3 and bool(at3.errors()), errors=at3.errors()[:1])
 
-    impls_iso = [StandInImpl("iso0")]
+    impls_iso = [StandInImpl("iso0", scale)]
     sw_iso = TestOnlyReferenceSwitch(enabled=True, request_id="req-B2", layers=(0,), steps=(7,), scale=scale)
     at_iso = TestOnlyReferenceAttachment(sw_iso, bridge=bridge, request_idx=1, head_size=d, layers=(0,), steps=(7,))
     try:

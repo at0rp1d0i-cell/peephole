@@ -128,6 +128,7 @@ def perform_reference_attention_native(
     head_size: int,
     key: torch.Tensor | None = None,
     value: torch.Tensor | None = None,
+    impl_scale: float | None = None,
 ) -> dict[str, Any]:
     """真实签名下的参考执行:解包原生 KV → 独立 mask → gather → FP32 → cast → 原地写 output。
 
@@ -136,6 +137,25 @@ def perform_reference_attention_native(
     """
     geo = resolve_geometry(bridge=bridge, attn_metadata=attn_metadata, request_idx=request_idx,
                            step_index_0based=step_index_0based)
+    # --- fail-fast 门禁(全部从真实 impl/metadata/张量提取) ---
+    if impl_scale is None:
+        raise ReferenceError("缺少 impl.scale:参考必须使用真实 impl 的 scale")
+    if float(switch.scale) and float(switch.scale) != float(impl_scale):
+        raise ReferenceError(f"switch.scale={switch.scale} 与 impl.scale={impl_scale} 不一致")
+    if kv_cache.shape[2] != bridge.kernel_block_size:
+        raise ReferenceError(
+            f"native KV 块长 {kv_cache.shape[2]} 与 kernel_block_size {bridge.kernel_block_size} 不一致")
+    if output.dtype != torch.bfloat16 or query.dtype != torch.bfloat16:
+        raise ReferenceError(f"仅支持 BF16:query={query.dtype} output={output.dtype}")
+    causal = getattr(attn_metadata, "causal", None)
+    if causal is not None and bool(causal) is not True:
+        raise ReferenceError(f"仅支持 causal=True,实际 {causal}")
+    n_decode = getattr(attn_metadata, "num_decode_reqs", None)
+    num_tokens = getattr(attn_metadata, "num_actual_tokens", None)
+    if n_decode is not None and int(n_decode) != 1:
+        raise ReferenceError(f"仅支持单请求 decode,num_decode_reqs={n_decode}")
+    if num_tokens is not None and int(num_tokens) != 1:
+        raise ReferenceError(f"仅支持单 token decode,num_actual_tokens={num_tokens}")
     mask = bridge.mask_at(step_index_0based)
     key_cache, value_cache = unpack_native_kv(kv_cache, head_size)
     # 真实 pin 传入的是 `[num_tokens, num_heads, head_dim]`(attention.py:524-525);本参考只支持单 token decode。
@@ -152,7 +172,7 @@ def perform_reference_attention_native(
     q = query.reshape(-1, query.shape[-1])
     k, v = gather_positions(key_cache, value_cache, geo["block_table_row"], bridge.kernel_block_size,
                             mask.read_positions)
-    fp32, casted = dense_attention_fp32(q, k, v, scale=float(switch.scale), dtype=output.dtype)
+    fp32, casted = dense_attention_fp32(q, k, v, scale=float(impl_scale), dtype=output.dtype)
     if casted.dtype != output.dtype:
         raise ReferenceError(f"cast 目标 dtype 与 output 不一致:{casted.dtype} vs {output.dtype}")
     ptr_before = output.data_ptr()
@@ -181,4 +201,7 @@ def perform_reference_attention_native(
         "num_tokens": int(query.shape[0]) if query.dim() == 3 else None,
         "buffer_ptr_preserved": True,
         "got_key_arg": key is not None, "got_value_arg": value is not None,
+        "impl_scale": float(impl_scale), "kv_block_len": int(kv_cache.shape[2]),
+        "causal": bool(causal) if causal is not None else None,
+        "num_decode_reqs": int(n_decode) if n_decode is not None else None,
     }

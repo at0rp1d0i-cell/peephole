@@ -38,12 +38,19 @@ class TestOnlyReferenceAttachment:
     wrapped: dict[int, tuple[Any, Any]] = field(default_factory=dict)
     restored: list[int] = field(default_factory=list)
 
-    def _call_entry(self, *, index: int, step: int, query, key, value, kv_cache, attn_metadata, output):
+    def _call_entry(self, *, index: int, step: int, query, key, value, kv_cache, attn_metadata, output, impl):
         if self.bridge is None:
             raise ReferenceError("未提供 TimelineBridge:参考路径无法确定独立时间线/几何")
+        impl_scale = getattr(impl, "scale", None)
+        if impl_scale is None:
+            raise ReferenceError(f"L{index} 的 impl 没有 .scale:拒绝用 head_dim 推导替代")
+        if self.switch.scale and float(self.switch.scale) != float(impl_scale):
+            raise ReferenceError(
+                f"开关 scale={self.switch.scale} 与 impl.scale={impl_scale} 不一致:拒绝继续")
         return self.entry(self.switch, layer_idx=index, step_index_0based=step - 1, bridge=self.bridge,
                           request_idx=self.request_idx, query=query, key=key, value=value, kv_cache=kv_cache,
-                          attn_metadata=attn_metadata, output=output, head_size=self.head_size)
+                          attn_metadata=attn_metadata, output=output, head_size=self.head_size,
+                          impl_scale=float(impl_scale))
 
     def wrap_impl(self, index: int, impl: object) -> None:
         original = getattr(impl, "forward", None)
@@ -54,6 +61,10 @@ class TestOnlyReferenceAttachment:
         self.wrapped[index] = (impl, original)
 
         def wrapper(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs):
+            if args or kwargs:
+                raise ReferenceError(
+                    f"出现未支持的额外参数(args={len(args)}, kwargs={sorted(kwargs)}):"
+                    "量化/特殊 attention 特性不得被静默丢弃")
             rid = self.switch.current_request_id or ""
             step = self.switch.current_step
             if not self.switch.should_override(request_id=rid, layer_idx=index, step=step):
@@ -61,7 +72,8 @@ class TestOnlyReferenceAttachment:
                 return original(layer, query, key, value, kv_cache, attn_metadata, output, *args, **kwargs)
             try:
                 info = self._call_entry(index=index, step=step, query=query, key=key, value=value,
-                                        kv_cache=kv_cache, attn_metadata=attn_metadata, output=output)
+                                        kv_cache=kv_cache, attn_metadata=attn_metadata, output=output,
+                                        impl=self.wrapped[index][0])
                 self.ledger.append({"layer": index, "step": step, "request_id": rid, "action": "overrode", **info})
                 return None                     # 与生产接线一致:返回值被忽略,结果写在传入 output
             except Exception as exc:            # noqa: BLE001
