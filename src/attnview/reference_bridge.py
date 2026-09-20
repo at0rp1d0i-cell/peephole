@@ -226,7 +226,7 @@ def perform_reference_attention_native(
         "buffer_ptr_preserved": True,
         "got_key_arg": key is not None, "got_value_arg": value is not None,
         "impl_scale": float(impl_scale), "kv_block_len": int(kv_cache.shape[2]),
-        "kv_strides": [int(s) for s in k_cache.stride()],
+        "kv_strides": [int(s) for s in key_cache.stride()],
         "causal": bool(causal) if causal is not None else None,
         "num_decode_reqs": int(n_decode) if n_decode is not None else None,
     }
