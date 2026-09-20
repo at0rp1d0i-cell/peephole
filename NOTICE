@@ -1,0 +1,47 @@
+peephole — declarative attention read views for vLLM
+Copyright 2026 at0rp1d0i-cell
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository contains modified copies of files from the vLLM project and additional files that
+are installed into the vLLM package.
+
+vLLM
+----
+vLLM (https://github.com/vllm-project/vllm) is licensed under the Apache License, Version 2.0,
+Copyright contributors to the vLLM project.
+
+Pinned revision: 98dff2a81d747d1dba01a47f939f48c3526d4206 (vLLM v0.29.0)
+
+Modified copies of upstream files carried in this repository (each retains its upstream SPDX
+attribution header, and each change is marked in place with a prominent comment):
+
+  v1/core/sched/output.py
+  v1/engine/core.py
+  v1/worker/gpu/attn_utils.py
+  v1/worker/gpu/model_runner.py
+  v1/worker/gpu/model_states/default.py
+  v1/worker/gpu/model_states/interface.py
+  v1/worker/gpu/model_states/mamba_hybrid.py
+  v1/worker/gpu_worker.py
+
+Files added by this project and installed inside the vLLM package:
+
+  v1/engine/attnview_engine.py
+  v1/worker/gpu/attnview_adapter.py
+
+Per-file SHA-256 digests for every modified and added file, together with the pinned revision and
+the deployment journal, are recorded in vllm-patch/manifest.json and are checked on every
+apply / verify / revert. The Apache License, Version 2.0 text covering both this project and the
+derived vLLM files is included in LICENSE.
+
+References (not bundled with this repository)
+---------------------------------------------
+- Declarative Attention — "Language Models Can Control Their Own Attention", arXiv:2609.02737v1
+  (CC BY 4.0). The declarative tag syntax implemented here follows that paper; the paper is cited
+  as a reference and this project does not claim to be its implementation or a reproduction of it.
+- lucidrains/declarative-attention (MIT). Consulted as a reference only.
+- H2O and ClusterKV (no license). Concept-only citation; no code from them is copied.
+
+Any material from the references above that is later included in this repository must be
+accompanied by the attribution its license requires.
