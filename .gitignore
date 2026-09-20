@@ -15,8 +15,17 @@ material/
 *.gguf
 *.bin
 *.pt
+# 证据大件：激活/张量 dump 不入库（如 evidence/p3-calib/run-disabled-*/capture/*.npz，
+# 单个 1.39 GB）。入库的是同一 run 的文本层（manifest.json / engine-traces.json /
+# cleanup.json / force.jsonl / arm.json / source 脚本快照）；原始大件留在远端，
+# 在证据索引里登记文件名、大小与 sha256。
+*.npz
+*.npy
 
 # 运行期噪音
 __pycache__/
 *.pyc
 *.incomplete
+
+# 内部协作入口：远端监督约定，不随公开仓发行
+AGENTS.md
