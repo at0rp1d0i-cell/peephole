@@ -26,6 +26,7 @@ def main():
                "--record-layers", "--cleanup-check"]
     for key in ("doc_fixture", "expect_fixture", "timeline_config", "force_trajectory"):
         command += ["--" + key.replace("_", "-"), config[key]]
+    command += ["--compare-to", config["force_trajectory"]]
     state = {
         "head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
         "command": command, "started_unix": time.time(), "phases": {},
