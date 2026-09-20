@@ -352,10 +352,13 @@ def main() -> int:
     chk("C/D/E 槽位审计严格通过(等长、0≤claimed≤written、块已分配、槽均已写)",
         bool(derived) and all(audit_ok(n) for n in derived),
         audit=[(n["label"], audit_ok(n), n["slot_audit"]["rows"]) for n in derived])
-    chk("A/B 为'构造失败'类样本(门禁在构造阶段即抛错,不冒充安全读取样本)",
-        all(n.get("kind", "").startswith("构造失败") or n.get("error_type") for n in report["negative_controls"]
-            if n is not None) and all(n.get("error_type") for n in report["negative_controls"] if "slot_audit" not in n),
-        kinds=[(n["label"][:28], n.get("error_type")) for n in report["negative_controls"] if "slot_audit" not in n])
+    construction_failures = [n for n in report["negative_controls"] if "slot_audit" not in n or not n.get("slot_audit")]
+    derived_only = [n for n in report["negative_controls"] if n.get("slot_audit")]
+    chk("A/B 为'构造失败'类样本(构造阶段即抛错,不冒充安全读取样本)",
+        bool(construction_failures) and bool(derived_only)
+        and all(n["kind"].startswith("构造失败") and n.get("error_type") for n in construction_failures)
+        and all(n["kind"].startswith("派生样本") for n in derived_only),
+        kinds=[(n["label"][:28], n.get("kind"), n.get("error_type")) for n in report["negative_controls"]])
     report["test_scope"] = ("本 CPU 脚本**不执行任何读取**(无 GPU、无 gather/copy):'拒绝先于读取'是生产路径的编码事实,"
                             "**本轮未实测**;此处只断言(1)构造失败类样本在构造阶段抛错,(2)派生样本的可见集合/形状/槽位审计,"
                             "(3)E 由精确可见集合合同拒绝,(4)C/D 由本脚本新增的 CPU 测试判据拒绝。")
