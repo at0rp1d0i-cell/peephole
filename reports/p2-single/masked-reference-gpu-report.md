@@ -17,9 +17,30 @@
 | 对照摘要（CPU 复算） | `evidence/p3-masked-reference/reference-20260921-run5/summary.json` |
 | 候选侧局部 FP32 观察 | `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/numeric-audit.json` |
 
+## 运行代码 ≠ 交付代码？三方核对
+
+两条终版事务用的驱动 `tools/p2-calib-run.py` 是 sha256 `a9da137f6350…`：等于 commit `4d32a16` 的文件内容，也等于两个 run 目录里冻结的 `run/source/p2-calib-run.py`。`src/attnview/**` 在本轮 commit 上没有改动（`git diff 73364dc 4d32a16 -- src/` 为空），且 5 个 reference run 的 manifest 记录的 22 个模块哈希彼此相同。下表把"哪次 run 用的是哪份代码"钉死，不作追认：
+
+| run | manifest `script_sha256` | 该驱动的可核来源 | 说明 |
+| --- | --- | --- | --- |
+| run1 | `f38197c8e6ac…` | commit `73364dc` 的 `tools/p2-calib-run.py`（同哈希） | 无 GDN state 探测的版本 |
+| run2 | `03069799700c…` | `evidence/p3-masked-reference/reference-20260921-run2/run/source/p2-calib-run.py` | GDN 探测首版：要求 FA/GDN storage 独占，真机被该门禁拒绝（见该 run 的 `run/error.txt`） |
+| run3 | `d1051431ec1b…` | `evidence/p3-masked-reference/reference-20260921-run3/run/source/p2-calib-run.py` | 同 run2，拒绝再次发生 |
+| run4 | `65d231037d0c…` | `evidence/p3-masked-reference/reference-20260921-run4/run/source/p2-calib-run.py` | 首版 GDN 证据口径（逐层 `alias_pairs`=1536），上一轮交付所用 |
+| run5 | `a9da137f6350…` | commit `4d32a16` + 同哈希快照 | 交付版本：去重 storage 重叠计数 |
+
+run4 的驱动**不是**本轮代码。两份快照的差异只有 GDN 别名统计的呈现（先按 `(ptr, bytes)` 去重再计重叠对），读取视图、参考计算与写回路径未变；可直接核验：
+
+```bash
+diff evidence/p3-masked-reference/reference-20260921-run4/run/source/p2-calib-run.py \
+     <(git show 4d32a16:tools/p2-calib-run.py)
+```
+
+本轮没有把该未上机的观测改动追认给 run4，也不用它解释 run4 的数字——本报告的全部数字来自 run5 / `4d32a16`。run4 的 manifest、结构化快照与捕获大件按"在盘未入库集合"登记（`reports/evidence-registry.json`），不随仓发行。
+
 ## 事务结果
 
-两次事务的 `transaction.json` 四阶段退出码均为 0（apply / verify / gpu / revert），结束时 `vllm-patch/deployed.json` 不存在；两份 manifest 都是 `exit_code=0`、`failures=[]`、无 `error.txt`。上一轮（`reference-20260921-run4` + `diagnostic-20260921-current`）由未入库的临时外壳启动，外层记录了非零 shell 状态、且驱动版本不在 git 中；本轮因此用入库入口在同一 commit 上重跑，把证据绑到 commit 与可复跑命令。两轮的 capture 哈希与对照数字逐位相同（见"重复性"）。
+两次事务的 `transaction.json` 四阶段退出码均为 0（apply / verify / gpu / revert），结束时 `vllm-patch/deployed.json` 不存在；两份 manifest 都是 `exit_code=0`、`failures=[]`、无 `error.txt`。上一轮（`reference-20260921-run4` + `diagnostic-20260921-current`）由未入库的临时外壳启动，外层记录了非零 shell 状态；其驱动 `65d231037d0c…` 既不是本轮代码也不是任何提交，快照随本轮入库（见上一节的核对表）。本轮因此用入库入口在同一 commit 上重跑，把证据绑到 commit 与可复跑命令；两轮的 capture 哈希与对照数字逐位相同（见"重复性"）。
 
 ## Reference run 结果
 
@@ -53,6 +74,8 @@
 本轮（run5 / 4d32a16）与上一轮（run4 / current）在相同固定输入上给出相同的 capture 哈希：reference `e92691924ec9c9a6a83361428f653a14b1d2cf2fb3980ffbb58b09040f3be9d6`、masked `936383f66fa22e3c081059bfcb998923aa68a657f178e607556b94dd97dac499`；attention Q/out 与 29 步 logits 的对照数字、以及候选侧局部 FP32 观察值逐位相同。即两条事务链在重新执行时复现了同一结果。差别只有 GDN 别名口径：上一轮记录逐层 alias 对 1536（层数乘积），本轮记录去重后的重叠对数 1。
 
 ## 复跑
+
+下面命令在**当前 checkout 的 commit** 上跑出**新一轮**事务（同口径、新目录），不会重放 run4/run5 的字节；要核对历史轮次，用上一节表格里的 `run/source/p2-calib-run.py` 快照或对应 commit（run1 → `73364dc`，run5 → `4d32a16`）比对，不要拿当前工作树当"当时那份代码"。本报告数字对应 commit `4d32a16`（驱动 `a9da137f6350…`）。
 
 ```bash
 source env.sh
