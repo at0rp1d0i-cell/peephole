@@ -83,13 +83,21 @@ class TestNumericAcceptance(unittest.TestCase):
             "provenance": {"input_hashes": {"heldout.json": "b" * 64}},
         }
 
+    def contract_for(self, summary):
+        contract = copy.deepcopy(self.contract)
+        contract["heldout_input_identity_sha256"] = canonical_input_identity(
+            summary["provenance"]["input_hashes"]
+        )
+        return contract
+
     def assert_rejected(self, summary, code):
-        decision = evaluate_numeric_acceptance(summary, self.contract)
+        decision = evaluate_numeric_acceptance(summary, self.contract_for(summary))
         self.assertFalse(decision["passed"])
         self.assertIn(code, {failure["code"] for failure in decision["failures"]})
 
     def test_held_out_summary_with_every_hard_gate_and_metric_within_limit_passes(self):
-        decision = evaluate_numeric_acceptance(self.make_summary(), self.contract)
+        summary = self.make_summary()
+        decision = evaluate_numeric_acceptance(summary, self.contract_for(summary))
         self.assertTrue(decision["passed"])
         self.assertEqual(decision["failures"], [])
         self.assertEqual(decision["observed"]["decode_q_max_relative_l2"], 0.01)
@@ -139,21 +147,27 @@ class TestNumericAcceptance(unittest.TestCase):
             with self.subTest(label=label):
                 self.assert_rejected(summary, code)
 
-    def test_calibration_input_identity_cannot_be_reused_as_held_out(self):
+    def test_calibration_identity_cannot_equal_held_out_identity(self):
         summary = self.make_summary()
-        contract = copy.deepcopy(self.contract)
-        contract["calibration_input_identity_sha256"] = canonical_input_identity(
-            summary["provenance"]["input_hashes"]
-        )
+        contract = self.contract_for(summary)
+        contract["calibration_input_identity_sha256"] = contract["heldout_input_identity_sha256"]
+        with self.assertRaises(NumericAcceptanceError):
+            evaluate_numeric_acceptance(summary, contract)
+
+    def test_unexpected_third_input_identity_cannot_impersonate_held_out(self):
+        summary = self.make_summary()
+        contract = self.contract_for(summary)
+        summary["provenance"]["input_hashes"]["unexpected.json"] = "c" * 64
         decision = evaluate_numeric_acceptance(summary, contract)
         self.assertFalse(decision["passed"])
         self.assertIn("held_out_input_identity", {failure["code"] for failure in decision["failures"]})
 
     def test_unknown_contract_key_is_rejected_before_decision(self):
-        contract = copy.deepcopy(self.contract)
+        summary = self.make_summary()
+        contract = self.contract_for(summary)
         contract["unconsumed_knob"] = True
         with self.assertRaises(NumericAcceptanceError):
-            evaluate_numeric_acceptance(self.make_summary(), contract)
+            evaluate_numeric_acceptance(summary, contract)
 
 
 if __name__ == "__main__":

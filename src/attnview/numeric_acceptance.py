@@ -1,4 +1,4 @@
-"""对独立 reference 摘要执行预冻结的 masked 数值验收合同。"""
+"""纯函数数值判定；正式入口必须先从两份原始 run 现场重算可信摘要。"""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ __all__ = [
 
 CONTRACT_SCHEMA = "attnview.p3-masked-numeric-contract/v1"
 DECISION_SCHEMA = "attnview.p3-masked-numeric-decision/v1"
+
 
 class _RequiredContract(TypedDict):
     summary_schema: str
@@ -76,6 +77,7 @@ def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract,
             "frozen_on",
             "scope",
             "calibration_input_identity_sha256",
+            "heldout_input_identity_sha256",
             "required",
             "relative_l2_max",
         },
@@ -86,8 +88,15 @@ def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract,
     if contract["scope"] != "held-out-only":
         raise NumericAcceptanceError("contract.scope 必须是 'held-out-only'")
     calibration_identity = contract["calibration_input_identity_sha256"]
-    if not isinstance(calibration_identity, str) or len(calibration_identity) != 64:
-        raise NumericAcceptanceError("calibration_input_identity_sha256 必须是 64 位 SHA256")
+    heldout_identity = contract["heldout_input_identity_sha256"]
+    for name, identity in (
+        ("calibration_input_identity_sha256", calibration_identity),
+        ("heldout_input_identity_sha256", heldout_identity),
+    ):
+        if not isinstance(identity, str) or len(identity) != 64:
+            raise NumericAcceptanceError(f"{name} 必须是 64 位 SHA256")
+    if calibration_identity == heldout_identity:
+        raise NumericAcceptanceError("calibration 与 held-out 输入身份不得相同")
 
     required = _require_mapping(contract["required"], where="contract.required")
     required_keys = {
@@ -180,7 +189,9 @@ def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[st
     input_hashes = _require_mapping(provenance.get("input_hashes"), where="summary.provenance.input_hashes")
     input_identity = canonical_input_identity(input_hashes)
     calibration_identity = contract["calibration_input_identity_sha256"]
-    check("held_out_input_identity", input_identity, f"not {calibration_identity}", input_identity != calibration_identity)
+    heldout_identity = contract["heldout_input_identity_sha256"]
+    check("not_calibration_input_identity", input_identity, f"not {calibration_identity}", input_identity != calibration_identity)
+    check("held_out_input_identity", input_identity, heldout_identity, input_identity == heldout_identity)
 
     attention = _require_mapping(
         summary.get("attention_candidate_vs_reference"),
@@ -273,6 +284,8 @@ def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[st
             "schema": contract["schema"],
             "frozen_on": contract["frozen_on"],
             "scope": contract["scope"],
+            "calibration_input_identity_sha256": calibration_identity,
+            "heldout_input_identity_sha256": heldout_identity,
             "relative_l2_max": limits,
         },
         "summary": {
@@ -280,6 +293,7 @@ def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[st
             "reference_run": summary.get("reference_run"),
             "masked_run": summary.get("masked_run"),
             "input_identity_sha256": input_identity,
+            "input_hashes": dict(input_hashes),
         },
         "observed": {
             "decode_q_max_relative_l2": max(observed_attention["q"]) if observed_attention["q"] else None,

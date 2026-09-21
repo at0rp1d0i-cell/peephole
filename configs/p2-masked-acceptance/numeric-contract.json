@@ -3,6 +3,7 @@
   "frozen_on": "2026-09-22",
   "scope": "held-out-only",
   "calibration_input_identity_sha256": "7c09e6b711db0c0b2f1d7f9eacc6db879efe78f7217d6e8f6bcc820d3193ebf2",
+  "heldout_input_identity_sha256": "d35eee00cc62ec3e50568ec7497a397827a54095b13fa8aae01262d56ab4abae",
   "required": {
     "summary_schema": "attnview.p3-reference-summary/v1",
     "decodes": [6, 7, 20, 25],
