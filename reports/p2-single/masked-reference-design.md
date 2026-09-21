@@ -56,4 +56,8 @@ bash tools/gates.sh
 
 本交付只完成参考 CPU 接线。后续真实运行必须另做启动审查、apply/verify/run/revert 和独立数值验收；本轮不执行该实验、不推送、不打阶段 tag。
 
+## 后续：真实 GPU 诊断已执行（本节的"未验证"已部分收敛）
+
+首轮真实 masked GPU 诊断及其后的独立 reference 事务已执行，结果与边界见 `reports/p2-single/masked-reference-gpu-report.md`，原始证据 `evidence/p3-masked-reference/reference-20260921-run5/`、`evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/`。上面"没有新 GPU 运行"的描述对应本文件成文时的 CPU 交付状态，保持不变作为历史。仍未验证：正式 attention/logits 数值合同、cache 写入内容的逐字节真值、物理分配独立、任务级质量与净收益。
+
 部署只读检查 `python tools/p2-apply-patch.py verify` exit 0：未部署，无事务 journal。本轮只有已退出的 CPU 验证子进程，没有创建模型/GPU 进程，也没有修改部署目标。
