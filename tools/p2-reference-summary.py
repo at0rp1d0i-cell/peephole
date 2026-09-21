@@ -52,7 +52,7 @@ def load_run(run: Path, *, arm: str) -> dict:
 
 def require_identity(reference: dict, candidate: dict) -> None:
     ref, cand = reference["manifest"], candidate["manifest"]
-    for field in ("head",):
+    for field in ("head", "pin_commit"):
         if ref[field] != cand[field]:
             raise SystemExit(f"两 run 的 {field} 不一致：{ref[field]!r} vs {cand[field]!r}")
     if ref["model"]["revision"] != cand["model"]["revision"]:
@@ -220,6 +220,8 @@ def main() -> int:
         "reference_run": str(args.reference),
         "masked_run": str(args.candidate),
         "head": ref_manifest["head"],
+        "model_revision": ref_manifest["model"]["revision"],
+        "vllm_revision": ref_manifest["pin_commit"],
         "decodes": list(decodes),
         "reference_exit_code": ref_manifest["exit_code"],
         "reference_manifest_failures": ref_manifest["failures"],

@@ -69,7 +69,9 @@ def canonical_input_identity(input_hashes: Mapping[str, str]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract, dict[str, float]]:
+def _validated_contract(
+    contract: Mapping[str, Any],
+) -> tuple[_RequiredContract, dict[str, float], dict[str, str]]:
     _require_exact_keys(
         contract,
         {
@@ -78,6 +80,7 @@ def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract,
             "scope",
             "calibration_input_identity_sha256",
             "heldout_input_identity_sha256",
+            "run_identity",
             "required",
             "relative_l2_max",
         },
@@ -97,6 +100,13 @@ def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract,
             raise NumericAcceptanceError(f"{name} 必须是 64 位 SHA256")
     if calibration_identity == heldout_identity:
         raise NumericAcceptanceError("calibration 与 held-out 输入身份不得相同")
+    run_identity = _require_mapping(contract["run_identity"], where="contract.run_identity")
+    _require_exact_keys(run_identity, {"head", "model_revision", "vllm_revision"}, where="contract.run_identity")
+    validated_identity: dict[str, str] = {}
+    for name, value in run_identity.items():
+        if not isinstance(value, str) or len(value) != 40 or any(char not in "0123456789abcdef" for char in value):
+            raise NumericAcceptanceError(f"contract.run_identity.{name} 必须是 40 位小写十六进制 revision")
+        validated_identity[name] = value
 
     required = _require_mapping(contract["required"], where="contract.required")
     required_keys = {
@@ -132,15 +142,16 @@ def _validated_contract(contract: Mapping[str, Any]) -> tuple[_RequiredContract,
         attention_arrays_per_kind=cast(int, required["attention_arrays_per_kind"]),
         logits_steps=cast(int, required["logits_steps"]),
     )
-    return validated, {
+    validated_limits = {
         key: _require_positive_finite(value, where=f"contract.relative_l2_max.{key}")
         for key, value in limits.items()
     }
+    return validated, validated_limits, validated_identity
 
 
 def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[str, Any]) -> dict[str, Any]:
     """返回可序列化的验收决定；合同/摘要损坏抛 ``NumericAcceptanceError``。"""
-    required, limits = _validated_contract(_require_mapping(contract, where="contract"))
+    required, limits, run_identity = _validated_contract(_require_mapping(contract, where="contract"))
     failures: list[dict[str, Any]] = []
 
     def check(code: str, actual: Any, expected: Any, ok: bool) -> None:
@@ -148,6 +159,13 @@ def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[st
             failures.append({"code": code, "actual": actual, "expected": expected})
 
     check("summary_schema", summary.get("schema"), required["summary_schema"], summary.get("schema") == required["summary_schema"])
+    for field in ("head", "model_revision", "vllm_revision"):
+        check(
+            f"run_identity_{field}",
+            summary.get(field),
+            run_identity[field],
+            summary.get(field) == run_identity[field],
+        )
     check("decodes", summary.get("decodes"), required["decodes"], summary.get("decodes") == required["decodes"])
     check("reference_exit_code", summary.get("reference_exit_code"), 0, summary.get("reference_exit_code") == 0)
     check("reference_manifest_failures", summary.get("reference_manifest_failures"), [], summary.get("reference_manifest_failures") == [])
@@ -286,10 +304,13 @@ def evaluate_numeric_acceptance(summary: Mapping[str, Any], contract: Mapping[st
             "scope": contract["scope"],
             "calibration_input_identity_sha256": calibration_identity,
             "heldout_input_identity_sha256": heldout_identity,
+            "run_identity": run_identity,
             "relative_l2_max": limits,
         },
         "summary": {
             "head": summary.get("head"),
+            "model_revision": summary.get("model_revision"),
+            "vllm_revision": summary.get("vllm_revision"),
             "reference_run": summary.get("reference_run"),
             "masked_run": summary.get("masked_run"),
             "input_identity_sha256": input_identity,

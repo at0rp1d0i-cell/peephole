@@ -4,6 +4,11 @@
   "scope": "held-out-only",
   "calibration_input_identity_sha256": "7c09e6b711db0c0b2f1d7f9eacc6db879efe78f7217d6e8f6bcc820d3193ebf2",
   "heldout_input_identity_sha256": "d35eee00cc62ec3e50568ec7497a397827a54095b13fa8aae01262d56ab4abae",
+  "run_identity": {
+    "head": "4b82ace0861e298885c3a956bc852fb9aa379c06",
+    "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "vllm_revision": "98dff2a81d747d1dba01a47f939f48c3526d4206"
+  },
   "required": {
     "summary_schema": "attnview.p3-reference-summary/v1",
     "decodes": [6, 7, 20, 25],

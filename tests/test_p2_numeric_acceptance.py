@@ -52,6 +52,8 @@ class TestNumericAcceptance(unittest.TestCase):
             "reference_run": "/tmp/reference/run",
             "masked_run": "/tmp/masked/run",
             "head": "a" * 40,
+            "model_revision": "b" * 40,
+            "vllm_revision": "c" * 40,
             "decodes": decodes,
             "reference_exit_code": 0,
             "reference_manifest_failures": [],
@@ -88,6 +90,11 @@ class TestNumericAcceptance(unittest.TestCase):
         contract["heldout_input_identity_sha256"] = canonical_input_identity(
             summary["provenance"]["input_hashes"]
         )
+        contract["run_identity"] = {
+            "head": summary["head"],
+            "model_revision": summary["model_revision"],
+            "vllm_revision": summary["vllm_revision"],
+        }
         return contract
 
     def assert_rejected(self, summary, code):
@@ -161,6 +168,19 @@ class TestNumericAcceptance(unittest.TestCase):
         decision = evaluate_numeric_acceptance(summary, contract)
         self.assertFalse(decision["passed"])
         self.assertIn("held_out_input_identity", {failure["code"] for failure in decision["failures"]})
+
+    def test_wrong_implementation_model_or_vllm_identity_is_rejected(self):
+        for field in ("head", "model_revision", "vllm_revision"):
+            with self.subTest(field=field):
+                summary = self.make_summary()
+                contract = self.contract_for(summary)
+                summary[field] = "d" * 40
+                decision = evaluate_numeric_acceptance(summary, contract)
+                self.assertFalse(decision["passed"])
+                self.assertIn(
+                    f"run_identity_{field}",
+                    {failure["code"] for failure in decision["failures"]},
+                )
 
     def test_unknown_contract_key_is_rejected_before_decision(self):
         summary = self.make_summary()
