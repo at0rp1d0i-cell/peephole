@@ -1,0 +1,8 @@
+{
+  "arm": "patched-masked",
+  "doc_fixture": "evidence/p1-cpu/demo-fixtures.json",
+  "expect_fixture": "configs/p2-masked-acceptance/heldout-expect.json",
+  "timeline_config": "configs/p2-masked-acceptance/heldout-timeline.json",
+  "force_trajectory": "configs/p2-masked-acceptance/heldout-trajectory.json",
+  "max_tokens": 29
+}

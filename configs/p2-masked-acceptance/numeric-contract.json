@@ -1,0 +1,21 @@
+{
+  "schema": "attnview.p3-masked-numeric-contract/v1",
+  "frozen_on": "2026-09-22",
+  "scope": "held-out-only",
+  "calibration_input_identity_sha256": "7c09e6b711db0c0b2f1d7f9eacc6db879efe78f7217d6e8f6bcc820d3193ebf2",
+  "required": {
+    "summary_schema": "attnview.p3-reference-summary/v1",
+    "decodes": [6, 7, 20, 25],
+    "reference_layers": 16,
+    "forward_steps": 29,
+    "reference_overrides": 448,
+    "gdn_layers": 48,
+    "attention_arrays_per_kind": 64,
+    "logits_steps": 29
+  },
+  "relative_l2_max": {
+    "decode_q": 0.02,
+    "decode_out": 0.02,
+    "logits": 0.02
+  }
+}

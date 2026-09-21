@@ -1,0 +1,44 @@
+{
+  "note": "正式数值验收留出轨迹：沿用冻结 prompt，仅把未参与阈值校准的 focus 读取改为 Magic Chunk 3；结果产生前已冻结 0.02 relative-L2 合同",
+  "fixture": "evidence/p1-cpu/demo-fixtures.json",
+  "block_size": 784,
+  "target_prompt_len": 7834,
+  "target_reason": "prompt_len=7834 ⇒ 第 d 个 decode KV=7834+d；首次写入块 10 需 KV=7841 ⇒ d=7，落在 local 生效后；总长 ≤8192",
+  "filler_unit": "这是用于把公开合成上下文长度调整到块边界的附加说明段落。",
+  "max_filler_units": 400,
+  "generation_script": [
+    {"text": "平面", "expected_mode_after": "global", "refs": []},
+    {"text": "几何", "expected_mode_after": "global", "refs": []},
+    {"text": "推理", "expected_mode_after": "global", "refs": []},
+    {"text": "<local>", "expected_mode_after": "local", "refs": []},
+    {"text": "继续", "expected_mode_after": "local", "refs": []},
+    {"text": "推导", "expected_mode_after": "local", "refs": []},
+    {"text": "结束", "expected_mode_after": "local", "refs": []},
+    {"text": "</local>", "expected_mode_after": "global", "refs": []},
+    {"text": "回顾", "expected_mode_after": "global", "refs": []},
+    {"text": "<focus magic_chunks=\"3\">", "expected_mode_after": "focus", "refs": [3]},
+    {"text": "细节", "expected_mode_after": "focus", "refs": [3]},
+    {"text": "补充", "expected_mode_after": "focus", "refs": [3]},
+    {"text": "</focus>", "expected_mode_after": "global", "refs": []},
+    {"text": "收束", "expected_mode_after": "global", "refs": []},
+    {"text": "完毕", "expected_mode_after": "global", "refs": []}
+  ],
+  "modes_to_expand": ["global", "local", "focus3"],
+  "negative_controls": {
+    "unwritten_allocated_block": "已分配但未写入的块 10 被声明可见",
+    "block_beyond_allocated": "可见块 10 超出已分配前缀",
+    "tail_len_minus_one": "真实计划的有效尾长与 seqused_k 各减 1"
+  },
+  "limits": [
+    "CPU 夹具生成不加载模型、不执行 GPU 数值验收",
+    "留出轨迹在首次结果产生前固定，禁止根据结果改阈值或换轨迹",
+    "结构门禁无容差；数值判定只由 numeric-contract.json 执行"
+  ],
+  "fine_char": "。",
+  "max_fine_units": 80,
+  "out_default": "configs/p2-masked-acceptance/heldout-expect.json",
+  "max_total_len": 8192,
+  "physical_block_base": 100,
+  "physical_block_stride": 2,
+  "global_recovery_after_tag": "</local>"
+}
