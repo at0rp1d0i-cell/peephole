@@ -36,7 +36,7 @@ diff evidence/p3-masked-reference/reference-20260921-run4/run/source/p2-calib-ru
      <(git show 4d32a16:tools/p2-calib-run.py)
 ```
 
-本轮没有把该未上机的观测改动追认给 run4，也不用它解释 run4 的数字——本报告的全部数字来自 run5 / `4d32a16`。run4 的 manifest、结构化快照与捕获大件按"在盘未入库集合"登记（`reports/evidence-registry.json`），不随仓发行。
+本轮没有把该未上机的观测改动追认给 run4，也不用它解释 run4 的数字——本报告的全部数字来自 run5 / `4d32a16`。被取代代次（run1–run4、masked `current` 轮）与 run5 的两份同源导出的文本层已按 R4 移出仓内发行（状态 `superseded` / `duplicate`），原件归档在数据盘，逐文件 path/字节/sha256 见 `reports/evidence-index.md` 的树外登记表；各 run 的 capture 大件按 R9 类型规则留在数据盘、组级登记（`registered_sets`）。
 
 ## 事务结果
 

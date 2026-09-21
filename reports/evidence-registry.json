@@ -674,6 +674,1434 @@
    "sha256": "fdb9b06ff8e64b3b4d015ac71a33e68bccf6b572f35aa39861565370e1aff655",
    "status": "remote-only",
    "reason": "张量 dump：被文档引用（见索引 A7 清单），字节留数据盘、不发行；哈希为本机实测"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/apply.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/apply.log",
+   "bytes": 112,
+   "sha256": "885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/end.txt",
+   "bytes": 21,
+   "sha256": "c7ff78adf030990f4e2745c6d186c1c7bb2ecec5804396462f14a7e0e5dbcb3b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/head.txt",
+   "bytes": 41,
+   "sha256": "cec401b8b873351d46c07af355f605c4a395fc92c350b06dad70acf2b2f66b41",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/launch.json",
+   "bytes": 1137,
+   "sha256": "06419649bcd572cf8fc85af0de91349684edf408f28a5c43e2a1d14199f7dddc",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/reference.exit",
+   "bytes": 2,
+   "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/reference.log",
+   "bytes": 13910,
+   "sha256": "59aad9e437c77c153364d6f4778ea44db35afc1d396d04dcbb3b6f7f0ccbb6e7",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/revert.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/revert.log",
+   "bytes": 1200,
+   "sha256": "49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/arm.json",
+   "bytes": 1783,
+   "sha256": "668933d530d12255569bd644bd53284e5512d8e3076abd70c2d5a7feede900d8",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/capture/reference.json",
+   "bytes": 5085662,
+   "sha256": "632b435613ff4e4060be63b7faa02dd86b19073567c40bb815136e9fa70233fa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/capture/structure.json",
+   "bytes": 3930507,
+   "sha256": "62a370b577c3affd5d037e93991ca4c6179a4ec7a9b3fc85c2ab12050aab707f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/cleanup.json",
+   "bytes": 7293,
+   "sha256": "a047f9cb67f8323b8217a3514eed7d1c7d1b6d17ced73db30009f82fc4e3d724",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/engine-traces-main.json",
+   "bytes": 2,
+   "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/engine-traces.json",
+   "bytes": 7601,
+   "sha256": "14c8db904585dc0f2ad0b5dd3b08bbd1273016987abd9b522146c898460a3509",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/force.jsonl",
+   "bytes": 9552,
+   "sha256": "2dd12904462d4a60ab85500c08291474fd660ac7333df7c8c2f62956dc2cb1c8",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/manifest.json",
+   "bytes": 6163723,
+   "sha256": "cf91b9b3f2e8e949cb86abcb51248d1cef0d60da7830c43f3c0431a415deb66e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/reference.json",
+   "bytes": 5085814,
+   "sha256": "8efcc889e009b194578c4b183412d98f3994c367ac733229a65bad28c34d060f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/_lib.py",
+   "bytes": 4103,
+   "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/__init__.py",
+   "bytes": 788,
+   "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/decode.py",
+   "bytes": 2903,
+   "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/extract.py",
+   "bytes": 5811,
+   "sha256": "68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/fixture_rebuild.py",
+   "bytes": 3247,
+   "sha256": "0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/gpucheck.py",
+   "bytes": 8504,
+   "sha256": "4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/gpukv.py",
+   "bytes": 7462,
+   "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/gpuoracle.py",
+   "bytes": 6264,
+   "sha256": "2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/parser.py",
+   "bytes": 15069,
+   "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/prompt.py",
+   "bytes": 13715,
+   "sha256": "438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/prompts.py",
+   "bytes": 8038,
+   "sha256": "943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/readview.py",
+   "bytes": 12167,
+   "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/reference.py",
+   "bytes": 2956,
+   "sha256": "434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/reference_bridge.py",
+   "bytes": 13929,
+   "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/reference_dense.py",
+   "bytes": 12528,
+   "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/reference_hook.py",
+   "bytes": 7759,
+   "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/reference_run.py",
+   "bytes": 9316,
+   "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/segmenter.py",
+   "bytes": 12245,
+   "sha256": "c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/smoke_structure.py",
+   "bytes": 10757,
+   "sha256": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/state.py",
+   "bytes": 10157,
+   "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/step_plan.py",
+   "bytes": 18702,
+   "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/attnview/trace.py",
+   "bytes": 6764,
+   "sha256": "bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/run/source/p2-calib-run.py",
+   "bytes": 147486,
+   "sha256": "f38197c8e6acf5817fa3324bb900f1995f65b0dc3d22863ef8d6d53c52010017",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/start.txt",
+   "bytes": 21,
+   "sha256": "b381f2e3fd1f977330047483f1c4f9b9cf4f4f465aa37d9f49f2f7c833f53924",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/status.json",
+   "bytes": 74,
+   "sha256": "777e17f5c0cc10f1747adcd66942c706ce9e33bcde23a1a738ca74e44f36ec58",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/verify.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run1/verify.log",
+   "bytes": 57,
+   "sha256": "bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run1（无 GDN state 探测；驱动 = commit 73364dc 的文件内容）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/apply.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/apply.log",
+   "bytes": 112,
+   "sha256": "885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/end.txt",
+   "bytes": 21,
+   "sha256": "14a4ea2e64a807f1bc6e55f91c5097090d6cb6edfdc718babc3e8ff8561a0a1d",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/head.txt",
+   "bytes": 41,
+   "sha256": "cec401b8b873351d46c07af355f605c4a395fc92c350b06dad70acf2b2f66b41",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/launch.json",
+   "bytes": 973,
+   "sha256": "d5e30053306c61c54f658fc3e11bb1e817a3f40be6681ae2a791f48b32ab5904",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/reference.exit",
+   "bytes": 2,
+   "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/reference.log",
+   "bytes": 13195,
+   "sha256": "8ba8f37e22520695e62956084266417948f97069148e9b2a3ccdf2f57b7fc5fd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/revert.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/revert.log",
+   "bytes": 1200,
+   "sha256": "49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/error.txt",
+   "bytes": 1018,
+   "sha256": "bc4d14b23994604c2bcdc60645307dde42db02fd878545bb528a66a316098438",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/manifest.json",
+   "bytes": 103961,
+   "sha256": "7e607fc4d89456e8fbb55fe160f7ffce3962a7580d876d50ff0c3f457aa7010f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/_lib.py",
+   "bytes": 4103,
+   "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/__init__.py",
+   "bytes": 788,
+   "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/decode.py",
+   "bytes": 2903,
+   "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/extract.py",
+   "bytes": 5811,
+   "sha256": "68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/fixture_rebuild.py",
+   "bytes": 3247,
+   "sha256": "0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/gpucheck.py",
+   "bytes": 8504,
+   "sha256": "4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/gpukv.py",
+   "bytes": 7462,
+   "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/gpuoracle.py",
+   "bytes": 6264,
+   "sha256": "2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/parser.py",
+   "bytes": 15069,
+   "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/prompt.py",
+   "bytes": 13715,
+   "sha256": "438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/prompts.py",
+   "bytes": 8038,
+   "sha256": "943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/readview.py",
+   "bytes": 12167,
+   "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/reference.py",
+   "bytes": 2956,
+   "sha256": "434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/reference_bridge.py",
+   "bytes": 13929,
+   "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/reference_dense.py",
+   "bytes": 12528,
+   "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/reference_hook.py",
+   "bytes": 7759,
+   "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/reference_run.py",
+   "bytes": 9316,
+   "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/segmenter.py",
+   "bytes": 12245,
+   "sha256": "c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/smoke_structure.py",
+   "bytes": 10757,
+   "sha256": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/state.py",
+   "bytes": 10157,
+   "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/step_plan.py",
+   "bytes": 18702,
+   "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/run/source/attnview/trace.py",
+   "bytes": 6764,
+   "sha256": "bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/start.txt",
+   "bytes": 21,
+   "sha256": "7710d5866cc61d7623312b3416ad6b0bddad3d97e8f199b61d1311a8d6943fab",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/status.json",
+   "bytes": 74,
+   "sha256": "777e17f5c0cc10f1747adcd66942c706ce9e33bcde23a1a738ca74e44f36ec58",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/verify.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run2/verify.log",
+   "bytes": 57,
+   "sha256": "bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run2（GDN 探测首版要求 FA/GDN storage 独占，真机被该门禁拒绝）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/apply.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/apply.log",
+   "bytes": 112,
+   "sha256": "885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/end.txt",
+   "bytes": 21,
+   "sha256": "64676a661c96fa16d8755686ac93d519fc2846a68109317fcdf0a2bee49d3b47",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/head.txt",
+   "bytes": 41,
+   "sha256": "cec401b8b873351d46c07af355f605c4a395fc92c350b06dad70acf2b2f66b41",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/launch.json",
+   "bytes": 973,
+   "sha256": "233982b786bab5ff391254f4b66ed7c38f6a2fff28733ad0156931d58da8e3ef",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/reference.exit",
+   "bytes": 2,
+   "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/reference.log",
+   "bytes": 13195,
+   "sha256": "a52ba230dc36ff75b0b2930210a18a004db0fbc9f4c9a92759435426e14e2173",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/revert.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/revert.log",
+   "bytes": 1200,
+   "sha256": "49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/error.txt",
+   "bytes": 1018,
+   "sha256": "3b473e8ad44809f0c44fa7b23a209df66429ca1de6620bb590dcae16c9a1559e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/manifest.json",
+   "bytes": 103962,
+   "sha256": "8590ab766a7f7dbbe876a9b8ae998319abf125fd8b784b6b810375390a425c1f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/_lib.py",
+   "bytes": 4103,
+   "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/__init__.py",
+   "bytes": 788,
+   "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/decode.py",
+   "bytes": 2903,
+   "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/extract.py",
+   "bytes": 5811,
+   "sha256": "68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/fixture_rebuild.py",
+   "bytes": 3247,
+   "sha256": "0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/gpucheck.py",
+   "bytes": 8504,
+   "sha256": "4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/gpukv.py",
+   "bytes": 7462,
+   "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/gpuoracle.py",
+   "bytes": 6264,
+   "sha256": "2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/parser.py",
+   "bytes": 15069,
+   "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/prompt.py",
+   "bytes": 13715,
+   "sha256": "438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/prompts.py",
+   "bytes": 8038,
+   "sha256": "943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/readview.py",
+   "bytes": 12167,
+   "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/reference.py",
+   "bytes": 2956,
+   "sha256": "434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/reference_bridge.py",
+   "bytes": 13929,
+   "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/reference_dense.py",
+   "bytes": 12528,
+   "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/reference_hook.py",
+   "bytes": 7759,
+   "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/reference_run.py",
+   "bytes": 9316,
+   "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/segmenter.py",
+   "bytes": 12245,
+   "sha256": "c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/smoke_structure.py",
+   "bytes": 10757,
+   "sha256": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/state.py",
+   "bytes": 10157,
+   "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/step_plan.py",
+   "bytes": 18702,
+   "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/run/source/attnview/trace.py",
+   "bytes": 6764,
+   "sha256": "bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/start.txt",
+   "bytes": 21,
+   "sha256": "6773baf8c57fef73fb3251068e6400524c8717d7c5c63732de45aa1e3102a66f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/status.json",
+   "bytes": 74,
+   "sha256": "777e17f5c0cc10f1747adcd66942c706ce9e33bcde23a1a738ca74e44f36ec58",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/verify.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run3/verify.log",
+   "bytes": 57,
+   "sha256": "bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run3（同 run2 的拒绝再次发生）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/apply.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/apply.log",
+   "bytes": 112,
+   "sha256": "885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/end.txt",
+   "bytes": 21,
+   "sha256": "5c66cebbc1df011a5980d7039c2dc580423dfcb97d6fe75c3c7c9a98ba5979b8",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/head.txt",
+   "bytes": 41,
+   "sha256": "cec401b8b873351d46c07af355f605c4a395fc92c350b06dad70acf2b2f66b41",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/launch.json",
+   "bytes": 973,
+   "sha256": "aa65de632ab2199c8fb99e6db2efa0c6ea60b836ea100d795cb790cf15e77ed3",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/reference.exit",
+   "bytes": 2,
+   "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/reference.log",
+   "bytes": 13910,
+   "sha256": "66b482ff986c0ccb6bcafc66b4f8b5b29b4a97161935138cd64b08bdafb730ab",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/revert.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/revert.log",
+   "bytes": 1200,
+   "sha256": "49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/arm.json",
+   "bytes": 1783,
+   "sha256": "56ce578d9a5fd2cf63fb9c6a31280e623a950d937b6ee0e1572b5b734c91bce7",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/capture/reference.json",
+   "bytes": 5085662,
+   "sha256": "de48082761d175ebc76abb10bf8da493459dad35ad155e792292cf509436f91a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/capture/structure.json",
+   "bytes": 3930507,
+   "sha256": "fa9edcb2920edd88a17b29a658c4bc0c743458043ceddfaa75545f8c6edef888",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/cleanup.json",
+   "bytes": 7293,
+   "sha256": "67c1e133f517d0024ed2d78fcd79ec1a17401760ebf4ed2cfd6f9ed698173199",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/engine-traces-main.json",
+   "bytes": 2,
+   "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/engine-traces.json",
+   "bytes": 7601,
+   "sha256": "da146f77d1db60a08c3c07bde9e9f78dfa529ce08bf169cfe81598ef9f0e0b39",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/force.jsonl",
+   "bytes": 9552,
+   "sha256": "acc92372d9a1bc1ddf25b6aa522becae515965f7f72e679833291a4076749059",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/manifest.json",
+   "bytes": 8085608,
+   "sha256": "a085564b5da4a4756e7f1e50c34cf8e2b1aaa431b3bbbffd27053067f4c0bf73",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/reference.json",
+   "bytes": 5085814,
+   "sha256": "4c1192ac08188c9868b7ce184368bfcbbc00f8a498daf3112f7c8cc71e746954",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/_lib.py",
+   "bytes": 4103,
+   "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/__init__.py",
+   "bytes": 788,
+   "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/decode.py",
+   "bytes": 2903,
+   "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/extract.py",
+   "bytes": 5811,
+   "sha256": "68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/fixture_rebuild.py",
+   "bytes": 3247,
+   "sha256": "0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/gpucheck.py",
+   "bytes": 8504,
+   "sha256": "4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/gpukv.py",
+   "bytes": 7462,
+   "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/gpuoracle.py",
+   "bytes": 6264,
+   "sha256": "2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/parser.py",
+   "bytes": 15069,
+   "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/prompt.py",
+   "bytes": 13715,
+   "sha256": "438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/prompts.py",
+   "bytes": 8038,
+   "sha256": "943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/readview.py",
+   "bytes": 12167,
+   "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/reference.py",
+   "bytes": 2956,
+   "sha256": "434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/reference_bridge.py",
+   "bytes": 13929,
+   "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/reference_dense.py",
+   "bytes": 12528,
+   "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/reference_hook.py",
+   "bytes": 7759,
+   "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/reference_run.py",
+   "bytes": 9316,
+   "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/segmenter.py",
+   "bytes": 12245,
+   "sha256": "c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/smoke_structure.py",
+   "bytes": 10757,
+   "sha256": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/state.py",
+   "bytes": 10157,
+   "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/step_plan.py",
+   "bytes": 18702,
+   "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/run/source/attnview/trace.py",
+   "bytes": 6764,
+   "sha256": "bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/start.txt",
+   "bytes": 21,
+   "sha256": "84e2ab7b37b06e55b717ab8ab61a849ec81d37ea2aa61c8dc76ed68ebb398cf5",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/status.json",
+   "bytes": 74,
+   "sha256": "777e17f5c0cc10f1747adcd66942c706ce9e33bcde23a1a738ca74e44f36ec58",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/verify.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run4/verify.log",
+   "bytes": 57,
+   "sha256": "bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad",
+   "status": "superseded",
+   "reason": "被取代的 reference 代次 run4（首版 GDN 证据口径，上一轮交付所用；驱动 65d23103… 快照已在 095ef1a 入库）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run5/run/capture/reference.json",
+   "bytes": 5085662,
+   "sha256": "e96d58f111d622407ed3a02ad5146e311c689a2b0a52114aeb9c595b6cb1e99c",
+   "status": "duplicate",
+   "reason": "LayerCapture 的 reference 导出（与 manifest 同源）：移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-reference/reference-20260921-run5/run/reference.json",
+   "bytes": 5085814,
+   "sha256": "49203d6c4bb796b396b46e8206af6ae216ea299d0346ccd2edc6f53e6e6ee517",
+   "status": "duplicate",
+   "reason": "reference 报告的重复导出（manifest.reference 的同源副本）：移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/apply.log",
+   "bytes": 112,
+   "sha256": "885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/gpu.log",
+   "bytes": 13907,
+   "sha256": "32674befaf4451cf03989f605bbe2dec774fcd2be5076cd5feb719e733e7254f",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/numeric-audit.json",
+   "bytes": 31142,
+   "sha256": "16eaab078cc0ca7212b803f9c3b00c2fccf37baac06633b6b1a59a27d957591d",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/revert.log",
+   "bytes": 1200,
+   "sha256": "49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/arm.json",
+   "bytes": 1855,
+   "sha256": "ce2897ae4080e1dc06e4c5ecf4e7c8a30fa353bbb22d1c02441cb9d2e85fe5d8",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/capture/structure.json",
+   "bytes": 3916459,
+   "sha256": "cf52744ad658c5426e96d9ac894ef41065a3847ba6a80a146fd1a93fea9ca91a",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/cleanup.json",
+   "bytes": 7306,
+   "sha256": "d412f19e6574fad3529e947fc2dd81e60ba63699159026bb9f017fc1bd10c8f9",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/engine-traces-main.json",
+   "bytes": 17961,
+   "sha256": "5bf470d20ec43b9fea03d24058b49ffbbe7dac9148f9a375f768df2756f7070b",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/engine-traces.json",
+   "bytes": 25560,
+   "sha256": "6ada4fe1735dd726bab2231d3730af51bec02a4cb81f19e88b98bf37a5d9fabf",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/force.jsonl",
+   "bytes": 9378,
+   "sha256": "cc7cafa7229f3a895910872277253f1767cf01146ac493b489972fdebb06f965",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/manifest.json",
+   "bytes": 1301682,
+   "sha256": "a161ed886afa61dde5de5036382ef2de67204b81e81628bab96d1551b251131b",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/_lib.py",
+   "bytes": 4103,
+   "sha256": "90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/__init__.py",
+   "bytes": 788,
+   "sha256": "0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/decode.py",
+   "bytes": 2903,
+   "sha256": "61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/extract.py",
+   "bytes": 5811,
+   "sha256": "68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/fixture_rebuild.py",
+   "bytes": 3247,
+   "sha256": "0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/gpucheck.py",
+   "bytes": 8504,
+   "sha256": "4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/gpukv.py",
+   "bytes": 7462,
+   "sha256": "285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/gpuoracle.py",
+   "bytes": 6264,
+   "sha256": "2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/parser.py",
+   "bytes": 15069,
+   "sha256": "2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/prompt.py",
+   "bytes": 13715,
+   "sha256": "438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/prompts.py",
+   "bytes": 8038,
+   "sha256": "943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/readview.py",
+   "bytes": 12167,
+   "sha256": "b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/reference.py",
+   "bytes": 2956,
+   "sha256": "434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/reference_bridge.py",
+   "bytes": 13929,
+   "sha256": "32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/reference_dense.py",
+   "bytes": 12528,
+   "sha256": "5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/reference_hook.py",
+   "bytes": 7759,
+   "sha256": "855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/reference_run.py",
+   "bytes": 9316,
+   "sha256": "c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/segmenter.py",
+   "bytes": 12245,
+   "sha256": "c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/smoke_structure.py",
+   "bytes": 10757,
+   "sha256": "f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/state.py",
+   "bytes": 10157,
+   "sha256": "e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/step_plan.py",
+   "bytes": 18702,
+   "sha256": "f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/attnview/trace.py",
+   "bytes": 6764,
+   "sha256": "bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/source/p2-calib-run.py",
+   "bytes": 147486,
+   "sha256": "f38197c8e6acf5817fa3324bb900f1995f65b0dc3d22863ef8d6d53c52010017",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/steps.jsonl",
+   "bytes": 13488,
+   "sha256": "2a1691545281d0b8c5ab7d2e32f3a305487b7226b80f4f618bab8b533a30cc84",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/runner.exit",
+   "bytes": 2,
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/transaction.json",
+   "bytes": 3321,
+   "sha256": "20c05ea030d621077d068c46fc9e6251832a1bb171f86114c0830563bac66f08",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-current/verify.log",
+   "bytes": 57,
+   "sha256": "bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad",
+   "status": "superseded",
+   "reason": "被取代的 masked 诊断轮（run4 同轮的对照臂；数字与终版 4d32a16 逐位相同）：文本层移出仓内发行，原件归档在数据盘"
+  },
+  {
+   "path": "evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json",
+   "bytes": 31142,
+   "sha256": "35c3235f14e482a9087205f3f499ab04fa6c96090e859591f56f5bee80573fd5",
+   "status": "superseded",
+   "reason": "被取代的 numeric-audit 副本（仅 audit_head/脚本哈希不同；入库的是同目录 numeric-audit.json）：移出仓内发行"
   }
  ],
  "registered_only": [],
@@ -797,13 +2225,6 @@
    "bytes": 2068470486
   },
   {
-   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-current/**",
-   "status": "remote-only",
-   "reason": "被取代的 masked 诊断 run（run4 对照轮）：文本层与 capture 都留数据盘，不随仓发行",
-   "count": 69,
-   "bytes": 2102977859
-  },
-  {
    "glob": "evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/capture/**",
    "status": "remote-only",
    "reason": "终版 masked 诊断 run 的 capture dump：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库",
@@ -814,50 +2235,29 @@
    "glob": "evidence/p3-masked-reference/reference-20260921-run5/run/capture/**",
    "status": "remote-only",
    "reason": "终版独立 reference run 的 capture dump（逐步 KV/Q/out）：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库",
-   "count": 31,
-   "bytes": 2073556148
+   "count": 30,
+   "bytes": 2068470486
   },
   {
-   "glob": "evidence/p3-masked-reference/reference-20260921-run5/run/reference.json",
+   "glob": "evidence/p3-masked-reference/reference-20260921-run1/run/capture/**",
    "status": "remote-only",
-   "reason": "reference 报告的重复导出（manifest.reference 的同源副本）：字节留数据盘，避免同一内容入库两份",
-   "count": 1,
-   "bytes": 5085814
+   "reason": "被取代代次 run1 的 capture dump（文本层已移出仓内发行）：R9 类型规则排除，字节留数据盘",
+   "count": 30,
+   "bytes": 2068470486
   },
   {
-   "glob": "evidence/p3-masked-reference/reference-20260921-run1/**",
+   "glob": "evidence/p3-masked-reference/reference-20260921-run4/run/capture/**",
    "status": "remote-only",
-   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 76,
-   "bytes": 2117943139
+   "reason": "被取代代次 run4 的 capture dump（文本层已移出仓内发行）：R9 类型规则排除，字节留数据盘",
+   "count": 30,
+   "bytes": 2068470486
   },
   {
-   "glob": "evidence/p3-masked-reference/reference-20260921-run2/**",
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-current/run/capture/**",
    "status": "remote-only",
-   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 37,
-   "bytes": 313865
-  },
-  {
-   "glob": "evidence/p3-masked-reference/reference-20260921-run3/**",
-   "status": "remote-only",
-   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 37,
-   "bytes": 313866
-  },
-  {
-   "glob": "evidence/p3-masked-reference/reference-20260921-run4/**",
-   "status": "remote-only",
-   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 75,
-   "bytes": 2119717374
-  },
-  {
-   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json",
-   "status": "remote-only",
-   "reason": "被取代的 numeric-audit 副本（仅 audit_head/脚本哈希不同）：留数据盘，入库的是 retry1/numeric-audit.json",
-   "count": 1,
-   "bytes": 31142
+   "reason": "被取代 masked 轮的 capture dump（文本层已移出仓内发行）：R9 类型规则排除，字节留数据盘",
+   "count": 30,
+   "bytes": 2068470486
   }
  ]
 }
