@@ -1,5 +1,5 @@
 {
-  "arm": "patched-masked",
+  "arm": "patched-reference",
   "doc_fixture": "evidence/p1-cpu/demo-fixtures.json",
   "expect_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json",
   "timeline_config": "configs/p2-masked-prep/crossblock.json",

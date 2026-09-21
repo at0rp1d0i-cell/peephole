@@ -30,7 +30,8 @@
 
 ```bash
 source env.sh
-CUDA_VISIBLE_DEVICES=0 "$ATTNVIEW_PYTHON" tools/p2-masked-smoke-run.py \
+CUDA_VISIBLE_DEVICES=0 "$ATTNVIEW_PYTHON" tools/p2-diagnostic-run.py \
+  --config configs/p2-masked-smoke/diagnostic.json \
   --out evidence/p3-masked-smoke/diagnostic-<new-id>
 ```
 

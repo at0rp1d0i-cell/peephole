@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""One bounded diagnostic transaction: apply -> verify -> run -> finally revert."""
+"""一次有界诊断事务：apply -> verify -> run -> finally revert。
+
+配置只描述"跑哪个臂、用什么固定输入"；命令构造、阶段顺序、看门狗与
+`vllm-patch/deployed.json` 归属检查都在本工具内，arms 不各自复制一份外壳。
+"""
 import argparse
 import hashlib
 import json
@@ -15,22 +19,32 @@ REPO = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True, help="新事务目录；已存在即拒绝")
+    parser.add_argument("--config", type=Path,
+                        default=REPO / "configs/p2-masked-smoke/diagnostic.json",
+                        help="诊断配置（arm + 固定输入）；默认 masked 候选诊断")
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
-    config_path = REPO / "configs/p2-masked-smoke/diagnostic.json"
+    config_path = args.config.resolve()
     config = json.loads(config_path.read_text())
+    # 配置只允许出现本工具真正传给驱动的键：多出来的键不会被消费，却会让人以为存在旋钮。
+    keys = ("arm", "max_tokens", "doc_fixture", "expect_fixture", "timeline_config", "force_trajectory")
+    missing = [key for key in keys if key not in config]
+    unknown = sorted(set(config) - set(keys))
+    if missing or unknown:
+        raise SystemExit(f"配置 {config_path} 缺失 {missing} / 多余 {unknown}")
     command = [sys.executable, "tools/p2-calib-run.py", "--arm", config["arm"],
                "--out", str(out / "run"), "--max-tokens", str(config["max_tokens"]),
                "--record-layers", "--cleanup-check"]
-    for key in ("doc_fixture", "expect_fixture", "timeline_config", "force_trajectory"):
+    for key in keys[2:]:
         command += ["--" + key.replace("_", "-"), config[key]]
     command += ["--compare-to", config["force_trajectory"]]
     state = {
         "head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
         "command": command, "started_unix": time.time(), "phases": {},
-        "config": config, "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        "config_path": os.path.relpath(config_path, REPO), "config": config,
+        "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
         "diagnostic_only": True,
     }
     def save():

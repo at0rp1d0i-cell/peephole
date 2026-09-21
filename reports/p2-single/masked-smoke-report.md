@@ -70,7 +70,8 @@ CPU 使用独立块外扩位置，从候选轨迹捕获的 Q/K/V 计算 FP32 att
 
 ```bash
 source env.sh
-CUDA_VISIBLE_DEVICES=0 "$ATTNVIEW_PYTHON" tools/p2-masked-smoke-run.py \
+CUDA_VISIBLE_DEVICES=0 "$ATTNVIEW_PYTHON" tools/p2-diagnostic-run.py \
+  --config configs/p2-masked-smoke/diagnostic.json \
   --out evidence/p3-masked-smoke/diagnostic-<new-id>
 CUDA_VISIBLE_DEVICES= "$ATTNVIEW_PYTHON" tools/p2-masked-smoke-audit.py \
   --run evidence/p3-masked-smoke/diagnostic-<new-id>/run \
