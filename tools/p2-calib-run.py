@@ -52,6 +52,7 @@ warmup 请求、未完成 prefill 的丢弃步、cleanup/其它请求都不进�
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -456,9 +457,14 @@ class LayerCapture:
     """
 
     def __init__(
-        self, *, runner: object | None = None, expected_layers: dict[int, str] | None = None
+        self,
+        *,
+        runner: object | None = None,
+        expected_layers: dict[int, str] | None = None,
+        model: object | None = None,
     ) -> None:
         self.runner = runner
+        self.model = model
         self.step = 0  # 全部 forward 计数（含未 armed 步）
         self.request_step = 0  # 目标请求内计数（1-based；1 = prefill 步）
         self.records: dict[int, dict[int, dict]] = {}
@@ -485,6 +491,166 @@ class LayerCapture:
         self.input_generation = 0
         self.reference = None
         self._restores = []
+        # Fixture diagnostics also record the GDN state selected for the target
+        # request.  This is a digest-only observation: no full recurrent cache
+        # is copied into the evidence stream.
+        self.state_capture: dict = {
+            "enabled": False,
+            "required": False,
+            "gdn_layers": [],
+            "snapshots": {},
+            "missing_steps": [],
+        }
+        self._gdn_modules: dict[str, object] = {}
+
+    @staticmethod
+    def _cache_tensors(value) -> list[torch.Tensor]:
+        if torch.is_tensor(value):
+            return [value]
+        if isinstance(value, (list, tuple)):
+            tensors: list[torch.Tensor] = []
+            for item in value:
+                tensors.extend(LayerCapture._cache_tensors(item))
+            return tensors
+        return []
+
+    @staticmethod
+    def _storage_spans(tensors: list[torch.Tensor]) -> list[dict[str, int]]:
+        spans = []
+        for tensor in tensors:
+            if not torch.is_tensor(tensor) or tensor.numel() == 0:
+                continue
+            storage = tensor.untyped_storage()
+            spans.append({
+                "ptr": int(storage.data_ptr()),
+                "bytes": int(storage.nbytes()),
+                "tensor_ptr": int(tensor.data_ptr()),
+            })
+        return spans
+
+    def configure_state_capture(self, *, model: object, required: bool) -> None:
+        """Prepare digest-only GDN state and FA/GDN storage-alias evidence.
+
+        `FullAttentionSpec` names come from the runner's real groups.  GDN
+        modules are identified by their bound two-tensor `kv_cache`; this keeps
+        the probe independent of a particular Qwen module class name.
+        """
+        # CPU fakes used by the lifecycle tests do not allocate runner KV caches;
+        # keep those tests focused on control flow while real GPU runners remain
+        # fail-closed when the required state probe cannot be installed.
+        self.state_capture["required"] = bool(required and hasattr(self.runner, "kv_caches"))
+        if not hasattr(self.runner, "kv_caches"):
+            return
+        named = dict(getattr(model, "named_modules", lambda: ())())
+        fa_names = set(self.layer_names.values())
+        fa_spans: list[dict[str, int]] = []
+        for name in fa_names:
+            fa_spans.extend(self._storage_spans(self._cache_tensors(getattr(named.get(name), "kv_cache", None))))
+        gdn_modules: dict[str, object] = {}
+        for name, module in named.items():
+            tensors = self._cache_tensors(getattr(module, "kv_cache", None))
+            if isinstance(getattr(module, "kv_cache", None), (list, tuple)) and len(tensors) >= 2:
+                gdn_modules[name] = module
+        gdn_spans = [span for module in gdn_modules.values()
+                     for span in self._storage_spans(self._cache_tensors(getattr(module, "kv_cache", None)))]
+        def overlaps(left: dict[str, int], right: dict[str, int]) -> bool:
+            left_end = left["ptr"] + left["bytes"]
+            right_end = right["ptr"] + right["bytes"]
+            return left["ptr"] < right_end and right["ptr"] < left_end
+        unique_fa = sorted({(span["ptr"], span["bytes"]) for span in fa_spans})
+        unique_gdn = sorted({(span["ptr"], span["bytes"]) for span in gdn_spans})
+        alias_pair_count = sum(
+            overlaps({"ptr": left[0], "bytes": left[1]}, {"ptr": right[0], "bytes": right[1]})
+            for left in unique_fa for right in unique_gdn
+        )
+        self._gdn_modules = gdn_modules
+        self.state_capture.update({
+            "enabled": bool(gdn_modules),
+            "gdn_layers": sorted(gdn_modules),
+            "fa_storage_unique": [{"ptr": ptr, "bytes": size} for ptr, size in unique_fa],
+            "gdn_storage_unique": [{"ptr": ptr, "bytes": size} for ptr, size in unique_gdn],
+            "alias_pair_count": alias_pair_count,
+            # vLLM's allocator intentionally overlays all KV groups on one
+            # backing allocation (worker/utils.py:387-389).  Physical pointer
+            # aliasing is therefore expected; independence is checked by
+            # layer/spec/state-index identity and by the per-step digests.
+            "shared_backing_expected": True,
+        })
+        if self.state_capture["required"] and not gdn_modules:
+            raise RuntimeError("校准: 未找到带 bound kv_cache 的 GDN 层，拒绝声称 GDN 状态已观测")
+
+    def _gdn_state_indices(self, name: str) -> tuple[list[int], str]:
+        """Read the current GDN metadata's state indices, never infer from q_len."""
+        try:
+            from vllm.forward_context import get_forward_context
+
+            metadata = getattr(get_forward_context(), "attn_metadata", {})
+            if isinstance(metadata, dict):
+                metadata = metadata.get(name)
+            for field in (
+                "non_spec_state_indices_tensor",
+                "state_indices_tensor_d",
+                "state_indices_tensor",
+                "state_indices_tensor_p",
+                "spec_state_indices_tensor",
+            ):
+                value = getattr(metadata, field, None)
+                if torch.is_tensor(value) and value.numel():
+                    return [int(v) for v in value.reshape(-1).detach().to("cpu").tolist()], field
+        except Exception:  # pragma: no cover - only defensive around optional vLLM context
+            pass
+        return [], "unavailable"
+
+    @staticmethod
+    def _digest_selected(tensor: torch.Tensor, indices: list[int]) -> tuple[str, str, int]:
+        selected = tensor
+        scope = "full"
+        if tensor.dim() and indices and min(indices) >= 0 and max(indices) < tensor.shape[0]:
+            selected = tensor[torch.tensor(indices, device=tensor.device, dtype=torch.long)]
+            scope = "state_indices"
+        selected = selected.detach()
+        bytes_view = selected.contiguous().view(torch.uint8).to("cpu").numpy().tobytes()
+        digest = hashlib.sha256(bytes_view).hexdigest()
+        nonfinite = int((~torch.isfinite(selected)).sum().item())
+        return digest, scope, nonfinite
+
+    def _capture_gdn_state(self, step: int) -> None:
+        if not self.state_capture.get("enabled"):
+            return
+        records = {}
+        missing = []
+        for name, module in sorted(self._gdn_modules.items()):
+            indices, source = self._gdn_state_indices(name)
+            tensors = self._cache_tensors(getattr(module, "kv_cache", None))
+            if not indices:
+                missing.append(name)
+                continue
+            parts = []
+            for index, tensor in enumerate(tensors):
+                digest, scope, nonfinite = self._digest_selected(tensor, indices)
+                parts.append({
+                    "cache_index": index,
+                    "shape": [int(d) for d in tensor.shape],
+                    "dtype": str(tensor.dtype),
+                    "scope": scope,
+                    "digest": digest,
+                    "nonfinite": nonfinite,
+                })
+            records[name] = {"indices_source": source, "indices": indices, "parts": parts}
+        if missing:
+            self.state_capture["missing_steps"].append({"step": step, "layers": missing})
+            if self.state_capture.get("required"):
+                raise RuntimeError(
+                    f"校准: 第 {step} 步无法取得 GDN state indices: {missing[:3]}"
+                )
+        self.state_capture["snapshots"][str(step)] = records
+
+    def state_capture_summary(self) -> dict:
+        return {
+            key: value
+            for key, value in self.state_capture.items()
+            if key != "snapshots"
+        } | {"snapshots": self.state_capture.get("snapshots", {})}
 
     # --- arming（由驱动在 engine 就绪后、提交主请求前调用） ------------------ #
 
@@ -817,6 +983,7 @@ class LayerCapture:
         self._step_positions = None
         if not layers:
             raise RuntimeError(f"校准: 目标请求第 {step} 步没有任何全注意力层被观测到（无法给出参考）")
+        self._capture_gdn_state(step)
         scalars = (self.__dict__.get("record_meta", {}).get(step) or {})
         q_lens = {int(scalars[i]["q_len"]) for i in scalars} or {
             int(rec["q"].shape[0]) for rec in layers.values() if "q" in rec}
@@ -1013,6 +1180,7 @@ class LayerCapture:
             "scales": {str(i): self.scales[i] for i in sorted(self.scales)},
             "positions": {str(s): self.positions[s] for s in sorted(self.positions)},
             "prev_req_ids": {str(s): v for s, v in sorted(self.prev_req_ids.items())},
+            "gdn_state": self.state_capture_summary(),
         }
 
 
@@ -1095,7 +1263,7 @@ def install_capture(llm, *, reference=None) -> LayerCapture:
     model, fa_layers = find_fa_layers(llm)
     _model, runner = _model_and_runner(llm)
     expected = {index: name for index, (name, _impl) in enumerate(fa_layers)}
-    capture = LayerCapture(runner=runner, expected_layers=expected)
+    capture = LayerCapture(runner=runner, expected_layers=expected, model=model)
     capture.reference = reference
     try:
         if reference is not None:
@@ -2311,6 +2479,8 @@ def _run_impl(args, manifest, manifest_path, prompt, payload, prompt_ids, extra_
     capture = (install_capture(llm, reference=reference) if reference is not None else
                install_capture(llm) if args.record_layers else None)
     if capture is not None:
+        if args.arm in FIXTURE_ARMS:
+            capture.configure_state_capture(model=capture.model, required=True)
         def restore_capture():
             capture.restore()
             if reference is not None:

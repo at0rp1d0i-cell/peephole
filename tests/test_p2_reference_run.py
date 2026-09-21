@@ -146,6 +146,31 @@ class ReferenceLifecycleTest(unittest.TestCase):
             runner.next_step(positions)
             model.forward(positions=torch.tensor(positions))
 
+    def test_gdn_state_probe_requires_separate_storage_from_fa_cache(self):
+        class Module:
+            def __init__(self, fa_cache, gdn_cache):
+                self.fa = NS(kv_cache=fa_cache)
+                self.gdn = NS(kv_cache=gdn_cache)
+
+            def named_modules(self):
+                return [("", self), ("fa", self.fa), ("gdn", self.gdn)]
+
+        fa_cache = torch.zeros(2, 4)
+        gdn_cache = [torch.zeros(2, 3), torch.zeros(2, 3)]
+        model = Module(fa_cache, gdn_cache)
+        runner = NS(kv_caches=[fa_cache, *gdn_cache])
+        capture = self.driver.LayerCapture(runner=runner, expected_layers={0: "fa"}, model=model)
+        capture.configure_state_capture(model=model, required=True)
+        self.assertTrue(capture.state_capture["enabled"])
+        self.assertEqual(capture.state_capture["alias_pair_count"], 0)
+        self.assertEqual(capture.state_capture["gdn_layers"], ["gdn"])
+
+        aliased = Module(fa_cache, [fa_cache, torch.zeros(2, 3)])
+        bad = self.driver.LayerCapture(runner=runner, expected_layers={0: "fa"}, model=aliased)
+        bad.configure_state_capture(model=aliased, required=True)
+        self.assertTrue(bad.state_capture["shared_backing_expected"])
+        self.assertGreater(bad.state_capture["alias_pair_count"], 0)
+
     def test_real_begin_end_global_prefill_decode_write_and_restore(self):
         model, runner, ref = self.make()
         original = [i.forward for i in model.impls] + [model.forward, runner.prepare_inputs]
