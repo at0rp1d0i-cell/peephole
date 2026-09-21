@@ -108,6 +108,11 @@
    "note": "stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定）"
   },
   {
+   "glob": "evidence/p3-masked-reference/**",
+   "status": "delivered",
+   "note": "真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合"
+  },
+  {
    "glob": "evidence/*.log",
    "status": "delivered",
    "note": "环境与迁移记录"
@@ -684,6 +689,10 @@
   {
    "glob": "evidence/p3-masked-smoke/diagnostic-*/run/source/**",
    "reason": "同上：逐 run 冻结的源码快照（交付 run 与失败 run 各一份，用于对比修复前后差异）"
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-*/run/source/**",
+   "reason": "同上：逐 run 冻结的源码快照（reference 臂与 masked 臂在同一 commit 上各留一份，两两相同本身就是同一 commit 的证据）"
   }
  ],
  "gone": [
@@ -774,11 +783,81 @@
    "reason": "p3-calib 各 run 的 logits 序列化：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记"
   },
   {
-   "glob": "evidence/p3-masked-smoke/diagnostic-*/run/capture/**",
-   "count": 36,
-   "bytes": 3096157048,
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-first/run/capture/**",
    "status": "remote-only",
-   "reason": "stage-05 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记"
+   "reason": "首次 masked 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；文本层已逐个入库",
+   "count": 6,
+   "bytes": 1027686562
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/capture/**",
+   "status": "remote-only",
+   "reason": "窄修复后 masked 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；文本层已逐个入库",
+   "count": 30,
+   "bytes": 2068470486
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-current/**",
+   "status": "remote-only",
+   "reason": "被取代的 masked 诊断 run（run4 对照轮）：文本层与 capture 都留数据盘，不随仓发行",
+   "count": 69,
+   "bytes": 2102977859
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/capture/**",
+   "status": "remote-only",
+   "reason": "终版 masked 诊断 run 的 capture dump：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库",
+   "count": 30,
+   "bytes": 2068470486
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run5/run/capture/**",
+   "status": "remote-only",
+   "reason": "终版独立 reference run 的 capture dump（逐步 KV/Q/out）：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库",
+   "count": 31,
+   "bytes": 2073556148
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run5/run/reference.json",
+   "status": "remote-only",
+   "reason": "reference 报告的重复导出（manifest.reference 的同源副本）：字节留数据盘，避免同一内容入库两份",
+   "count": 1,
+   "bytes": 5085814
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run1/**",
+   "status": "remote-only",
+   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
+   "count": 76,
+   "bytes": 2117943139
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run2/**",
+   "status": "remote-only",
+   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
+   "count": 38,
+   "bytes": 468347
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run3/**",
+   "status": "remote-only",
+   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
+   "count": 38,
+   "bytes": 469107
+  },
+  {
+   "glob": "evidence/p3-masked-reference/reference-20260921-run4/**",
+   "status": "remote-only",
+   "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
+   "count": 77,
+   "bytes": 2119880410
+  },
+  {
+   "glob": "evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json",
+   "status": "remote-only",
+   "reason": "被取代的 numeric-audit 副本（仅 audit_head/脚本哈希不同）：留数据盘，入库的是 retry1/numeric-audit.json",
+   "count": 1,
+   "bytes": 31142
   }
  ]
 }

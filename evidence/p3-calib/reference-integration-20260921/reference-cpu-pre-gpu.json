@@ -1,0 +1,413 @@
+{
+  "config": "configs/p2-ref-cpu/checks.json",
+  "limits": [
+    "CPU/桩件:不据此宣称真实模型或 GPU 接线正确",
+    "不设数值阈值;FP32 vs cast 差异只作记录",
+    "test-only 开关默认关闭,生产路径无调用点"
+  ],
+  "accepted_fixture_sha256": "ca842c58579d63cb40e623e7cf0628b986b7c21f669afb17653c30d3c1c6e921",
+  "accepted_fixture": "/root/autodl-tmp/attnview/evidence/p3-calib/masked-prep/crossblock-note.json",
+  "declarations": [
+    {
+      "parse_index_0based": 0,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 5,
+      "mode": "local",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 11,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 19,
+      "mode": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "parse_index_0based": 24,
+      "mode": "global",
+      "refs": []
+    }
+  ],
+  "metrics_sample": {
+    "mode": "local",
+    "kv_len": 7840,
+    "seq_lens_value": 7840,
+    "semantic_positions": 1091,
+    "read_positions": 2352,
+    "blocks": [
+      0,
+      8,
+      9
+    ],
+    "effective_per_block": [
+      784,
+      784,
+      784
+    ],
+    "output_dtype": "torch.bfloat16",
+    "fp32_to_output_max_abs": 0.0002435445785522461,
+    "fp32_to_output_rms": 5.5235472245840356e-05,
+    "fp32_to_output_rel_l2": 0.001644914234057898,
+    "ref_abs_max": 0.11862342804670334,
+    "non_finite_count": 0
+  },
+  "checks": [
+    {
+      "name": "语义位置 = sink ∪ local_window ∪ response(按夹具 span 推导)",
+      "ok": true,
+      "got": 1092,
+      "want": 1092
+    },
+    {
+      "name": "读取位置 = 语义位置向块边界外扩后截断(块集与每块计数自洽,且被验收产物核对)",
+      "ok": true,
+      "blocks": [
+        0,
+        8,
+        9,
+        10
+      ],
+      "per_block": [
+        784,
+        784,
+        784,
+        1
+      ],
+      "read": 2353
+    },
+    {
+      "name": "与已验收 28 步夹具逐步一致(块集/每块计数/总长)",
+      "ok": true,
+      "bad": []
+    },
+    {
+      "name": "原生 KV 解包 == transpose(1,2).split(head_size,-1) 且形状为 [blocks,block,kv_heads,d]",
+      "ok": true,
+      "shape": [
+        16,
+        784,
+        4,
+        256
+      ]
+    },
+    {
+      "name": "末维不等于 2*head_size 时拒绝",
+      "ok": true,
+      "error": "kv_cache 末维应为 2*head_size=512,实际 256"
+    },
+    {
+      "name": "真实签名下:目标请求的 (layer, step) 全部被参考覆盖",
+      "ok": true,
+      "overrode": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          1,
+          7
+        ]
+      ]
+    },
+    {
+      "name": "真实签名下:非目标请求经同一挂接全部直通",
+      "ok": true
+    },
+    {
+      "name": "非目标请求输出未被改写",
+      "ok": true
+    },
+    {
+      "name": "覆盖账本记录真实 metadata 来源(块表行取自二维张量)",
+      "ok": true
+    },
+    {
+      "name": "真实三维 query/output:写回对应视图且原缓冲身份不变",
+      "ok": true,
+      "ptr_preserved": true
+    },
+    {
+      "name": "记录真实三维 shape 与 num_tokens=1",
+      "ok": true,
+      "query_shape": [
+        1,
+        24,
+        256
+      ],
+      "output_shape": [
+        1,
+        24,
+        256
+      ]
+    },
+    {
+      "name": "真实接口下记录真实指标(dtype=output.dtype、cast 差异非零、seq_lens 交叉核对一致)",
+      "ok": true,
+      "metrics": {
+        "mode": "local",
+        "kv_len": 7840,
+        "seq_lens_value": 7840,
+        "read_positions": 2352,
+        "blocks": [
+          0,
+          8,
+          9
+        ],
+        "fp32_to_output_max_abs": 0.0002435445785522461,
+        "fp32_to_output_rms": 5.5235472245840356e-05,
+        "fp32_to_output_rel_l2": 0.001644914234057898,
+        "ref_abs_max": 0.11862342804670334,
+        "non_finite_count": 0
+      }
+    },
+    {
+      "name": "恢复后 forward 身份等于原方法",
+      "ok": true,
+      "restored": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "恢复后调用走原实现(计数 +1、输出缓冲不被参考改写)",
+      "ok": true
+    },
+    {
+      "name": "多 token 输入被拒绝(仅单 token decode)",
+      "ok": true,
+      "error": "metadata.seq_lens[0]=7840 与独立时间线 KV 上界 7841 不一致"
+    },
+    {
+      "name": "unpack 不复制整个缓存:保留 stride 视图(共享 storage,未做 contiguous)",
+      "ok": true,
+      "strides": [
+        1605632,
+        512,
+        401408,
+        1
+      ]
+    },
+    {
+      "name": "未启用:显式 None 参数下按原实现直通,且未发生错误恢复",
+      "ok": true,
+      "ledger": [
+        {
+          "layer": 0,
+          "step": 6,
+          "request_id": "req-A",
+          "action": "passthrough"
+        }
+      ]
+    },
+    {
+      "name": "有效 decode 且计数器全 0:通过(单请求由 query_start_loc;相位由 is_prefilling_np)",
+      "ok": true
+    },
+    {
+      "name": "单 token 的末尾 prefill chunk 被拒绝(相位来自 is_prefilling_np)",
+      "ok": true,
+      "error": "本步相位为 prefill(可能是末尾单 token prefill chunk):参考不接管"
+    },
+    {
+      "name": "目标请求:非 None 的 output_scale 被拒绝且 forward 已恢复",
+      "ok": true,
+      "error": "Unsupported attention arguments: args=0, kwargs=['output_scale']"
+    },
+    {
+      "name": "门禁:seq_lens 缺失 被拒绝(fail closed)",
+      "ok": true,
+      "error": "metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)"
+    },
+    {
+      "name": "门禁:seq_lens 形状错 被拒绝(fail closed)",
+      "ok": true,
+      "error": "metadata.seq_lens 缺失或形状不符:参考拒绝在缺证据下继续(fail closed)"
+    },
+    {
+      "name": "门禁:计数器已填充但与单请求冲突时拒绝",
+      "ok": true,
+      "error": "计数器已填充但与单请求 decode 冲突:num_decode_reqs=2"
+    },
+    {
+      "name": "缺少相位证据时拒绝(不得用单 token/q_len 代替)",
+      "ok": true,
+      "error": "缺少相位证据(harness 的 is_prefilling_np[目标行]):拒绝用 q_len/单 token 代替"
+    },
+    {
+      "name": "metadata.seq_lens 与独立时间线不一致时拒绝",
+      "ok": true,
+      "error": "metadata.seq_lens[0]=7844 与独立时间线 KV 上界 7841 不一致"
+    },
+    {
+      "name": "request_idx 超出块表行数时拒绝",
+      "ok": true,
+      "error": "request_idx=9 超出 block_table 行数 1"
+    },
+    {
+      "name": "缺层/缺步被账本检出(missing 非空)",
+      "ok": true,
+      "missing": [
+        [
+          1,
+          6
+        ]
+      ]
+    },
+    {
+      "name": "参考异常:抛错、开关关闭、forward 恢复为原方法",
+      "ok": true,
+      "errors": [
+        {
+          "layer": 0,
+          "step": 6,
+          "request_id": "req-D",
+          "action": "error_restored",
+          "error": "ReferenceError: output 形状 (1, 25, 256) 与 query (1, 24, 256) 不一致"
+        }
+      ]
+    },
+    {
+      "name": "独立挂接(另一请求/另一 impl/另一块表行)与主挂接账本互不影响",
+      "ok": true,
+      "iso": [
+        [
+          0,
+          7
+        ]
+      ],
+      "main": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          1,
+          7
+        ]
+      ]
+    },
+    {
+      "name": "接线反例:只返回新张量、不写原缓冲 ⇒ 缓冲仍为初值(被检出)",
+      "ok": true
+    },
+    {
+      "name": "越界读取位置被拒绝",
+      "ok": true,
+      "error": "位置 8625 需要逻辑块 11,但物理块表只有 11 项"
+    },
+    {
+      "name": "GQA 头数不整除被拒绝",
+      "ok": true,
+      "error": "GQA 头数不整除:q_heads=25 kv_heads=4"
+    }
+  ],
+  "failed": [],
+  "declarations_expected": [
+    {
+      "parse_index_0based": 0,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 1,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 2,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 5,
+      "mode": "local",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 6,
+      "mode": "local",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 7,
+      "mode": "local",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 8,
+      "mode": "local",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 11,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 12,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 19,
+      "mode": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "parse_index_0based": 20,
+      "mode": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "parse_index_0based": 21,
+      "mode": "focus",
+      "refs": [
+        2
+      ]
+    },
+    {
+      "parse_index_0based": 24,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 26,
+      "mode": "global",
+      "refs": []
+    },
+    {
+      "parse_index_0based": 27,
+      "mode": "global",
+      "refs": []
+    }
+  ],
+  "test_scope": "CPU:真实 `FlashAttentionMetadata` 对象 + 原生 4 维 KV + 真实 forward 签名驱动挂接;impl 为桩件、不加载 27B、不跑 GPU;不据此宣称真实模型数值或 GPU 接线正确;不设数值通过阈值。"
+}

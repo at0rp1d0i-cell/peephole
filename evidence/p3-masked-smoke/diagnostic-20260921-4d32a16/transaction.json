@@ -1,0 +1,104 @@
+{
+  "head": "4d32a16376730e25d518241a82f902ee23e67700",
+  "command": [
+    "/root/attnview/venvs/attnview/bin/python",
+    "tools/p2-calib-run.py",
+    "--arm",
+    "patched-masked",
+    "--out",
+    "/root/autodl-tmp/attnview/evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run",
+    "--max-tokens",
+    "29",
+    "--record-layers",
+    "--cleanup-check",
+    "--doc-fixture",
+    "evidence/p1-cpu/demo-fixtures.json",
+    "--expect-fixture",
+    "evidence/p3-calib/masked-prep/crossblock-note.json",
+    "--timeline-config",
+    "configs/p2-masked-prep/crossblock.json",
+    "--force-trajectory",
+    "evidence/p3-masked-smoke/traj-7834-generated.json",
+    "--compare-to",
+    "evidence/p3-masked-smoke/traj-7834-generated.json"
+  ],
+  "started_unix": 1790005179.7404718,
+  "phases": {
+    "apply": {
+      "command": [
+        "/root/attnview/venvs/attnview/bin/python",
+        "tools/p2-apply-patch.py",
+        "apply"
+      ],
+      "started_unix": 1790005179.7405298,
+      "pid": 35906,
+      "exit_code": 0,
+      "ended_unix": 1790005179.8553956
+    },
+    "verify": {
+      "command": [
+        "/root/attnview/venvs/attnview/bin/python",
+        "tools/p2-apply-patch.py",
+        "verify"
+      ],
+      "started_unix": 1790005179.8555746,
+      "pid": 35907,
+      "exit_code": 0,
+      "ended_unix": 1790005179.920175
+    },
+    "gpu": {
+      "command": [
+        "/root/attnview/venvs/attnview/bin/python",
+        "tools/p2-calib-run.py",
+        "--arm",
+        "patched-masked",
+        "--out",
+        "/root/autodl-tmp/attnview/evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run",
+        "--max-tokens",
+        "29",
+        "--record-layers",
+        "--cleanup-check",
+        "--doc-fixture",
+        "evidence/p1-cpu/demo-fixtures.json",
+        "--expect-fixture",
+        "evidence/p3-calib/masked-prep/crossblock-note.json",
+        "--timeline-config",
+        "configs/p2-masked-prep/crossblock.json",
+        "--force-trajectory",
+        "evidence/p3-masked-smoke/traj-7834-generated.json",
+        "--compare-to",
+        "evidence/p3-masked-smoke/traj-7834-generated.json"
+      ],
+      "started_unix": 1790005179.9207687,
+      "pid": 35908,
+      "exit_code": 0,
+      "ended_unix": 1790005261.209071
+    },
+    "revert": {
+      "command": [
+        "/root/attnview/venvs/attnview/bin/python",
+        "tools/p2-apply-patch.py",
+        "revert"
+      ],
+      "started_unix": 1790005261.2099786,
+      "pid": 40087,
+      "exit_code": 0,
+      "ended_unix": 1790005261.3259149
+    }
+  },
+  "config_path": "configs/p2-masked-smoke/diagnostic.json",
+  "config": {
+    "arm": "patched-masked",
+    "doc_fixture": "evidence/p1-cpu/demo-fixtures.json",
+    "expect_fixture": "evidence/p3-calib/masked-prep/crossblock-note.json",
+    "timeline_config": "configs/p2-masked-prep/crossblock.json",
+    "force_trajectory": "evidence/p3-masked-smoke/traj-7834-generated.json",
+    "max_tokens": 29
+  },
+  "config_sha256": "2c2d5cfac6d29d1b4db986bba9d4ecd47c3bf2986c2cc84ad2d36661b091207c",
+  "diagnostic_only": true,
+  "revert_exit_code": 0,
+  "exit_code": 0,
+  "ended_unix": 1790005261.326862,
+  "deployment_journal_remaining": false
+}

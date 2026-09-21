@@ -28,10 +28,10 @@
 | `unclassified` | 未分类——门禁失败 |
 | `pending` | 工作区未跟踪——入库前先分类 |
 
-树内产物 **278 个 / 14,638,877 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
+树内产物 **352 个 / 33,736,880 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
 树外登记件的原件归档在 `/root/autodl-tmp/attnview-evidence-archive`（远端数据盘），字节与 sha256 以本表为准；仓内不发行其字节。
 
-## 树内：随仓发行（278 个 / 14,638,877 B）
+## 树内：随仓发行（352 个 / 33,736,880 B）
 
 | 文件 | 字节 | sha256 | 说明 |
 | --- | ---: | --- | --- |
@@ -158,6 +158,7 @@
 | `evidence/p3-calib/reference-integration-20260921/deployment-verify.log` | 31 | `91bef6e2d6db9bdce8093a4e2d90a158c82a07490d42ad52114336ac76d424ef` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/reference-integration-20260921/precommit-gates.log` | 1,731 | `3f1cad87264cd76d40b0c049e3351cb2cdefba292cfffa2f6751fd0fb115ff3e` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/reference-integration-20260921/pytest-collection.log` | 33,579 | `52d7836820e2f09d10d9d531047f332f972d0f71f52829f258451910cebdb8f1` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-calib/reference-integration-20260921/reference-cpu-pre-gpu.json` | 9,667 | `4f86ed8665de0a1833051bb7c84f8e93cb3458262479643675ed18a4ddc470d3` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/reference-integration-20260921/summary.json` | 2,030 | `95261d989567989cbcbd21ee1ac1eb0c96e0e3062f3f5846678b7532e8b78591` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/reference-integration-20260921/validation.json` | 3,977 | `0015fd11792e0942b8089e949de9bc626c50ff693a07b66cd767be7632657c56` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/run-disabled-3/error.txt` | 1,294 | `479194f61d0f8f0fc109d14b63715691d3eff74085a8d2190007fd8c5e48332d` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
@@ -204,6 +205,42 @@
 | `evidence/p3-calib/run-vanilla-1/manifest.json` | 2,465 | `a07654f4636846631be7567e3ac75a48aadc79457f5794f2681259954312c2d0` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/traj-original-1.json` | 924 | `da01f10eeae306ddd5f599180a4b56192fe399dc0ab3cd86460098eee5e923af` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/traj.json` | 88 | `019e8493a3681e6a76d0106b117e922f2933d6d5188d39e99aea76d2f8c7f8c4` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-masked-reference/reference-20260921-run5/apply.log` | 112 | `885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/gpu.log` | 13,923 | `d731f6105d7a55eed73511da411587d0a428971998f78320f450bab69975742f` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/revert.log` | 1,200 | `49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/arm.json` | 1,861 | `807174a607c58edcd1d483ffb3381ac62b2003d84efa2a0205810afb48625224` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/capture/structure.json` | 3,930,507 | `b0e7874fefb5a78fa2111405605e0ce2572155f76fe54869c656dadc2980ad96` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/cleanup.json` | 7,293 | `14ad973d269fe86377b399c5aa9dbdbbe20c25f60cfabfeadcf86dd66eb26036` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/engine-traces-main.json` | 2 | `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/engine-traces.json` | 7,601 | `f2fd15ef61d72f0a166cc4b8e024f40f01090fb57e3ee5c4ab6d8ae680b4f1cc` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/force.jsonl` | 9,552 | `186d35919b4b7743e1433148c9d2ec81590347e5d3be5ccdbde11d04ae6412b1` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/manifest.json` | 7,600,220 | `214a07252c7ac82cfd69b002708e53ad57dde03769c26ce45fa216c8355a41ae` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/_lib.py` | 4,103 | `90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/__init__.py` | 788 | `0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/decode.py` | 2,903 | `61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/extract.py` | 5,811 | `68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/fixture_rebuild.py` | 3,247 | `0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpucheck.py` | 8,504 | `4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpukv.py` | 7,462 | `285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpuoracle.py` | 6,264 | `2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/parser.py` | 15,069 | `2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/prompt.py` | 13,715 | `438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/prompts.py` | 8,038 | `943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/readview.py` | 12,167 | `b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference.py` | 2,956 | `434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_bridge.py` | 13,929 | `32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_dense.py` | 12,528 | `5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_hook.py` | 7,759 | `855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_run.py` | 9,316 | `c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/segmenter.py` | 12,245 | `c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/smoke_structure.py` | 10,757 | `f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/state.py` | 10,157 | `e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/step_plan.py` | 18,702 | `f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/trace.py` | 6,764 | `bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/source/p2-calib-run.py` | 155,574 | `a9da137f6350b79977e225c6592f69e7d140ea9353539571dad24fb961eb6635` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/summary.json` | 35,819 | `da370745f77a380e92bb8411c1a238b4e15db3d7b608131c27b59438b8772182` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/transaction.json` | 3,196 | `68ca628c8c97fb726b415c48f91b073e370d5203b767387544ac2c96df069458` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run5/verify.log` | 57 | `bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
 | `evidence/p3-masked-smoke/closeout-gates-20260921/dependencies-after.txt` | 4,163 | `613edbca75157296fb0f1720a254c671d380fec44f7f1aaab319cb02100003a3` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/closeout-gates-20260921/dependencies-before.txt` | 4,118 | `350d32f4804ada87ad8617cabe64c07743fc43a1685f57d1b7a34ab374c89d01` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/closeout-gates-20260921/desensitize.exit` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
@@ -226,6 +263,43 @@
 | `evidence/p3-masked-smoke/cpu-retry1-20260920T171516Z/exit_code.txt` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/cpu-retry1-20260920T171516Z/head.txt` | 41 | `c4e9f85f9787d5b6ce82655853401e3434f3d5132721616d71729a62a7fd4532` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/cpu-retry1-20260920T171516Z/unittest.log` | 986 | `682c9e194d6e2769133fe94d9a6cae3fad20319bc967ad64e7b0aaf4b06cfa90` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/apply.log` | 112 | `885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/gpu.log` | 13,921 | `e5a52e0b75a9e8d620ff75d49f8c07d7d0ed77ff9d290fa7d6c4264b34772e24` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/numeric-audit.json` | 31,142 | `51baf96f59bd6c048f19b99737164c058f46b92e67e2d8dcf8972f8f0328ac91` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/revert.log` | 1,200 | `49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/arm.json` | 1,855 | `baf1ec2f03dd394c55170f06515922f3c5b679a6bd79df1dc2fbeee23182bb69` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/capture/structure.json` | 3,916,459 | `68ac7e6b9ef60425860e046d05a9e6ffd5460111c53354cdb5ef8e6dfda212ac` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/cleanup.json` | 7,306 | `a294226b08e0804699a91b28c21928ac201eef9e076be55952edf8f01b5f64d7` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/engine-traces-main.json` | 17,961 | `02d9739914eb3f0a5837300b2c417fbc3a7921e84dcf1868400914ae0c690a9f` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/engine-traces.json` | 25,560 | `c1c99bd60af5c1d0a56ec04b8e8db1b5b7f967dfce115b005cbd6a8666250931` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/force.jsonl` | 9,378 | `a91f816f7d1e5e9081e5e7a9aa6ee96220b2ba886f4f048615258237e29e6087` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/manifest.json` | 2,737,856 | `b7f6d5f88b826f854b0e5df1966c9140fe945896a82d4d0a696fdab4d05d2dce` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/_lib.py` | 4,103 | `90108628112acac9bbb15a0490c8feb5f45ac61913923c54b0b3a94b2d8da1cb` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/__init__.py` | 788 | `0e3bb337c8b3339945cb2486b010a955887421b1331d5781d4022f365b3675ce` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/decode.py` | 2,903 | `61a903674fdc24466cb5b8155a0536f9a9e8c0af9e0cb7c0ddce5bab94fe4f4f` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/extract.py` | 5,811 | `68eef6a60b1a8666155d15210704804038ccf01d18adbcd887b72552c610b308` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/fixture_rebuild.py` | 3,247 | `0693be69ed45346c611d7f04c4d63d621b8cad3a19bf918e4e67d5b8ff53ebf9` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpucheck.py` | 8,504 | `4c9a2f0da31b9fa87dd5c6eca2bedb1e6ea73e5680e3d57814c3b7b924229f5e` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpukv.py` | 7,462 | `285fd0dee588a1febd476d51ad61c022bdbf9ece136e02e311d1ad26b498964c` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpuoracle.py` | 6,264 | `2c75f780fa8bf9aee09d2658dd78c3cda59d3e0a6e11dddd9eca446053656052` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/parser.py` | 15,069 | `2cac16f70a78094eccd45962406c3e95643a1d0cf467f7f06f219b0bfeb1e60d` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/prompt.py` | 13,715 | `438591ad038bbdad653039afc65d8e4949d630cc43d63edcf6b4ebcc76d7023b` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/prompts.py` | 8,038 | `943d22a4148cfa87c2c9d8797dab0ebb98a68fa66f2605d2d0900f09e913dd65` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/readview.py` | 12,167 | `b11a971e20e2568d427675a4ef71b73012dacf9604c67d5646c90e13a5db2f5c` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference.py` | 2,956 | `434d924d290ad97031effcc8b868c56047ef144ce3393be516283f48f844cafd` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_bridge.py` | 13,929 | `32280a1e95c01e368259ec6edd1523a2903ebdf392ccdbc5eb07317ad6149e1b` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_dense.py` | 12,528 | `5d52877a25bfb65da3da228e181aea640455df3208b604c668aa0d5bfa1b758a` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_hook.py` | 7,759 | `855e4ad531d1d023ed1ffd3b43198d341084943476476049a32fb8e6daf9b6dd` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_run.py` | 9,316 | `c592877429a4636bf314cc322459c2fb1262957a3db19a6be54f47732787d9d6` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/segmenter.py` | 12,245 | `c3bcc218c78141a60ee750a64a0508a62057555a430e5508184b24945e19129b` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/smoke_structure.py` | 10,757 | `f63eb7969b841f56b7f5aae4f78be2e0d0e8ea58a7289627956da6a68903513c` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/state.py` | 10,157 | `e1dc6dab84d9108a7062b3527fb2f658720c8e8c401d31f0d7131f6cb559946a` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/step_plan.py` | 18,702 | `f86f7ee703feaa78c57c48edfb86671020d974b0b8b1290b010bc709cc3b8714` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/trace.py` | 6,764 | `bdc3f309bfcf3303c5c98e5bfdfd4b718059dce97bb2c8d194591ea0e1692b54` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/p2-calib-run.py` | 155,574 | `a9da137f6350b79977e225c6592f69e7d140ea9353539571dad24fb961eb6635` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/steps.jsonl` | 13,488 | `24298329ee5c606d5f822f20180caac46abb0739b530d5d3a2dd0b7028bb4141` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/transaction.json` | 3,182 | `06575007a845fedde4c75d7c973948745dedc249ae103e969bd6164133cc75f9` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/verify.log` | 57 | `bed9e93562842c263733f182cc81679a20d17bed745e068362b244fac9c2b6ad` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/diagnostic-20260921-first/apply.log` | 112 | `885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/diagnostic-20260921-first/artifact-index.json` | 6,535 | `2b93d661c1a116fd08abd437d4cb3ffd27233fdd9d806a75a6dfce60e5f8812f` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
 | `evidence/p3-masked-smoke/diagnostic-20260921-first/gpu.log` | 13,363 | `4c225d9e966a137b29b687857886d1dc468e29f492dd290968478eb7ec4cbe32` | stage-05 masked 冒烟；验收状态见 reports/p3-calib/evidence-index.md §0（capture/structure.json 与 steps.jsonl 是否降为 detail-only 待验收裁定） |
@@ -399,7 +473,7 @@
 | `evidence/verify-after-move.log` | 7,355 | `b15107b5b82f2e87aadc4e6dfa950d507eac2f18631cb6e6e12b8e9ca7159528` | duplicate | 与 evidence/verify-console.log 逐字节相同（同一校验输出，历史命名不同） |
 | `logs/console-install.log` | 2,421 | `189d9b27c5e5ba7178ba12bc7e093e3ff8addde3c794dc969a4a8ec6122f6d57` | duplicate | 与 logs/install-runtime-20260917-163051.log 逐字节相同 |
 
-## 在盘未入库集合（3 组 / 17,027,432,838 B）
+## 在盘未入库集合（13 组 / 27,516,315,290 B）
 
 按 R9 的类型规则排除（张量/序列化大件）；不与任何文档逐条绑定的组只登记组级事实，
 被文档引用的成员在上表逐个登记。计数口径：`glob` 展开 **减去**已逐个登记的成员（树内上表 / 树外登记表），由 A9 逐组复算。
@@ -408,7 +482,17 @@
 | --- | ---: | ---: | --- | --- |
 | `evidence/p3-calib/run-*/capture/**` | 52 | 13,881,579,550 | remote-only | p3-calib 各 run 的 capture dump（layers.npz / forward1.npz / forward2..8.npz）：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记 |
 | `evidence/p3-calib/run-*/logits.pt` | 6 | 49,696,240 | remote-only | p3-calib 各 run 的 logits 序列化：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记 |
-| `evidence/p3-masked-smoke/diagnostic-*/run/capture/**` | 36 | 3,096,157,048 | remote-only | stage-05 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；未被文档逐条引用，只登记组级事实（逐文件哈希可随时复算）；被文档引用的成员已在上表逐个登记 |
+| `evidence/p3-masked-smoke/diagnostic-20260921-first/run/capture/**` | 6 | 1,027,686,562 | remote-only | 首次 masked 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；文本层已逐个入库 |
+| `evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/capture/**` | 30 | 2,068,470,486 | remote-only | 窄修复后 masked 冒烟 run 的 capture dump：R9 类型规则排除，字节留数据盘；文本层已逐个入库 |
+| `evidence/p3-masked-smoke/diagnostic-20260921-current/**` | 69 | 2,102,977,859 | remote-only | 被取代的 masked 诊断 run（run4 对照轮）：文本层与 capture 都留数据盘，不随仓发行 |
+| `evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/capture/**` | 30 | 2,068,470,486 | remote-only | 终版 masked 诊断 run 的 capture dump：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/capture/**` | 31 | 2,073,556,148 | remote-only | 终版独立 reference run 的 capture dump（逐步 KV/Q/out）：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库 |
+| `evidence/p3-masked-reference/reference-20260921-run5/run/reference.json` | 1 | 5,085,814 | remote-only | reference 报告的重复导出（manifest.reference 的同源副本）：字节留数据盘，避免同一内容入库两份 |
+| `evidence/p3-masked-reference/reference-20260921-run1/**` | 76 | 2,117,943,139 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run2/**` | 38 | 468,347 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run3/**` | 38 | 469,107 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run4/**` | 77 | 2,119,880,410 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json` | 1 | 31,142 | remote-only | 被取代的 numeric-audit 副本（仅 audit_head/脚本哈希不同）：留数据盘，入库的是 retry1/numeric-audit.json |
 
 ## 已声明缺失 / 未执行（14 条）
 
@@ -458,25 +542,41 @@
 - 同哈希（allow_duplicate 声明）：evidence/p3-calib/run-disabled-3/source/p2-calib-run.py, evidence/p3-calib/run-original-3a/source/p2-calib-run.py, evidence/p3-calib/run-original-3b/source/p2-calib-run.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-calib/run-disabled-4/source/p2-calib-run.py, evidence/p3-calib/run-global-4/source/p2-calib-run.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-calib/run-disabled-5/source/p2-calib-run.py, evidence/p3-calib/run-global-5/source/p2-calib-run.py
-- 同哈希（1,200 B，小于阈值、保留）：evidence/p3-masked-smoke/diagnostic-20260921-first/revert.log, evidence/p3-masked-smoke/diagnostic-20260921-retry1/revert.log
+- 同哈希（1,200 B，小于阈值、保留）：evidence/p3-masked-reference/reference-20260921-run5/revert.log, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/revert.log, evidence/p3-masked-smoke/diagnostic-20260921-first/revert.log, evidence/p3-masked-smoke/diagnostic-20260921-retry1/revert.log
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/_lib.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/_lib.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/decode.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/decode.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/extract.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/extract.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/fixture_rebuild.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/fixture_rebuild.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/fixture_rebuild.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/fixture_rebuild.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpucheck.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpucheck.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpukv.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpukv.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/gpuoracle.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/gpuoracle.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/gpuoracle.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/gpuoracle.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/parser.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/parser.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/parser.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/parser.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/prompt.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/prompt.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/prompts.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/prompts.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/prompts.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/prompts.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/readview.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/readview.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_bridge.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_bridge.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_dense.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_dense.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_hook.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_hook.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/reference_run.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/reference_run.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/segmenter.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/segmenter.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/smoke_structure.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/smoke_structure.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/smoke_structure.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/smoke_structure.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/state.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/state.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/step_plan.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/step_plan.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/trace.py
+- 同哈希（allow_duplicate 声明）：evidence/p3-masked-reference/reference-20260921-run5/run/source/p2-calib-run.py, evidence/p3-masked-smoke/diagnostic-20260921-4d32a16/run/source/p2-calib-run.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/decode.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/decode.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/extract.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/extract.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/fixture_rebuild.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/fixture_rebuild.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/gpucheck.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/gpucheck.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/gpukv.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/gpukv.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/gpuoracle.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/gpuoracle.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/parser.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/parser.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/prompt.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/prompt.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/prompts.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/prompts.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/readview.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/readview.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/reference.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/reference.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/reference_bridge.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/reference_bridge.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/reference_dense.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/reference_dense.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/reference_hook.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/reference_hook.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/segmenter.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/segmenter.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/smoke_structure.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/smoke_structure.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/state.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/state.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/step_plan.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/step_plan.py
-- 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/trace.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/trace.py
-- 入库 278 个 / 树外登记 78 个 / 在盘未入库 0 个
+- 入库 352 个 / 树外登记 78 个 / 在盘未入库 0 个
 - 引用扫描面：reports, configs + README.md, CONTRIBUTING.md, .gitmessage
