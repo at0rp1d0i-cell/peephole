@@ -28,10 +28,10 @@
 | `unclassified` | 未分类——门禁失败 |
 | `pending` | 工作区未跟踪——入库前先分类 |
 
-树内产物 **352 个 / 33,736,880 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
+树内产物 **356 个 / 34,209,639 B**；树外登记 **78 个**；在盘未跟踪 **0 个**。
 树外登记件的原件归档在 `/root/autodl-tmp/attnview-evidence-archive`（远端数据盘），字节与 sha256 以本表为准；仓内不发行其字节。
 
-## 树内：随仓发行（352 个 / 33,736,880 B）
+## 树内：随仓发行（356 个 / 34,209,639 B）
 
 | 文件 | 字节 | sha256 | 说明 |
 | --- | ---: | --- | --- |
@@ -205,6 +205,10 @@
 | `evidence/p3-calib/run-vanilla-1/manifest.json` | 2,465 | `a07654f4636846631be7567e3ac75a48aadc79457f5794f2681259954312c2d0` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/traj-original-1.json` | 924 | `da01f10eeae306ddd5f599180a4b56192fe399dc0ab3cd86460098eee5e923af` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
 | `evidence/p3-calib/traj.json` | 88 | `019e8493a3681e6a76d0106b117e922f2933d6d5188d39e99aea76d2f8c7f8c4` | 阶段 05 校准 run 文本层与独立复算（含 oracle 聚合段） |
+| `evidence/p3-masked-reference/reference-20260921-run2/run/source/p2-calib-run.py` | 154,482 | `03069799700c31788a78d3adf301a815284f0b65a8135d2c80d8ae4fe8c840b7` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run3/run/source/p2-calib-run.py` | 155,241 | `d1051431ec1bca8d8135041d466f51ee3413e1de24b25eea42579ef4aa008f27` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run4/run/source/p2-calib-run.py` | 155,394 | `65d231037d0c1b3f1a550f95bfe8ddba799e5531d0fdd767927c414ab3ada55a` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
+| `evidence/p3-masked-reference/reference-20260921-run4/summary.json` | 7,642 | `c61fe1041b8ac95ac5b07c262c6c49b61e3f26b997eb8097a3e5264ad4561cb7` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
 | `evidence/p3-masked-reference/reference-20260921-run5/apply.log` | 112 | `885073a35b563e6480d1fd7c792863b67fe7605ae684146b7a9ada57f460b7b9` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
 | `evidence/p3-masked-reference/reference-20260921-run5/gpu.log` | 13,923 | `d731f6105d7a55eed73511da411587d0a428971998f78320f450bab69975742f` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
 | `evidence/p3-masked-reference/reference-20260921-run5/revert.log` | 1,200 | `49d83ba335c96218a346a1855b50495f1e8e2229ecf6c4e0b9eca6b83894fd14` | 真实独立 masked reference run（run5）的文本层；被取代代次的字节留数据盘，见在盘未入库集合 |
@@ -473,7 +477,7 @@
 | `evidence/verify-after-move.log` | 7,355 | `b15107b5b82f2e87aadc4e6dfa950d507eac2f18631cb6e6e12b8e9ca7159528` | duplicate | 与 evidence/verify-console.log 逐字节相同（同一校验输出，历史命名不同） |
 | `logs/console-install.log` | 2,421 | `189d9b27c5e5ba7178ba12bc7e093e3ff8addde3c794dc969a4a8ec6122f6d57` | duplicate | 与 logs/install-runtime-20260917-163051.log 逐字节相同 |
 
-## 在盘未入库集合（13 组 / 27,516,315,290 B）
+## 在盘未入库集合（13 组 / 27,515,842,531 B）
 
 按 R9 的类型规则排除（张量/序列化大件）；不与任何文档逐条绑定的组只登记组级事实，
 被文档引用的成员在上表逐个登记。计数口径：`glob` 展开 **减去**已逐个登记的成员（树内上表 / 树外登记表），由 A9 逐组复算。
@@ -489,9 +493,9 @@
 | `evidence/p3-masked-reference/reference-20260921-run5/run/capture/**` | 31 | 2,073,556,148 | remote-only | 终版独立 reference run 的 capture dump（逐步 KV/Q/out）：R9 类型规则排除，字节留数据盘；structure.json 与 manifest 入库 |
 | `evidence/p3-masked-reference/reference-20260921-run5/run/reference.json` | 1 | 5,085,814 | remote-only | reference 报告的重复导出（manifest.reference 的同源副本）：字节留数据盘，避免同一内容入库两份 |
 | `evidence/p3-masked-reference/reference-20260921-run1/**` | 76 | 2,117,943,139 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
-| `evidence/p3-masked-reference/reference-20260921-run2/**` | 38 | 468,347 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
-| `evidence/p3-masked-reference/reference-20260921-run3/**` | 38 | 469,107 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
-| `evidence/p3-masked-reference/reference-20260921-run4/**` | 77 | 2,119,880,410 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run2/**` | 37 | 313,865 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run3/**` | 37 | 313,866 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
+| `evidence/p3-masked-reference/reference-20260921-run4/**` | 75 | 2,119,717,374 | remote-only | 被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实 |
 | `evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json` | 1 | 31,142 | remote-only | 被取代的 numeric-audit 副本（仅 audit_head/脚本哈希不同）：留数据盘，入库的是 retry1/numeric-audit.json |
 
 ## 已声明缺失 / 未执行（14 条）
@@ -578,5 +582,5 @@
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/segmenter.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/segmenter.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/state.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/state.py
 - 同哈希（allow_duplicate 声明）：evidence/p3-masked-smoke/diagnostic-20260921-first/run/source/attnview/step_plan.py, evidence/p3-masked-smoke/diagnostic-20260921-retry1/run/source/attnview/step_plan.py
-- 入库 352 个 / 树外登记 78 个 / 在盘未入库 0 个
+- 入库 356 个 / 树外登记 78 个 / 在盘未入库 0 个
 - 引用扫描面：reports, configs + README.md, CONTRIBUTING.md, .gitmessage

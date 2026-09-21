@@ -835,22 +835,22 @@
    "glob": "evidence/p3-masked-reference/reference-20260921-run2/**",
    "status": "remote-only",
    "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 38,
-   "bytes": 468347
+   "count": 37,
+   "bytes": 313865
   },
   {
    "glob": "evidence/p3-masked-reference/reference-20260921-run3/**",
    "status": "remote-only",
    "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 38,
-   "bytes": 469107
+   "count": 37,
+   "bytes": 313866
   },
   {
    "glob": "evidence/p3-masked-reference/reference-20260921-run4/**",
    "status": "remote-only",
    "reason": "被取代的独立 reference 代次（run1 无 GDN 探针、run2/run3 探针拒绝共享 storage、run4 首版探针）：文本层与 capture 都留数据盘，只登记组级事实",
-   "count": 77,
-   "bytes": 2119880410
+   "count": 75,
+   "bytes": 2119717374
   },
   {
    "glob": "evidence/p3-masked-smoke/diagnostic-20260921-retry1/numeric-audit-current.json",
